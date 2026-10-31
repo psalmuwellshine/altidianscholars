@@ -12,6 +12,7 @@ const SECTIONS = [
   { id: 'materials', label: 'Materials', icon: 'book' },
   { id: 'quizzes', label: 'Quizzes', icon: 'quiz' },
   { id: 'events', label: 'Events', icon: 'calendar' },
+  { id: 'chat', label: 'Chat', icon: 'chat' },
   { id: 'notice', label: 'Announcement', icon: 'bell' },
   { id: 'board', label: 'Leaderboard', icon: 'trophy' },
   { id: 'settings', label: 'Site settings', icon: 'settings' },
@@ -124,6 +125,28 @@ const views = {
         <div class="row gap-s"><button class="btn primary" type="submit">Publish</button><button class="btn ghost" data-action="notice-clear" type="button">Remove banner</button></div></form></div>`;
   },
 
+  async chat() {
+    const { rooms, muted } = await api('GET', '/api/admin/chat/rooms'); A.cache.chatRooms = rooms; A.cache.muted = muted;
+    if (!rooms.find((r) => r.id === A.chatRoom)) { const rep = rooms.find((r) => r.reported); A.chatRoom = (rep || rooms[0]).id; }
+    const room = rooms.find((r) => r.id === A.chatRoom);
+    const d = await api('GET', '/api/admin/chat/messages?room=' + encodeURIComponent(room.id));
+    const mutedIds = new Set(muted.map((u) => u.id));
+    const totalRep = rooms.reduce((a, r) => a + r.reported, 0);
+    return html`${head('Chat', totalRep ? plural(totalRep, 'reported message') + ' waiting for review.' : 'Watch the rooms, remove messages, mute people and post notices.', html`<button class="btn ghost small" data-action="chat-new" type="button">${icon('plus', 16)} New room</button>`)}
+      <div class="toolbar"><label class="field" style="margin:0;min-width:min(100%,320px)"><span class="sr">Room</span><select data-change="chat-room">${rooms.map((r) => html`<option value="${r.id}" ${r.id === room.id ? raw('selected') : ''}>${r.name}${r.reported ? ' ⚑ ' + r.reported : ''} (${r.count})</option>`)}</select></label>
+        <span class="tiny muted">${d.online} online now</span><span style="flex:1"></span>
+        <button class="btn ghost small" data-action="reload" type="button">${icon('refresh', 15)} Refresh</button>
+        ${room.kind === 'custom' ? html`<button class="btn ghost small" data-action="chat-edit" data-id="${room.customId}" type="button">${icon('edit', 15)} Edit room</button><button class="btn ghost small" data-action="chat-rmroom" data-id="${room.customId}" data-name="${room.name}" type="button">${icon('trash', 15)} Delete room</button>` : ''}
+        ${room.count ? html`<button class="btn danger small" data-action="chat-clear" type="button">Clear room</button>` : ''}</div>
+      <div class="card" style="padding:0;overflow:hidden">${d.messages.length ? html`<div class="chat-admin">${d.messages.slice().reverse().map((m) => html`<div class="cm ${m.reports ? 'flag' : ''}">
+        <div class="cm-top"><b>${m.name}</b>${m.admin ? html` <span class="chip">Admin</span>` : html` <span class="tiny muted mono">${m.matric || ''}</span>`}<span class="tiny muted">${fmtDate(m.at, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>${m.reports ? html`<span class="chip bad">${icon('flag', 13)} ${plural(m.reports, 'report')}</span>` : ''}</div>
+        <p>${m.text}</p>
+        <div class="actions"><button class="btn ghost small" data-action="chat-del" data-id="${m.id}" type="button">${icon('trash', 15)} Delete</button>${m.reports ? html`<button class="btn ghost small" data-action="chat-dismiss" data-id="${m.id}" type="button">Dismiss reports</button>` : ''}${m.admin ? '' : html`<button class="btn ghost small" data-action="chat-mute" data-id="${m.uid}" data-name="${m.name}" data-state="${mutedIds.has(m.uid) ? 1 : 0}" type="button">${mutedIds.has(m.uid) ? 'Unmute' : 'Mute'} ${m.name}</button>`}</div></div>`)}</div>` : html`<div style="padding:8px">${empty('chat', 'No messages yet', 'Messages show up here as students chat.')}</div>`}</div>
+      <div class="card" style="margin-top:16px"><h3 style="margin-bottom:8px">Post as admin</h3><div class="msg alert bad" hidden role="alert"></div>
+        <form data-submit="chat-post" novalidate class="row gap-s"><label class="field" style="flex:1;margin:0"><span class="sr">Message</span><input name="text" maxlength="600" placeholder="Message to ${room.name}" autocomplete="off" required></label><button class="btn primary" type="submit">${icon('send', 16)} Send</button></form></div>
+      ${muted.length ? html`<div class="card" style="margin-top:16px"><h3 style="margin-bottom:8px">Muted students</h3><div class="row wrap-r gap-s">${muted.map((u) => html`<span class="chip">${u.username}<button type="button" class="chip-x" data-action="chat-mute" data-id="${u.id}" data-name="${u.username}" data-state="1" aria-label="Unmute ${u.username}">×</button></span>`)}</div></div>` : ''}`;
+  },
+
   async board() {
     const rows = await api('GET', '/api/admin/board');
     return html`${head('Leaderboard', 'Remove a score, or start a fresh season.', html`<button class="btn danger" data-action="board-reset" type="button">${icon('refresh', 16)} Reset everything</button>`)}
@@ -145,7 +168,13 @@ const views = {
         <div class="card" style="margin-top:16px"><h3>Access and features</h3>
           ${tg('registrationOpen', c.registrationOpen, 'Allow new registrations', 'Turn off to stop new accounts being created.')}
           ${tg('requireLogin', c.requireLogin, 'Require login for quizzes', 'When off, guests can take quizzes, but scores are stored per device.')}
+          ${tg('chatEnabled', c.chatEnabled, 'Student chat rooms', 'Turns the chat rooms on or off for all students.')}
           ${tg('leaderboardEnabled', c.leaderboardEnabled, 'Show the leaderboard', 'Hides rankings everywhere on the site.')}</div>
+        <div class="card" style="margin-top:16px"><h3 style="margin-bottom:6px">Pay by bank transfer</h3><p class="muted small" style="margin-bottom:12px">Students see these details when they tap Unlock, transfer the money, then send you proof on WhatsApp (set your WhatsApp link below). You then give them access under Students.</p>
+          <div class="grid2"><label class="field"><span>Bank name</span><input name="payBank" maxlength="60" placeholder="e.g. Opay, GTBank" value="${c.payBank || ''}"></label>
+          <label class="field"><span>Account number (10 digits)</span><input name="payAccountNumber" inputmode="numeric" maxlength="10" value="${c.payAccountNumber || ''}"></label></div>
+          <label class="field"><span>Account name</span><input name="payAccountName" maxlength="80" value="${c.payAccountName || ''}"></label>
+          <label class="field"><span>Extra note for students (optional)</span><input name="payNote" maxlength="300" placeholder="e.g. Send proof within 24 hours" value="${c.payNote || ''}"></label></div>
         <div class="card" style="margin-top:16px"><h3 style="margin-bottom:6px">Semester pass</h3><p class="muted small" style="margin-bottom:12px">One payment that unlocks every paid note and quiz until the last day below. Mark items as paid, with their own prices, under Materials and Quizzes.</p>
           <div class="grid2"><label class="field"><span>Pass price (naira)</span><input name="passPrice" type="number" inputmode="numeric" min="0" step="1" placeholder="e.g. 2000" value="${c.passPrice || ''}"></label>
           <label class="field"><span>Pass lasts until</span><input name="passEnds" type="date" value="${c.passEnds || ''}"></label></div></div>
@@ -176,6 +205,7 @@ function studentTable(list) {
     <button class="btn ghost small" data-action="stu-access" data-id="${u.id}" type="button">Access</button>
     <button class="btn ghost small icon" data-action="stu-edit" data-id="${u.id}" type="button" aria-label="Edit ${u.username}">${icon('edit', 16)}</button>
     <button class="btn ghost small" data-action="stu-pw" data-id="${u.id}" data-name="${u.username}" type="button">${icon('lock', 15)} Password</button>
+    <button class="btn ghost small" data-action="chat-mute" data-id="${u.id}" data-name="${u.username}" data-state="${u.chatMuted ? 1 : 0}" type="button">${u.chatMuted ? 'Unmute chat' : 'Mute chat'}</button>
     <button class="btn ghost small" data-action="stu-disable" data-id="${u.id}" data-name="${u.username}" data-state="${u.disabled ? 1 : 0}" type="button">${u.disabled ? 'Enable' : 'Disable'}</button>
     <button class="btn ghost small icon" data-action="stu-del" data-id="${u.id}" data-name="${u.username}" type="button" aria-label="Delete ${u.username}">${icon('trash', 16)}</button></div></td></tr>`)}</tbody></table></div>`;
 }
@@ -297,6 +327,30 @@ const actions = {
   async logout() { try { await api('POST', '/api/admin/logout'); } catch (e) { /* ignore */ } start(); },
   'search-students': debounce((el) => { A.search = el.value; const t = document.getElementById('stu-table'); if (t) t.innerHTML = studentTable(A.cache.students || []).s; }, 120),
 
+  /* chat */
+  'chat-room'(el) { A.chatRoom = el.value; reload(); },
+  async 'chat-del'(el) {
+    if (!(await sure('Delete this message?', 'It disappears for everyone straight away.', 'Delete'))) return;
+    await api('POST', '/api/admin/chat/delete', { room: A.chatRoom, id: el.dataset.id }); toast('Message deleted.'); reload();
+  },
+  async 'chat-dismiss'(el) { await api('POST', '/api/admin/chat/dismiss', { room: A.chatRoom, id: el.dataset.id }); toast('Reports cleared.'); reload(); },
+  async 'chat-mute'(el) {
+    const on = el.dataset.state === '1';
+    if (!on && !(await sure('Mute ' + el.dataset.name + '?', 'They can still read the rooms but cannot post until you unmute them.', 'Mute'))) return;
+    await api('POST', `/api/admin/users/${el.dataset.id}/mute`, { muted: !on }); toast(on ? 'Unmuted.' : 'Muted.'); reload();
+  },
+  async 'chat-clear'() {
+    const r = (A.cache.chatRooms || []).find((x) => x.id === A.chatRoom);
+    if (!(await confirmBox({ title: 'Clear ' + (r ? r.name : 'this room') + '?', text: 'Every message in this room is removed for good.', yes: 'Clear room', danger: true, typed: 'CLEAR' }))) return;
+    await api('POST', '/api/admin/chat/clear', { room: A.chatRoom, confirm: 'CLEAR' }); toast('Room cleared.'); reload();
+  },
+  'chat-new'() { chatRoomDialog(null); },
+  'chat-edit'(el) { const r = (A.cache.chatRooms || []).find((x) => x.customId === el.dataset.id); if (r) chatRoomDialog(r); },
+  async 'chat-rmroom'(el) {
+    if (!(await sure('Delete ' + el.dataset.name + '?', 'The room and all its messages are removed.', 'Delete room'))) return;
+    await api('DELETE', '/api/admin/chat/custom/' + el.dataset.id); A.chatRoom = 'general'; toast('Room deleted.'); reload();
+  },
+
   /* students */
   async 'stu-view'(el) {
     const p = await api('GET', '/api/admin/users/' + el.dataset.id);
@@ -382,6 +436,18 @@ const actions = {
 };
 
 const submits = {
+  async 'chat-post'(form) {
+    await busy(form, async () => { await api('POST', '/api/admin/chat/send', { room: A.chatRoom, text: val(form, 'text') }); toast('Posted.'); reload(); });
+  },
+  async 'chat-room-save'(form) {
+    await busy(form, async () => {
+      const body = { name: val(form, 'name'), description: val(form, 'description'), readOnly: chk(form, 'readOnly') };
+      if (form.dataset.id) await api('PUT', '/api/admin/chat/custom/' + form.dataset.id, body);
+      else { const r = await api('POST', '/api/admin/chat/custom', body); A.chatRoom = 'custom-' + r.id; }
+      form.closeFn && form.closeFn(); toast('Room saved.'); reload();
+    });
+  },
+
   async login(form) {
     await busy(form, async () => { await api('POST', '/api/admin/login', { password: new FormData(form).get('password') }); start(); });
   },
@@ -421,7 +487,7 @@ const submits = {
   async 'settings-save'(form) {
     await busy(form, async () => {
       const body = { siteName: val(form, 'siteName'), tagline: val(form, 'tagline'), motto: val(form, 'motto'), heroTitle: val(form, 'heroTitle'), heroText: val(form, 'heroText'), footerText: val(form, 'footerText'),
-        registrationOpen: chk(form, 'registrationOpen'), requireLogin: chk(form, 'requireLogin'), leaderboardEnabled: chk(form, 'leaderboardEnabled'), passPrice: val(form, 'passPrice'), passEnds: val(form, 'passEnds'),
+        registrationOpen: chk(form, 'registrationOpen'), requireLogin: chk(form, 'requireLogin'), leaderboardEnabled: chk(form, 'leaderboardEnabled'), chatEnabled: chk(form, 'chatEnabled'), payBank: val(form, 'payBank'), payAccountNumber: val(form, 'payAccountNumber'), payAccountName: val(form, 'payAccountName'), payNote: val(form, 'payNote'), passPrice: val(form, 'passPrice'), passEnds: val(form, 'passEnds'),
         links: { whatsapp: val(form, 'whatsapp'), telegram: val(form, 'telegram'), instagram: val(form, 'instagram'), website: val(form, 'website'), email: val(form, 'email') } };
       A.config = await api('PUT', '/api/admin/config', body); toast('Settings saved. The site is updated.');
     });
@@ -431,6 +497,12 @@ const submits = {
 
 /* ---------- academics, student edit ---------- */
 const lvlOpts = (sel) => [100, 200, 300, 400, 500, 600].map((l) => html`<option value="${l}" ${Number(sel) === l ? raw('selected') : ''}>${l} level</option>`);
+function chatRoomDialog(r) {
+  simpleDialog(r ? 'Edit room' : 'New chat room', html`<label class="field"><span>Room name</span><input name="name" maxlength="40" required value="${r ? r.name : ''}" placeholder="e.g. Announcements" autofocus></label>
+    <label class="field"><span>Short description (optional)</span><input name="description" maxlength="90" value="${r ? r.desc : ''}" placeholder="What is this room for?"></label>
+    <label class="toggle-row"><input type="checkbox" name="readOnly" ${r && r.readOnly ? raw('checked') : ''}><span><b>Only admins can post</b><small>Students can read the room but not write in it.</small></span></label>`, 'chat-room-save', r ? r.customId : '');
+}
+
 function simpleDialog(title, body, formId, id) {
   const { box, close } = dialog(html`<h3>${title}</h3><div class="msg alert bad" hidden role="alert"></div><form data-submit="${formId}" data-id="${id || ''}" novalidate>${body}
     <div class="row end gap"><button class="btn ghost" data-close type="button">Cancel</button><button class="btn primary" type="submit">Save</button></div></form>`);

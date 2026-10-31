@@ -33,3 +33,13 @@ td .chip { margin: 1px 0; }
 .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; }
 .toggle-row { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--line); } .toggle-row:last-child { border-bottom: 0; }
 textarea.code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 14px; min-height: 160px; }
+
+/* chat moderation */
+.chat-admin { max-height: 560px; overflow-y: auto; }
+.cm { padding: 12px 16px; border-bottom: 1px solid var(--line); min-width: 0; }
+.cm:last-child { border-bottom: 0; }
+.cm.flag { background: var(--bad-bg); }
+.cm-top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.cm p { margin: 4px 0 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cm .actions { justify-content: flex-start; }
+.chip-x { border: 0; background: none; color: inherit; font-size: 18px; line-height: 1; margin-left: 6px; cursor: pointer; padding: 0 2px; }

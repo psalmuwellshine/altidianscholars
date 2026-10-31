@@ -15,12 +15,17 @@ full admin control panel.
 - **Events**: add, edit, delete. Shown on the home page and the Events page.
 - **Announcement**: banner at the top of every page (info, important, good news).
 - **Leaderboard**: clear one entry or reset the season.
+- **Chat**: watch every room, delete messages, review reported messages, mute a student (also from the Students list), post as admin, clear a room, and make extra rooms (for example an admin-only Announcements room).
 - **Site settings**: site name, tagline, motto, hero text, footer, open or close registration, require login for quizzes, turn the leaderboard on or off, WhatsApp / Telegram / Instagram / email links.
 
 Environment variables: `ADMIN_PASSWORD` (required), `MONGODB_URI` (for permanent storage on free hosting), `SESSION_SECRET` (optional, a long random text; Render generates it).
 
 No build step. The server uses only Node's built-in modules. The `mongodb` package is
 loaded only when you connect a database.
+
+## Chat rooms
+
+Every student gets a **General** room, a room for their **department**, and a room for their **class** (department + level). Students only see rooms that belong to them, and the server enforces it. Messages appear live (Server-Sent Events, no extra service needed), with a 20-second fallback if live updates are blocked. Each room keeps its last 300 messages; messages are 600 characters at most, with a 1-per-second rate limit and duplicate-message blocking. Students can delete their own messages and report others. Chat can be switched off in **Site settings**. Students need their department and level set in their profile to see their department and class rooms.
 
 ## Run it on your computer
 

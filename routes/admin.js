@@ -76,7 +76,7 @@ module.exports = function registerAdmin({ route, store, send }) {
     return {
       id: u.id, username: u.username, matric: u.matric || '', facultyId: u.facultyId || '', departmentId: u.departmentId || '', level: u.level || 0, avatarId: u.avatarId || '', createdAt: u.createdAt || null, lastLoginAt: u.lastLoginAt || null,
       paidUntil: u.paidUntil || '', unlocked: Array.isArray(u.unlocked) ? u.unlocked : [], unlockedCount: Array.isArray(u.unlocked) ? u.unlocked.length : 0,
-      disabled: !!u.disabled, hasRecovery: !!u.recovery, points: p.points, done: p.done, rank: D.rankInfo(p.points).title,
+      disabled: !!u.disabled, chatMuted: !!u.chatMuted, hasRecovery: !!u.recovery, points: p.points, done: p.done, rank: D.rankInfo(p.points).title,
       attempts: D.historyOf(rec).length || p.done,
     };
   };
@@ -432,6 +432,9 @@ module.exports = function registerAdmin({ route, store, send }) {
       registrationOpen: bool(b.registrationOpen),
       requireLogin: bool(b.requireLogin),
       leaderboardEnabled: bool(b.leaderboardEnabled),
+      chatEnabled: bool(b.chatEnabled),
+      payBank: clean(b.payBank, 60), payAccountName: clean(b.payAccountName, 80), payNote: clean(b.payNote, 300),
+      payAccountNumber: (() => { const n = String(b.payAccountNumber || '').replace(/\s+/g, ''); if (n && !/^\d{10}$/.test(n)) throw new HttpError(400, 'The account number must be 10 digits.'); return n; })(),
       passPrice: wholeNaira(b.passPrice, 'semester pass price', true),
       passEnds: (() => { const d = String(b.passEnds || '').trim(); if (d && !isDate(d)) throw new HttpError(400, 'Pick a valid last day for the semester pass.'); return d; })(),
       links: {},

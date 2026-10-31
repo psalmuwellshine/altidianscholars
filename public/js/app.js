@@ -7,6 +7,8 @@ import * as board from './pages/board.js';
 import * as events from './pages/events.js';
 import * as account from './pages/account.js';
 import * as viewer from './pages/viewer.js';
+import * as pay from './pages/pay.js';
+import * as chat from './pages/chat.js';
 
 initTheme();
 
@@ -37,9 +39,11 @@ const PAGES = [
   { id: 'quizzes', path: '/quizzes', label: 'Quizzes', icon: 'quiz', mod: quizzes },
   { id: 'board', path: '/board', label: 'Ranks', icon: 'trophy', mod: board },
   { id: 'events', path: '/events', label: 'Events', icon: 'calendar', mod: events },
+  { id: 'chat', path: '/chat', label: 'Chat', icon: 'chat', mod: chat },
 ];
+const visiblePages = () => PAGES.filter((p) => p.id !== 'chat' || (S.state && S.state.config.chatEnabled));
 const ctxApi = { S, load, user, config, go, renderView: () => route() };
-const modules = [home, library, quizzes, board, events, account, viewer];
+const modules = [home, library, quizzes, board, events, account, viewer, pay, chat];
 const actions = Object.assign({}, ...modules.map((m) => m.actions || {}));
 
 /* ---------- chrome (header, notice, tabs, footer) ---------- */
@@ -51,7 +55,7 @@ function renderChrome() {
   mount(shell, html`
     <header class="topbar"><div class="wrap in">
       <a class="brand" href="#/"><img src="/logo.png" alt=""><span class="name">${c.siteName}</span></a>
-      ${u ? html`<nav class="nav" aria-label="Main">${PAGES.map((p) => html`<a href="#${p.path}" class="${cur === p.id ? 'on' : ''}" ${cur === p.id ? raw('aria-current="page"') : ''}>${icon(p.icon, 18)}${p.label}</a>`)}</nav>` : html`<span></span>`}
+      ${u ? html`<nav class="nav" aria-label="Main">${visiblePages().map((p) => html`<a href="#${p.path}" class="${cur === p.id ? 'on' : ''}" ${cur === p.id ? raw('aria-current="page"') : ''}>${icon(p.icon, 18)}${p.label}</a>`)}</nav>` : html`<span></span>`}
       <div class="top-end">
         <button class="icon-btn" data-action="theme" type="button" aria-label="Switch light and dark mode">${icon('moon', 19)}</button>
         ${u ? html`<a class="avatar-link" href="#/profile" aria-label="Your profile (${u.username})">${avatar(u.username, u.avatarId)}</a>` : ''}
@@ -70,7 +74,7 @@ function renderChrome() {
         <a href="#" data-action="share">Share site</a>
       </div>
     </div></footer>
-    ${u ? html`<nav class="tabbar" aria-label="Main">${PAGES.map((p) => html`<a class="tab ${cur === p.id ? 'on' : ''}" href="#${p.path}">${icon(p.icon, 22)}<span>${p.label}</span></a>`)}</nav>` : ''}`);
+    ${u ? html`<nav class="tabbar" aria-label="Main">${visiblePages().map((p) => html`<a class="tab ${cur === p.id ? 'on' : ''}" href="#${p.path}">${icon(p.icon, 22)}<span>${p.label}</span></a>`)}</nav>` : ''}`);
   if (oldView) document.getElementById('view').replaceWith(oldView); // keep the page the student is on
   document.body.classList.toggle('has-tabs', !!u);
   document.title = c.siteName + (cur === 'home' ? ' · ' + (c.tagline || 'Study smarter') : '');
@@ -104,6 +108,7 @@ async function route() {
   else if (path.startsWith('/quiz/')) { page = quizzes.runner; params = { id: path.slice(6) }; }
   else if (path === '/board') page = board;
   else if (path === '/events') page = events;
+  else if (path === '/chat' || path.startsWith('/chat/')) { page = chat; params = { room: path.slice(6) }; }
   else if (path === '/profile') page = account.profile;
   else if (['/login', '/register', '/forgot'].includes(path)) { page = account.auth; params = { mode: path.slice(1) }; }
   else page = null;
@@ -137,7 +142,6 @@ async function route() {
 /* ---------- global events ---------- */
 actions.theme = () => toggleTheme();
 actions.retry = () => route();
-actions.unlock = () => toast('Online payment opens very soon. Please check back shortly.'); // replaced when payment is connected
 actions.share = async (el, ev) => {
   ev.preventDefault();
   const data = { title: config().siteName, text: config().tagline || 'Study with Altidian', url: location.origin };

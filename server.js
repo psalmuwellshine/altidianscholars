@@ -74,6 +74,7 @@ async function main() {
 
   require('./routes/public')({ route, store, send, userOf, fileTypes: FILE_TYPES });
   require('./routes/admin')({ route, store, send });
+  require('./routes/chat')({ route, store, send, userOf });
 
   const server = http.createServer(async (req, res) => {
     try {
