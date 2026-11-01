@@ -113,6 +113,7 @@ async function main() {
   server.listen(PORT, () => {
     console.log('Altidian running on port ' + PORT + ' (storage: ' + store.kind + ')');
     if (!H.ADMIN_PASSWORD) console.warn('WARNING: ADMIN_PASSWORD is not set, so the admin page is disabled.');
+    if (!process.env.SESSION_SECRET) console.warn('WARNING: SESSION_SECRET is not set. Add a long random SESSION_SECRET on the server so login cookies are signed with their own key.');
   });
 }
 
