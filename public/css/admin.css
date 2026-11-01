@@ -43,3 +43,7 @@ textarea.code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size
 .cm p { margin: 4px 0 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .cm .actions { justify-content: flex-start; }
 .chip-x { border: 0; background: none; color: inherit; font-size: 18px; line-height: 1; margin-left: 6px; cursor: pointer; padding: 0 2px; }
+
+/* reports */
+.rp { display: grid; gap: 6px; }
+.rp .why { white-space: pre-wrap; }

@@ -362,3 +362,21 @@ body.has-tabs main:has(.chat) { padding-bottom: calc(var(--tab-h) + 12px + env(s
 /* in-page video player */
 .viewer .v-body.v-video { display: grid; place-items: center; padding: 0; overflow: hidden; background: #000; }
 .viewer .v-video iframe { width: 100%; max-width: 1200px; aspect-ratio: 16 / 9; max-height: 100%; border: 0; background: #000; }
+
+/* quiz extras: timed exam, practise mistakes, reports, CGPA */
+.qc-go { display: grid; gap: 8px; }
+.qc-extra .btn { justify-content: center; white-space: nowrap; }
+.timer { font-variant-numeric: tabular-nums; font-size: 1.05rem; padding: 5px 12px; border-radius: 999px; background: var(--surface-2, var(--surface)); border: 1px solid var(--line); }
+.timer b.low, #timer.low { color: #c0392b; }
+.opt.sel { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 12%, var(--surface)); }
+.rep-btn { color: var(--muted); border-color: transparent; padding-inline: 8px; }
+.rep-btn:hover { color: var(--brand-ink); }
+button.q { text-align: left; font: inherit; color: inherit; cursor: pointer; width: 100%; }
+.cg-total { display: grid; gap: 4px; justify-items: center; text-align: center; padding: 22px 16px; margin-bottom: 14px; }
+.cg-num { font-size: 3.2rem; line-height: 1; letter-spacing: -.02em; color: var(--brand-ink); font-variant-numeric: tabular-nums; }
+.cg-name { border: 0; background: transparent; font: inherit; font-weight: 700; font-size: 1.05rem; color: var(--ink); min-width: 0; flex: 1; padding: 6px 0; }
+.cg-head, .cg-row { display: grid; grid-template-columns: 1fr 64px 74px 42px; gap: 8px; align-items: center; }
+.cg-head { margin: 10px 0 4px; }
+.cg-row { margin-top: 8px; }
+.cg-row input, .cg-row select { min-width: 0; width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; }
+.cg-row .icon-btn { width: 38px; height: 38px; }
