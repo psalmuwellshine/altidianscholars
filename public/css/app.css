@@ -380,3 +380,15 @@ button.q { text-align: left; font: inherit; color: inherit; cursor: pointer; wid
 .cg-row { margin-top: 8px; }
 .cg-row input, .cg-row select { min-width: 0; width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; }
 .cg-row .icon-btn { width: 38px; height: 38px; }
+
+/* Home page search */
+.home-search { margin-top: 18px; }
+.hs-form { display: flex; gap: 10px; align-items: stretch; }
+.hs-form .searchbox { min-width: 0; }
+.hs-form .searchbox input { width: 100%; min-height: 50px; font-size: 16px; }
+.hs-form .btn { flex: none; min-height: 50px; }
+.hs-chips { margin: 12px 0 0; align-items: center; gap: 8px; }
+.hs-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 18px 0 12px; }
+.hs-group { margin-bottom: 22px; }
+.hs-h { display: flex; align-items: center; gap: 8px; font-size: 1.05rem; margin: 0 0 12px; }
+@media (max-width: 480px) { .hs-form .btn { padding-left: 14px; padding-right: 14px; } }
