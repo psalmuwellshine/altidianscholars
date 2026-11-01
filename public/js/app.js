@@ -78,8 +78,8 @@ function renderChrome() {
         ${u ? html`<a class="avatar-link" href="#/profile" aria-label="Your profile (${u.username})">${avatar(u.username, u.avatarId)}</a>` : ''}
       </div>
     </div></header>
-    ${S.offline ? html`<div class="notice info" role="status"><div class="wrap">${icon("refresh", 19)}<span>You are offline. Saved notes and your timetable still work. <a href="#/saved">Open saved notes</a></span></div></div>` : ''}
-    ${S.state.notice ? html`<div class="notice ${S.state.notice.level}" role="status"><div class="wrap">${icon('bell', 19)}<span>${S.state.notice.text}</span></div></div>` : ''}
+    ${S.offline && u ? html`<div class="notice info" role="status"><div class="wrap">${icon("refresh", 19)}<span>You are offline. Saved notes and your timetable still work. <a href="#/saved">Open saved notes</a></span></div></div>` : ''}
+    ${S.state.notice && u ? html`<div class="notice ${S.state.notice.level}" role="status"><div class="wrap">${icon('bell', 19)}<span>${S.state.notice.text}</span></div></div>` : ''}
     <main id="view" class="wrap" tabindex="-1"></main>
     <footer class="foot"><div class="wrap in">
       <div><b>${c.siteName}</b> ${c.tagline ? html`· ${c.tagline}` : ''}<br>${c.motto ? html`<span class="motto">${c.motto}</span><br>` : ''}<span class="tiny">${c.footerText}</span></div>
