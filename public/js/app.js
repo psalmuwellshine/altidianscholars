@@ -14,6 +14,8 @@ import * as share from './pages/share.js';
 import * as saved from './pages/saved.js';
 import * as rep from './pages/rep.js';
 import * as notify from './pages/notify.js';
+import * as cgpa from './pages/cgpa.js';
+import * as report from './pages/report.js';
 import { saveSnapshot, loadSnapshot } from './core/offline.js';
 import * as push from './core/push.js';
 
@@ -60,7 +62,7 @@ const PAGES = [
 ];
 const visiblePages = () => PAGES.filter((p) => p.id !== 'chat' || (S.state && S.state.config.chatEnabled));
 const ctxApi = { S, load, user, config, go, renderView: () => route() };
-const modules = [home, library, quizzes, board, events, account, viewer, pay, chat, timetable, share, saved, rep, notify];
+const modules = [home, library, quizzes, board, events, account, viewer, pay, chat, timetable, share, saved, rep, notify, cgpa, report];
 const actions = Object.assign({}, ...modules.map((m) => m.actions || {}));
 
 /* ---------- chrome (header, notice, tabs, footer) ---------- */
@@ -111,6 +113,7 @@ function currentId() {
   if (path.startsWith('/quiz/')) return 'quizzes';
   if (path === '/timetable') return 'events';
   if (path === '/share' || path === '/saved') return 'library';
+  if (path === '/cgpa') return 'home';
   return '';
 }
 
@@ -132,6 +135,7 @@ async function route() {
   else if (path === '/share') page = share;
   else if (path === '/saved') page = saved;
   else if (path === '/rep') page = rep;
+  else if (path === '/cgpa') page = cgpa;
   else if (path === '/chat' || path.startsWith('/chat/')) { page = chat; params = { room: path.slice(6) }; }
   else if (path === '/profile') page = account.profile;
   else if (['/login', '/register', '/forgot'].includes(path)) { page = account.auth; params = { mode: path.slice(1) }; }
