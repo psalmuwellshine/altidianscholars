@@ -66,7 +66,7 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
     const visibleQuizzes = quizzes.filter((q) => !q.hidden);
     send(res, 200, {
       config, academics,
-      notice: notice && notice.text ? { text: notice.text, level: notice.level || 'info' } : null,
+      notice: user && notice && notice.text ? { text: notice.text, level: notice.level || 'info' } : null,
       materials: visibleMaterials
         .sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0))
         .map((m) => {
