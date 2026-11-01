@@ -161,14 +161,17 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
     send(res, 200, { message: 'Welcome aboard! Your account is ready.', user: publicUser(user) }, await startSession(req, res, user));
   });
 
-  route('POST', '/api/login', { limit: ['userlogin', 60, 15 * 60 * 1000] }, async (req, res, ctx) => {
+  route('POST', '/api/login', { limit: ['userlogin', 200, 15 * 60 * 1000] }, async (req, res, ctx) => {
     const b = ctx.body;
     const username = H.str(b.username, 60).trim();
     const password = H.str(b.password, 100);
     if (!username || !password) throw new HttpError(400, 'Username and password required.');
+    const lockKey = username.toLowerCase(); // 5 wrong passwords in 15 minutes locks this account's login for a while
+    if (H.tooManyFails('ulogin', lockKey, 5)) throw new HttpError(429, 'Too many wrong attempts on this account. Please wait 15 minutes, or reset your password with your recovery phrase.');
     const user = await findByName(username);
     const check = user ? await H.checkPassword(user.password, password) : { ok: false };
-    if (!user || !check.ok) throw new HttpError(401, 'Invalid username or password.');
+    if (!user || !check.ok) { H.noteFail('ulogin', lockKey, 15 * 60 * 1000); throw new HttpError(401, 'Invalid username or password.'); }
+    H.clearFails('ulogin', lockKey);
     if (user.disabled) throw new HttpError(403, 'This account has been disabled. Please contact an Altidian admin.');
     if (check.legacy) user.password = await H.hashPassword(password); // upgrade an older password hash
     user.lastLoginAt = Date.now();
@@ -186,7 +189,7 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
     send(res, 200, { user: user ? publicUser(user) : null });
   });
 
-  route('POST', '/api/user/reset-password', { limit: ['reset', 10, 15 * 60 * 1000] }, async (req, res, ctx) => {
+  route('POST', '/api/user/reset-password', { limit: ['reset', 60, 15 * 60 * 1000] }, async (req, res, ctx) => {
     const b = ctx.body;
     const username = H.str(b.username, 60).trim();
     const phrase = H.str(b.recoveryPhrase, 100);
@@ -194,12 +197,15 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
     if (!username || !phrase || !newPassword) throw new HttpError(400, 'Please fill in all fields.');
     if (newPassword.length < 6) throw new HttpError(400, 'New password must be at least 6 characters.');
     const BAD = 'Username or recovery phrase is incorrect.';
+    const lockKey = username.toLowerCase(); // 5 wrong recovery phrases in 15 minutes locks resets for this account
+    if (H.tooManyFails('ureset', lockKey, 5)) throw new HttpError(429, 'Too many wrong attempts. Please wait 15 minutes, or ask an Altidian admin to reset your password.');
     const user = await findByName(username);
-    if (!user) { await H.hashPhrase(phrase, H.NO_SALT); throw new HttpError(401, BAD); }
+    if (!user) { await H.hashPhrase(phrase, H.NO_SALT); H.noteFail('ureset', lockKey, 15 * 60 * 1000); throw new HttpError(401, BAD); }
     if (!user.recovery) throw new HttpError(403, 'This account has no recovery phrase yet. Please contact an Altidian admin.');
     const given = Buffer.from(await H.hashPhrase(phrase, user.recovery.salt), 'hex');
     const saved = Buffer.from(user.recovery.hash, 'hex');
-    if (given.length !== saved.length || !crypto.timingSafeEqual(given, saved)) throw new HttpError(401, BAD);
+    if (given.length !== saved.length || !crypto.timingSafeEqual(given, saved)) { H.noteFail('ureset', lockKey, 15 * 60 * 1000); throw new HttpError(401, BAD); }
+    H.clearFails('ureset', lockKey);
     user.password = await H.hashPassword(newPassword);
     user.sv = (user.sv || 0) + 1; // signs the account out everywhere else
     await store.put('users', user);

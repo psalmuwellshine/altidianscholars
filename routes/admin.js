@@ -38,8 +38,10 @@ module.exports = function registerAdmin({ route, store, send, push }) {
   /* ---------- sign in ---------- */
   route('POST', '/api/admin/login', { limit: ['login', 8, 15 * 60 * 1000] }, async (req, res, ctx) => {
     if (!H.ADMIN_PASSWORD) throw new HttpError(503, 'Admin is not set up. Set the ADMIN_PASSWORD variable on the server.');
+    if (H.tooManyFails('adminlogin', 'all', 8)) throw new HttpError(429, 'Too many wrong attempts. Please wait 15 minutes and try again.'); // counted for the admin account itself, from anywhere
     const pw = ctx.body.password;
-    if (typeof pw !== 'string' || !H.safeEqual(H.sha(pw), H.sha(H.ADMIN_PASSWORD))) throw new HttpError(401, 'Wrong password.');
+    if (typeof pw !== 'string' || !H.safeEqual(H.sha(pw), H.sha(H.ADMIN_PASSWORD))) { H.noteFail('adminlogin', 'all', 15 * 60 * 1000); throw new HttpError(401, 'Wrong password.'); }
+    H.clearFails('adminlogin', 'all');
     send(res, 200, { ok: true }, { 'Set-Cookie': H.makeCookie(req, 'ew_admin', 'admin', 'admin', 0, H.ADMIN_SESSION_HOURS * 3600) });
   });
   route('POST', '/api/admin/logout', {}, async (req, res) => send(res, 200, { ok: true }, { 'Set-Cookie': H.clearCookie('ew_admin') }));
