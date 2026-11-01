@@ -3,6 +3,7 @@ import { html, raw, mount, icon, api, toast, dialog, confirmBox, fmtDate, ago, p
 import { parseBulk } from './bulk.js';
 import { embedOf } from '../core/video.js';
 import { placeFields, placeChange } from '../pages/shared.js';
+import { reasonLabel } from '../pages/report.js';
 
 initTheme();
 const root = document.getElementById('root');
@@ -15,6 +16,7 @@ const SECTIONS = [
   { id: 'events', label: 'Events', icon: 'calendar' },
   { id: 'chat', label: 'Chat', icon: 'chat' },
   { id: 'uploads', label: 'Student uploads', icon: 'upload' },
+  { id: 'reports', label: 'Reports', icon: 'flag' },
   { id: 'timetable', label: 'Timetable and exams', icon: 'clock' },
   { id: 'notice', label: 'Announcement', icon: 'bell' },
   { id: 'board', label: 'Leaderboard', icon: 'trophy' },
@@ -145,6 +147,18 @@ const views = {
     return html`${head('Student uploads', 'Notes and past questions shared by students. Class reps review their own class; you can review anything.')}
       <div class="card" style="padding:0;overflow:hidden">${d.pending.length ? d.pending.map((m) => row(m, true)) : html`<div style="padding:8px">${empty('check', 'Nothing waiting', 'New uploads will appear here.')}</div>`}</div>
       ${d.recent.length ? html`<h3 style="margin:24px 0 10px">Recently reviewed</h3><div class="card" style="padding:0;overflow:hidden">${d.recent.map((m) => row(m, false))}</div>` : ''}`;
+  },
+
+  async reports() {
+    const d = await api('GET', '/api/admin/reports');
+    const row = (r, open) => html`<div class="cm rp"><div class="cm-top"><span class="chip ${r.type === 'site' ? 'grey' : 'brand'}">${r.type === 'question' ? 'Quiz question' : r.type === 'material' ? 'Resource' : 'Site'}</span><span class="chip">${reasonLabel(r.reason)}</span>${r.course ? html`<span class="chip">${r.course}</span>` : ''}<span class="tiny muted">by ${r.username} · ${ago(r.at)}</span></div>
+      ${r.refTitle ? html`<p><b>${r.refTitle}</b>${r.type === 'question' ? html` · question ${r.qIndex + 1}` : ''}</p>` : ''}
+      ${r.qText ? html`<p class="small muted">“${r.qText}”</p>` : ''}
+      <p class="why">${r.message}</p>${r.note ? html`<p class="tiny muted">Your note: ${r.note}</p>` : ''}
+      <div class="actions">${open ? html`<button class="btn primary small" data-action="rp-resolve" data-id="${r.id}" type="button">${icon('check', 15)} Mark as fixed</button>` : ''}<button class="btn ghost small" data-action="rp-del" data-id="${r.id}" type="button">Delete</button></div></div>`;
+    return html`${head('Reports', 'Problems students flagged: wrong answers, broken files and site issues. Marking one fixed sends the student a thank-you notification.')}
+      <div class="card" style="padding:0;overflow:hidden">${d.open.length ? d.open.map((r) => row(r, true)) : html`<div style="padding:8px">${empty('check', 'No open reports', 'Nothing needs your attention.')}</div>`}</div>
+      ${d.done.length ? html`<h3 style="margin:24px 0 10px">Recently fixed</h3><div class="card" style="padding:0;overflow:hidden">${d.done.map((r) => row(r, false))}</div>` : ''}`;
   },
 
   async timetable() {
@@ -377,6 +391,13 @@ const actions = {
   theme: toggleTheme, reload,
   async logout() { try { await api('POST', '/api/admin/logout'); } catch (e) { /* ignore */ } start(); },
   'search-students': debounce((el) => { A.search = el.value; const t = document.getElementById('stu-table'); if (t) t.innerHTML = studentTable(A.cache.students || []).s; }, 120),
+
+  /* reports */
+  async 'rp-resolve'(el) {
+    const { box, close } = dialog(html`<h3>Mark as fixed</h3><label class="field"><span>Short note for the student (optional)</span><input name="note" maxlength="200" placeholder="e.g. Corrected the answer, thanks" autofocus></label><div class="row end gap-s" style="margin-top:14px"><button class="btn ghost" type="button" data-close>Cancel</button><button class="btn primary" type="button" data-yes>Mark fixed</button></div>`);
+    box.querySelector('[data-yes]').addEventListener('click', async () => { try { await api('POST', `/api/admin/reports/${el.dataset.id}/resolve`, { note: box.querySelector('[name=note]').value }); close(); toast('Marked as fixed.'); reload(); } catch (e) { toast(e.message, 'bad'); } });
+  },
+  async 'rp-del'(el) { await api('DELETE', `/api/admin/reports/${el.dataset.id}`); reload(); },
 
   /* uploads, timetable, reps, push */
   async 'up-approve'(el) { await api('POST', `/api/admin/uploads/${el.dataset.id}/review`, { action: 'approve' }); toast('Approved and published.'); reload(); },
