@@ -86,6 +86,8 @@ export const profile = {
         <a class="card flat q" href="#/share">${icon('upload', 22)}<b>Share a note</b><span>Earn points when it is approved</span></a>
         <a class="card flat q" href="#/saved">${icon('download', 22)}<b>Saved offline</b><span>Read with no internet</span></a>
         <a class="card flat q" href="#/timetable">${icon('clock', 22)}<b>Timetable and exams</b><span>Your class and countdowns</span></a>
+        <a class="card flat q" href="#/cgpa">${icon('trophy', 22)}<b>CGPA calculator</b><span>Work out your GPA and class</span></a>
+        <button class="card flat q" data-action="report-open" data-type="site" type="button">${icon('flag', 22)}<b>Report a problem</b><span>Tell us if something is wrong</span></button>
         ${user().rep ? html`<a class="card flat q gold" href="#/rep">${icon('shield', 22)}<b>Class rep panel</b><span>Review notes and post for your class</span></a>` : ''}</div></section>
       ${notifyMod.section()}
 
