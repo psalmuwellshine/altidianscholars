@@ -1,8 +1,62 @@
-import { html, icon, plural, esc, avatar, kindLabel, kindIcon } from '../core/ui.js';
+import { html, raw, icon, plural, esc, avatar, kindLabel, kindIcon, debounce } from '../core/ui.js';
 import { resourceCard, quizCard, eventTile, leaderRows, emptyState, inScope, hasPlace, placeLine } from './shared.js';
 import { todayKey } from '../core/ui.js';
 import * as notifyMod from './notify.js';
 import { upcomingExams, classesToday, daysTo, countdown } from './timetable.js';
+
+/* ---------- search ---------- */
+let Q = ''; // what the student last searched for (kept if the page redraws)
+const LIM = { m: 12, q: 12, e: 12 };
+const flat = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const squash = (s) => flat(s).replace(/ /g, '');
+const PAGES_FOR_SEARCH = [
+  { label: 'Library', href: '#/library', ic: 'book', words: 'library notes past questions slides videos materials resources' },
+  { label: 'Quizzes', href: '#/quizzes', ic: 'quiz', words: 'quizzes quiz practice test exam cbt' },
+  { label: 'Ranks', href: '#/board', ic: 'trophy', words: 'ranks leaderboard points top climbers' },
+  { label: 'Events', href: '#/events', ic: 'calendar', words: 'events notices calendar' },
+  { label: 'Timetable', href: '#/timetable', ic: 'clock', words: 'timetable classes schedule exams countdown' },
+  { label: 'CGPA calculator', href: '#/cgpa', ic: 'chart', words: 'cgpa gpa calculator grade' },
+  { label: 'Saved offline', href: '#/saved', ic: 'download', words: 'saved offline downloads' },
+  { label: 'My profile', href: '#/profile', ic: 'user', words: 'profile account password avatar photo' },
+];
+// Every word the student typed must appear somewhere in the item. Titles count most.
+function scoreOf(terms, fields) {
+  let total = 0;
+  for (const t of terms) {
+    let best = 0;
+    for (const [text, weight] of fields) {
+      const f = flat(text); if (!f) continue;
+      if (f.includes(t) || squash(text).includes(t.replace(/ /g, ''))) best = Math.max(best, f.startsWith(t) ? weight + 1 : weight);
+    }
+    if (!best) return 0; // this word is nowhere in the item
+    total += best;
+  }
+  return total;
+}
+function searchAll(S, u, q) {
+  const st = S.state; const terms = flat(q).split(' ').filter(Boolean);
+  const courses = new Map(S.state.academics.courses.map((c) => [c.code, c.name || '']));
+  const mine = (code) => inScope(S, u, 'mine', code);
+  const rank = (list) => list.sort((a, b) => b.score - a.score || (b.mine ? 1 : 0) - (a.mine ? 1 : 0) || (b.x.pinned ? 1 : 0) - (a.x.pinned ? 1 : 0) || (b.x.addedAt || 0) - (a.x.addedAt || 0));
+  const mats = rank(st.materials.map((m) => ({ x: m, mine: mine(m.course), score: scoreOf(terms, [[m.title, 6], [m.course, 5], [courses.get(m.course), 4], [kindLabel[m.kind] || m.kind, 3], [m.by, 2], [m.note, 1]]) })).filter((r) => r.score));
+  const qzs = rank(st.quizzes.map((x) => ({ x, mine: mine(x.course), score: scoreOf(terms, [[x.title, 6], [x.course, 5], [courses.get(x.course), 4], ['quiz practice test', 2]]) })).filter((r) => r.score));
+  const evs = rank(st.events.map((x) => ({ x, mine: true, score: scoreOf(terms, [[x.title, 6], [x.location, 3], [x.description, 1]]) })).filter((r) => r.score));
+  const pages = PAGES_FOR_SEARCH.filter((p) => (p.href !== '#/profile' || u) && scoreOf(terms, [[p.label, 6], [p.words, 2]]));
+  return { mats: mats.map((r) => r.x), qzs: qzs.map((r) => r.x), evs: evs.map((r) => r.x), pages };
+}
+function resultsHtml(S, u, q) {
+  const st = S.state; const r = searchAll(S, u, q); const best = (st.me && st.me.best) || {};
+  const total = r.mats.length + r.qzs.length + r.evs.length + r.pages.length;
+  const head = html`<div class="hs-head"><p class="muted small">${total ? total + (total === 1 ? ' result' : ' results') + ' for' : 'Nothing found for'} <b>“${q}”</b></p><button class="btn ghost small" data-action="home-search-clear" type="button">${icon('x', 15)} Clear</button></div>`;
+  if (!total) return html`${head}${emptyState('search', 'No results', 'Try fewer words, or a course code like ANA 204.')}<p style="text-align:center"><a class="btn primary" href="#/library">${icon('book', 18)} Browse the library</a></p>`;
+  const group = (title, ic, items, g, card) => items.length ? html`<div class="hs-group"><h3 class="hs-h">${icon(ic, 18)} ${title} <span class="chip grey">${items.length}</span></h3>
+    <div class="cards">${items.slice(0, LIM[g]).map(card)}</div>${items.length > LIM[g] ? html`<p class="fold-more"><button class="btn ghost small" data-action="home-more" data-g="${g}" type="button">Show ${Math.min(12, items.length - LIM[g])} more</button></p>` : ''}</div>` : '';
+  return html`${head}
+    ${r.pages.length ? html`<div class="hs-group"><h3 class="hs-h">${icon('arrow', 18)} Go to</h3><div class="filters">${r.pages.map((p) => html`<a class="pill" href="${p.href}">${p.label}</a>`)}</div></div>` : ''}
+    ${group('Notes and resources', 'book', r.mats, 'm', resourceCard)}
+    ${group('Quizzes', 'quiz', r.qzs, 'q', (x) => quizCard(x, best[x.id], null))}
+    ${group('Events', 'calendar', r.evs, 'e', eventTile)}`;
+}
 
 export async function render({ S, user, config }) {
   const st = S.state; const c = config(); const u = user();
@@ -14,6 +68,9 @@ export async function render({ S, user, config }) {
   if (!quizPool.length) quizPool = st.quizzes;
   const best = (st.me && st.me.best) || {};
   const exams = u ? upcomingExams(st) : []; const today = u ? classesToday(st) : [];
+  const counts = new Map(); pool.forEach((m) => counts.set(m.course, (counts.get(m.course) || 0) + 1));
+  const chips = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([code]) => code);
+  const searching = Q.trim().length >= 2;
   // Everything starts minimised. A student taps a heading to open it.
   const fold = (ic, title, total, cards, seeAllHref) => html`<details class="fold">
     <summary><span class="ico-box">${icon(ic, 20)}</span><span class="grow"><b>${title}</b></span><span class="chip grey">${total}</span></summary>
@@ -36,6 +93,15 @@ export async function render({ S, user, config }) {
         ${!u && c.registrationOpen ? html`<a class="btn ghost" href="#/register">Create account</a>` : ''}
       </div>
     </section>
+    <section class="sec home-search">
+      <form class="hs-form" data-submit="home-search-go" role="search">
+        <label class="searchbox big">${icon('search', 20)}<span class="sr">Search Altidian</span><input id="hs-input" type="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Search notes, past questions, quizzes…" value="${Q}" data-input="home-search"></label>
+        <button class="btn primary" type="submit">${icon('search', 18)} Search</button>
+      </form>
+      ${chips.length ? html`<div class="filters hs-chips"><span class="tiny muted">Try:</span>${chips.map((c) => html`<button class="pill" data-action="home-chip" data-v="${c}" type="button">${c}</button>`)}</div>` : ''}
+      <div id="hs-results" aria-live="polite">${searching ? resultsHtml(S, u, Q.trim()) : ''}</div>
+    </section>
+    <div id="home-main" ${searching ? raw('hidden') : ''}>
     <div class="stats">
       <div class="stat"><b>${st.stats.materials}</b><span>Study resources</span></div>
       <div class="stat"><b>${st.stats.quizzes}</b><span>Practice quizzes</span></div>
@@ -57,10 +123,34 @@ export async function render({ S, user, config }) {
       ${upcoming.length ? html`<div class="cards">${upcoming.map(eventTile)}</div>` : emptyState('calendar', 'No upcoming events', 'Check back soon.')}</section>
 
     ${c.leaderboardEnabled ? html`<section class="sec"><div class="sec-head"><div><h2>Top climbers</h2><p>10 points for every correct answer.</p></div><a class="btn ghost small" href="#/board">Full leaderboard</a></div>
-      <div class="card flat">${st.board.length ? leaderRows(st.board.slice(0, 5)) : emptyState('trophy', 'Be the first', 'Take a quiz to claim the top spot.')}</div></section>` : ''}`;
+      <div class="card flat">${st.board.length ? leaderRows(st.board.slice(0, 5)) : emptyState('trophy', 'Be the first', 'Take a quiz to claim the top spot.')}</div></section>` : ''}
+    </div>`;
 }
 export function after() { notifyMod.nudge(); }
+function runSearch(S, user, q, jump) {
+  Q = q; LIM.m = LIM.q = LIM.e = 12;
+  const on = Q.trim().length >= 2;
+  const main = document.getElementById('home-main'); const box = document.getElementById('hs-results');
+  if (!main || !box) return;
+  main.hidden = on;
+  box.innerHTML = on ? resultsHtml(S, user(), Q.trim()).s : '';
+  if (on && jump) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 export const actions = {
+  'home-search': debounce((el, ev, { S, user }) => runSearch(S, user, el.value, false), 150),
+  'home-search-go'(form, ev, { S, user }) {
+    const input = form.querySelector('#hs-input'); runSearch(S, user, input.value, true); input.blur(); // closes the phone keyboard
+  },
+  'home-chip'(el, ev, { S, user }) {
+    const input = document.getElementById('hs-input'); if (input) input.value = el.dataset.v; runSearch(S, user, el.dataset.v, true);
+  },
+  'home-more'(el, ev, { S, user }) {
+    LIM[el.dataset.g] += 12; const y = window.scrollY; runSearch(S, user, Q, false); window.scrollTo(0, y);
+  },
+  'home-search-clear'(el, ev, { S, user }) {
+    const input = document.getElementById('hs-input'); if (input) { input.value = ''; input.focus(); } runSearch(S, user, '', false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  },
   read(el, ev, { S }) {
     // handled in the library module too; the home page shares the same dialog
     import('./library.js').then((m) => m.actions.read(el, ev, { S }));
