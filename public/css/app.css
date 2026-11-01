@@ -358,3 +358,7 @@ body.has-tabs main:has(.chat) { padding-bottom: calc(var(--tab-h) + 12px + env(s
 .nudge p { margin: 2px 0 0; }
 .nudge .grow { flex: 1 1 220px; min-width: 0; } .nudge .ico-box { flex: none; }
 @media (max-width: 520px) { .nudge .row { width: 100%; } .nudge .row .btn { flex: 1; } }
+
+/* in-page video player */
+.viewer .v-body.v-video { display: grid; place-items: center; padding: 0; overflow: hidden; background: #000; }
+.viewer .v-video iframe { width: 100%; max-width: 1200px; aspect-ratio: 16 / 9; max-height: 100%; border: 0; background: #000; }
