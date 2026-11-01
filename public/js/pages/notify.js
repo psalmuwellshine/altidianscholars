@@ -2,7 +2,7 @@
 import { html, raw, icon, toast } from '../core/ui.js';
 import * as P from '../core/push.js';
 
-export const section = () => html`<section class="sec" id="notify"><div class="sec-head"><div><h2>Notifications</h2><p>Get an alert on your phone for new materials, exam reminders and announcements.</p></div></div><div class="card" id="notify-card" style="max-width:640px"><p class="muted small">Checking…</p></div></section>`;
+export const section = () => html`<section class="sec folds"><details class="fold" id="notify"><summary><span class="ico-box">${icon('bell', 20)}</span><span class="grow"><b>Notifications</b><br><span class="tiny muted">Alerts for new materials, exam reminders and announcements.</span></span></summary><div class="fold-body"><div class="card" id="notify-card" style="max-width:640px"><p class="muted small">Checking…</p></div></div></details></section>`;
 
 const PREFS = [['notices', 'Announcements and class updates'], ['materials', 'New materials and quizzes'], ['events', 'Events, timetable and exam reminders']];
 export async function hydrate() {

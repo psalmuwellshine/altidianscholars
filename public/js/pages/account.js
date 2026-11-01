@@ -105,8 +105,8 @@ export const profile = {
       <section class="sec"><div class="sec-head"><div><h2>Recent activity</h2></div></div>
         ${p.recent.length ? html`<div class="card flat"><ol class="lb">${p.recent.map((a) => html`<li><span class="ico-box ${a.pct >= 70 ? '' : 'brand'}">${icon(a.pct >= 70 ? 'check' : 'refresh', 20)}</span><span class="grow"><b>${a.title}</b><br><span class="tiny muted">${a.course} · ${ago(a.at)}</span></span><span class="pts">${a.correct}/${a.total}</span></li>`)}</ol></div>` : emptyState('clock', 'No activity yet', 'Finish a quiz and it will show up here.')}</section>
 
-      <section class="sec" id="settings"><div class="sec-head"><div><h2>Account settings</h2><p>Enter your current password to change anything.</p></div></div>
-        <div class="card" style="max-width:640px"><div id="set-msg" class="alert bad" hidden role="alert"></div>
+      <section class="sec folds"><details class="fold" id="settings"><summary><span class="ico-box">${icon('settings', 20)}</span><span class="grow"><b>Account settings</b><br><span class="tiny muted">Username, password, department, level. Needs your current password.</span></span></summary>
+        <div class="fold-body"><div class="card" style="max-width:640px"><div id="set-msg" class="alert bad" hidden role="alert"></div>
           <form data-submit="do-update" data-box="set-msg" novalidate>
             <label class="field"><span>Current password</span><input name="currentPassword" type="password" required autocomplete="current-password"></label>
             <label class="field"><span>Matric / registration number</span><input name="newMatric" autocomplete="off" maxlength="25" value="${p.user.matric}" style="text-transform:uppercase"></label>
@@ -114,7 +114,7 @@ export const profile = {
             <div class="grid2"><label class="field"><span>New username</span><input name="newUsername" autocomplete="username" maxlength="24" placeholder="${p.user.username}"></label>
               <label class="field"><span>New password</span><input name="newPassword" type="password" minlength="6" autocomplete="new-password"></label></div>
             <label class="field"><span>New recovery phrase</span><input name="newRecoveryPhrase" autocomplete="off" maxlength="60"><small>Leave blank to keep the one you have.</small></label>
-            <div class="row gap wrap-r"><button class="btn primary" type="submit">Save changes</button><button class="btn ghost" data-action="do-logout" type="button">${icon('logout', 17)} Log out</button></div></form></div></section>`;
+            <div class="row gap wrap-r"><button class="btn primary" type="submit">Save changes</button><button class="btn ghost" data-action="do-logout" type="button">${icon('logout', 17)} Log out</button></div></form></div></div></details></section>`;
   },
 };
 
@@ -122,7 +122,7 @@ export const actions = {
   'place-fac': (el, ev, { S }) => placeChange(S, el),
   'place-dep': (el, ev, { S }) => placeChange(S, el),
   'place-lvl': () => {},
-  'goto-settings'(el, ev) { ev.preventDefault(); document.getElementById('settings').scrollIntoView({ behavior: 'smooth' }); },
+  'goto-settings'(el, ev) { ev.preventDefault(); const d = document.getElementById('settings'); d.open = true; d.scrollIntoView({ behavior: 'smooth' }); },
   'avatar-pick'() { document.getElementById('avatar-file').click(); },
   async 'avatar-file'(el, ev, { load, renderView }) {
     const file = el.files[0]; if (!file) return;
