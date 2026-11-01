@@ -1,6 +1,7 @@
 import { html, icon, plural, esc, avatar, kindLabel, kindIcon } from '../core/ui.js';
 import { resourceCard, quizCard, eventTile, leaderRows, emptyState, inScope, hasPlace, placeLine } from './shared.js';
 import { todayKey } from '../core/ui.js';
+import * as notifyMod from './notify.js';
 import { upcomingExams, classesToday, daysTo, countdown } from './timetable.js';
 
 export async function render({ S, user, config }) {
@@ -25,6 +26,7 @@ export async function render({ S, user, config }) {
   if (quizPool.length) groups.push(fold('quiz', 'Practice quizzes', quizPool.length, quizPool.slice(0, 6).map((q) => quizCard(q, best[q.id], null)), '#/quizzes'));
   return html`
     ${u && !hasPlace(u) ? html`<div class="alert warning" style="margin-top:16px">Tell us your department and level to see the right courses. <a href="#/profile">Update my profile</a></div>` : ''}
+    ${u ? html`<div id="push-nudge" style="margin-top:16px"></div>` : ''}
     <section class="hero">
       ${c.tagline ? html`<span class="tag">${c.tagline}</span>` : ''}
       <h1>${c.heroTitle}</h1><p>${c.heroText}</p>
@@ -57,6 +59,7 @@ export async function render({ S, user, config }) {
     ${c.leaderboardEnabled ? html`<section class="sec"><div class="sec-head"><div><h2>Top climbers</h2><p>10 points for every correct answer.</p></div><a class="btn ghost small" href="#/board">Full leaderboard</a></div>
       <div class="card flat">${st.board.length ? leaderRows(st.board.slice(0, 5)) : emptyState('trophy', 'Be the first', 'Take a quiz to claim the top spot.')}</div></section>` : ''}`;
 }
+export function after() { notifyMod.nudge(); }
 export const actions = {
   read(el, ev, { S }) {
     // handled in the library module too; the home page shares the same dialog

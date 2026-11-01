@@ -25,7 +25,24 @@ export async function hydrate() {
   }
   el.innerHTML = out.s;
 }
+/* A one-tap card on the home page for students who have not decided yet. Browsers only allow the permission prompt after a tap. */
+const LATER = 'alt-push-later';
+export async function nudge() {
+  const el = document.getElementById('push-nudge'); if (!el) return;
+  try {
+    const s = await P.status(); if (!s.supported || s.permission !== 'default' || s.on) return;
+    if (Date.now() - Number(localStorage.getItem(LATER) || 0) < 7 * 86400000) return;
+    el.innerHTML = html`<div class="card nudge"><span class="ico-box">${icon('bell', 22)}</span><div class="grow"><b>Never miss an exam or a new note</b><p class="small muted">Turn on notifications for reminders, new materials and class updates.</p></div>
+      <div class="row gap-s wrap-r"><button class="btn primary small" data-action="push-nudge-on" type="button">Turn on</button><button class="btn ghost small" data-action="push-nudge-later" type="button">Later</button></div></div>`.s;
+  } catch (e) { /* the card is optional */ }
+}
 export const actions = {
+  async 'push-nudge-on'(el) {
+    el.disabled = true;
+    try { await P.enable(); toast('Notifications are on.'); } catch (e) { toast(e.message, 'bad'); }
+    document.getElementById('push-nudge').innerHTML = '';
+  },
+  'push-nudge-later'() { try { localStorage.setItem(LATER, String(Date.now())); } catch (e) { /* ignore */ } document.getElementById('push-nudge').innerHTML = ''; },
   async 'push-on'(el) {
     el.disabled = true;
     try { await P.enable(); toast('Notifications are on.'); } catch (e) { toast(e.message, 'bad'); }
