@@ -353,3 +353,8 @@ body.has-tabs main:has(.chat) { padding-bottom: calc(var(--tab-h) + 12px + env(s
 .brand .name-wrap { display: inline-flex; flex-direction: column; align-items: stretch; width: max-content; line-height: 1.05; }
 .brand .name-wrap .name { letter-spacing: .06em; }
 .brand .was { display: block; margin-top: 2px; font: italic 500 8.2px var(--f-body); letter-spacing: 0; text-transform: none; color: var(--muted); white-space: nowrap; text-align: justify; text-align-last: justify; }
+
+.nudge { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; border-color: var(--gold); background: var(--gold-soft); }
+.nudge p { margin: 2px 0 0; }
+.nudge .grow { flex: 1 1 220px; min-width: 0; } .nudge .ico-box { flex: none; }
+@media (max-width: 520px) { .nudge .row { width: 100%; } .nudge .row .btn { flex: 1; } }
