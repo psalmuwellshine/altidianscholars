@@ -1,4 +1,5 @@
 import { html, raw, mount, icon, api, toast, fmtDate, ago, pct, initial, plural, confirmBox, avatar, squarePhoto } from '../core/ui.js';
+import * as notifyMod from './notify.js';
 import { emptyState, placeFields, placeChange, hasPlace, deptName, facultyName } from './shared.js';
 
 let nextPath = '/';
@@ -56,6 +57,7 @@ async function sendForm(form, work) {
 /* ---------- profile ---------- */
 export const profile = {
   needsLogin: true,
+  after() { notifyMod.hydrate(); },
   async render({ S, user }) {
     const p = await api('GET', '/api/profile');
     S.profile = p;
@@ -79,6 +81,13 @@ export const profile = {
         <div class="kpi">${icon('flame', 22)}<b>${p.streak.current}</b><span>Day streak${p.streak.longest > p.streak.current ? ' (best ' + p.streak.longest + ')' : ''}</span></div>
       </div>
       ${p.rank.position ? html`<p class="muted" style="margin-top:14px">${icon('trophy', 17)} You are <b>#${p.rank.position}</b> of ${p.rank.outOf} on the leaderboard.</p>` : ''}
+
+      <section class="sec"><div class="quick">
+        <a class="card flat q" href="#/share">${icon('upload', 22)}<b>Share a note</b><span>Earn points when it is approved</span></a>
+        <a class="card flat q" href="#/saved">${icon('download', 22)}<b>Saved offline</b><span>Read with no internet</span></a>
+        <a class="card flat q" href="#/timetable">${icon('clock', 22)}<b>Timetable and exams</b><span>Your class and countdowns</span></a>
+        ${user().rep ? html`<a class="card flat q gold" href="#/rep">${icon('shield', 22)}<b>Class rep panel</b><span>Review notes and post for your class</span></a>` : ''}</div></section>
+      ${notifyMod.section()}
 
       <section class="sec"><div class="sec-head"><div><h2>Badges</h2><p>${earned} of ${p.badges.length} unlocked</p></div></div>
         <div class="badges">${p.badges.map((b) => html`<div class="badge ${b.earned ? '' : 'off'}"><div class="ico-box">${icon(b.earned ? 'medal' : 'lock', 24)}</div><b>${b.name}</b><span>${b.desc}</span>${b.earned ? '' : html`<div class="bar" style="margin-top:8px"><i style="width:${pct(b.progress.current, b.progress.target)}%"></i></div>`}</div>`)}</div></section>

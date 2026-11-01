@@ -17,7 +17,8 @@ export async function render({ S, user }) {
   const courses = [...new Set(pool.map((m) => m.course))].sort();
   const kinds = [...new Set(pool.map((m) => m.kind))];
   return html`
-    <div class="sec-head"><div><h2>Library</h2><p>${pool.length} resources: notes, past questions, slides and videos.</p></div></div>
+    <div class="sec-head"><div><h2>Library</h2><p>${pool.length} resources: notes, past questions, slides and videos.</p></div>
+      <div class="row gap-s wrap-r">${u && S.state.config.contribEnabled ? html`<a class="btn gold small" href="#/share">${icon('upload', 16)} Share a note</a>` : ''}<a class="btn ghost small" href="#/saved">${icon('download', 16)} Saved offline</a></div></div>
     ${scopeBar(S, u, 'lib-scope')}
     <div class="row gap wrap-r" style="margin-bottom:14px"><label class="searchbox">${icon('search', 18)}<span class="sr">Search</span><input type="search" placeholder="Search by title or course" value="${F.q}" data-input="lib-search"></label></div>
     <div class="filters" id="lib-courses"><button class="pill ${F.course ? '' : 'on'}" data-action="lib-course" data-v="" type="button">All courses</button>${courses.map((c) => html`<button class="pill ${F.course === c ? 'on' : ''}" data-action="lib-course" data-v="${c}" type="button">${c}</button>`)}</div>

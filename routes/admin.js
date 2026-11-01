@@ -18,7 +18,7 @@ const csvCell = (v) => {
 };
 const csv = (rows) => rows.map((r) => r.map(csvCell).join(',')).join('\r\n') + '\r\n';
 
-module.exports = function registerAdmin({ route, store, send }) {
+module.exports = function registerAdmin({ route, store, send, push }) {
   const A = { admin: true };
 
   const VIEWABLE = new Set(['application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/webp']);
@@ -76,7 +76,7 @@ module.exports = function registerAdmin({ route, store, send }) {
     return {
       id: u.id, username: u.username, matric: u.matric || '', facultyId: u.facultyId || '', departmentId: u.departmentId || '', level: u.level || 0, avatarId: u.avatarId || '', createdAt: u.createdAt || null, lastLoginAt: u.lastLoginAt || null,
       paidUntil: u.paidUntil || '', unlocked: Array.isArray(u.unlocked) ? u.unlocked : [], unlockedCount: Array.isArray(u.unlocked) ? u.unlocked.length : 0,
-      disabled: !!u.disabled, chatMuted: !!u.chatMuted, hasRecovery: !!u.recovery, points: p.points, done: p.done, rank: D.rankInfo(p.points).title,
+      disabled: !!u.disabled, chatMuted: !!u.chatMuted, rep: u.rep || null, hasRecovery: !!u.recovery, points: p.points, done: p.done, rank: D.rankInfo(p.points).title,
       attempts: D.historyOf(rec).length || p.done,
     };
   };
@@ -261,6 +261,14 @@ module.exports = function registerAdmin({ route, store, send }) {
     if (!(await store.list('courses')).some((c) => c.code === code)) throw new HttpError(400, 'Pick a course from the list. New courses are added under Academics.');
   };
 
+  // Tell the students a course is meant for (department and level) that something new is up.
+  async function notifyCourse(code, type, title, body) {
+    try {
+      const c = (await store.list('courses')).find((x) => x.code === code);
+      push.later({ audience: c ? { departmentIds: c.departmentIds || [], level: c.level } : {}, type, title, body, url: type === 'materials' ? '/#/library' : '/#/quizzes' });
+    } catch (e) { /* notifications are best effort */ }
+  }
+
   /* ---------- materials ---------- */
   async function readMaterial(b, existing) {
     const title = clean(b.title, 120);
@@ -272,6 +280,7 @@ module.exports = function registerAdmin({ route, store, send }) {
     if (!okCourse(course)) throw new HttpError(400, 'Course code must be 2 to 10 letters or digits, like MBH222.');
     if (link && !isHttp(link)) throw new HttpError(400, 'The link must start with http:// or https://.');
     const doc = { id: existing ? existing.id : newId(), title, course, kind, addedAt: existing ? existing.addedAt : Date.now(), pinned: bool(b.pinned), hidden: bool(b.hidden) };
+    if (existing) ['by', 'byName', 'status', 'approvedAt', 'reason'].forEach((k) => { if (existing[k] !== undefined) doc[k] = existing[k]; });
     readPaid(b, doc);
     if (note) doc.note = note;
     if (link) doc.link = link;
@@ -306,6 +315,7 @@ module.exports = function registerAdmin({ route, store, send }) {
     const r = await readMaterial(ctx.body, null);
     await requireCourse(r.doc.course);
     await saveMaterial(r);
+    if (!r.doc.hidden && ctx.body.notify !== false) notifyCourse(r.doc.course, 'materials', 'New ' + r.doc.course + ' material', r.doc.title);
     send(res, 200, { ok: true, id: r.doc.id });
   });
   route('PUT', '/api/admin/materials/:id', A, async (req, res, ctx) => {
@@ -351,6 +361,7 @@ module.exports = function registerAdmin({ route, store, send }) {
     const doc = readQuiz(ctx.body, null);
     await requireCourse(doc.course);
     await store.put('quizzes', doc);
+    if (!doc.hidden && ctx.body.notify !== false) notifyCourse(doc.course, 'materials', 'New ' + doc.course + ' quiz', doc.title);
     send(res, 200, { ok: true, id: doc.id, count: doc.questions.length });
   });
   route('PUT', '/api/admin/quizzes/:id', A, async (req, res, ctx) => {
@@ -381,6 +392,9 @@ module.exports = function registerAdmin({ route, store, send }) {
     const location = clean(b.location, 120); if (location) doc.location = location;
     const description = clean(b.description, 1000); if (description) doc.description = description;
     if (link) doc.link = link;
+    if (H.okId(b.departmentId)) doc.departmentId = b.departmentId;
+    if (Number(b.level) && Ac.LEVELS.includes(Number(b.level))) doc.level = Number(b.level);
+    if (existing && existing.by) { doc.by = existing.by; doc.byName = existing.byName; }
     return doc;
   }
   route('GET', '/api/admin/events', A, async (req, res) => {
@@ -390,6 +404,7 @@ module.exports = function registerAdmin({ route, store, send }) {
   route('POST', '/api/admin/events', A, async (req, res, ctx) => {
     const doc = readEvent(ctx.body, null);
     await store.put('events', doc);
+    if (ctx.body.notify !== false) push.later({ audience: { departmentIds: doc.departmentId ? [doc.departmentId] : [], level: doc.level || 0 }, type: 'events', title: doc.title, body: doc.date + (doc.time ? ' · ' + doc.time : '') + (doc.location ? ' · ' + doc.location : ''), url: '/#/events' });
     send(res, 200, { ok: true, id: doc.id });
   });
   route('PUT', '/api/admin/events/:id', A, async (req, res, ctx) => {
@@ -413,6 +428,7 @@ module.exports = function registerAdmin({ route, store, send }) {
     const level = LEVELS.includes(ctx.body.level) ? ctx.body.level : 'info';
     if (!text) { await store.del('settings', 'notice'); return send(res, 200, { ok: true, text: '', level }); }
     await store.put('settings', { id: 'notice', text, level, at: Date.now() });
+    if (bool(ctx.body.push)) push.later({ audience: {}, type: 'notices', title: 'Announcement', body: text, url: '/' });
     send(res, 200, { ok: true, text, level });
   });
 
@@ -433,6 +449,8 @@ module.exports = function registerAdmin({ route, store, send }) {
       requireLogin: bool(b.requireLogin),
       leaderboardEnabled: bool(b.leaderboardEnabled),
       chatEnabled: bool(b.chatEnabled),
+      contribEnabled: bool(b.contribEnabled),
+      contribPoints: (() => { if (b.contribPoints === undefined || b.contribPoints === '') return cur.contribPoints; const n = Number(b.contribPoints); if (!Number.isInteger(n) || n < 0 || n > 500) throw new HttpError(400, 'Points for an approved upload must be a whole number from 0 to 500.'); return n; })(),
       payBank: clean(b.payBank, 60), payAccountName: clean(b.payAccountName, 80), payNote: clean(b.payNote, 300),
       payAccountNumber: (() => { const n = String(b.payAccountNumber || '').replace(/\s+/g, ''); if (n && !/^\d{10}$/.test(n)) throw new HttpError(400, 'The account number must be 10 digits.'); return n; })(),
       passPrice: wholeNaira(b.passPrice, 'semester pass price', true),

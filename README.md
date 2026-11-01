@@ -15,6 +15,10 @@ full admin control panel.
 - **Events**: add, edit, delete. Shown on the home page and the Events page.
 - **Announcement**: banner at the top of every page (info, important, good news).
 - **Leaderboard**: clear one entry or reset the season.
+- **Student uploads**: approve or reject notes and past questions shared by students (class reps can do this for their own class too).
+- **Timetable and exams**: class times, exams and tests for any department and level. Exams get a countdown and automatic reminders.
+- **Students > Make rep**: appoint a class rep for one department and level.
+- **Announcement**: the banner, plus a form to send a notification to every phone, or to one department and level.
 - **Chat**: watch every room, delete messages, review reported messages, mute a student (also from the Students list), post as admin, clear a room, and make extra rooms (for example an admin-only Announcements room).
 - **Site settings**: site name, tagline, motto, hero text, footer, open or close registration, require login for quizzes, turn the leaderboard on or off, WhatsApp / Telegram / Instagram / email links.
 
@@ -26,6 +30,18 @@ loaded only when you connect a database.
 ## Chat rooms
 
 Every student gets a **General** room, a room for their **department**, and a room for their **class** (department + level). Students only see rooms that belong to them, and the server enforces it. Messages appear live (Server-Sent Events, no extra service needed), with a 20-second fallback if live updates are blocked. Each room keeps its last 300 messages; messages are 600 characters at most, with a 1-per-second rate limit and duplicate-message blocking. Students can delete their own messages and report others. Chat can be switched off in **Site settings**. Students need their department and level set in their profile to see their department and class rooms.
+
+## Notifications, offline reading, timetable, uploads and class reps
+
+**Notifications.** Students turn them on in their profile. Phones then get alerts for new materials and quizzes, events, announcements, class updates and exam reminders (1 week, 1 day and the morning of). Each student chooses which kinds they want. The site makes its own push keys the first time it runs and keeps them in the database, so there is nothing to set up. To keep your own keys, set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and optionally `VAPID_SUBJECT` (like `mailto:you@example.com`) on Render. On iPhone the student must first use Share > Add to Home Screen and open Altidian from there. Exam reminders go out while the server is awake; on Render's free plan a sleeping site wakes when a student opens it, so use an uptime pinger if you want them on time.
+
+**Offline reading.** Every free note or file has a "Save offline" button. Saved items open with no internet, and the site itself opens from its last saved copy. Paid files are view-only and are never saved.
+
+**Timetable and exams.** Admins and class reps post classes, exams and tests. Students see a countdown on the home page and a weekly timetable under Events > Timetable and exams, and can add private entries of their own.
+
+**Student uploads.** Any student can share notes or a file (PDF, Word, PowerPoint or picture, up to 8 MB) from the Library. A class rep for that course or an admin approves it. Approved uploads appear with "Shared by <name>", earn points (set in Site settings, default 20) and unlock the Contributor and Knowledge Giver badges.
+
+**Class reps.** In Students, tap "Make rep" and pick a department and level (or all levels). The rep gets a panel in their profile to review uploads, post to the library, set the class timetable and events, and message the class. A rep only ever affects their own class.
 
 ## Run it on your computer
 

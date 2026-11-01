@@ -316,3 +316,40 @@ body.viewing { overflow: hidden; }
 .composer textarea { min-height: 46px; height: 46px; box-sizing: border-box; padding-block: 11px; overflow-y: auto; }
 body.has-tabs main:has(.chat) { padding-bottom: calc(var(--tab-h) + 12px + env(safe-area-inset-bottom)); }
 @media (min-width: 880px) { body.has-tabs main:has(.chat) { padding-bottom: 12px; } }
+
+/* ---------- plan: timetable, exam countdown, quick links, sharing, offline ---------- */
+.seg { display: inline-flex; gap: 4px; padding: 4px; margin-bottom: 18px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); max-width: 100%; }
+.seg a { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 999px; text-decoration: none; color: var(--muted); font-weight: 700; font-size: 14.5px; white-space: nowrap; }
+.seg a.on { background: var(--brand); color: var(--on-brand); }
+.small-ic { width: 34px; height: 34px; flex: none; }
+.exam { display: flex; align-items: center; gap: 16px; }
+.exam .count { flex: none; width: 70px; height: 70px; border-radius: 18px; background: var(--brand-soft); color: var(--brand-ink); display: grid; place-content: center; text-align: center; }
+.exam .count b { font: 800 28px/1 var(--f-display); } .exam .count span { font-size: 12px; font-weight: 700; }
+.exam.soon .count { background: var(--bad-bg); color: var(--bad); }
+.exam h3 { margin: 6px 0 2px; }
+.week { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 700px) { .week { grid-template-columns: repeat(2, minmax(0, 1fr)); } } @media (min-width: 1000px) { .week { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.day { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; }
+.day.today { border-color: var(--gold); box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold) 30%, transparent); }
+.day h4 { margin-bottom: 8px; font: 800 16px var(--f-display); }
+.slot { display: flex; gap: 12px; align-items: flex-start; padding: 8px 0; border-top: 1px dashed var(--line); font-size: 14.5px; }
+.slot:first-of-type { border-top: 0; } .slot b { flex: none; min-width: 92px; color: var(--brand-ink); font-variant-numeric: tabular-nums; } .slot span { flex: 1; min-width: 0; }
+.count-row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+.count-pill { flex: none; display: grid; grid-template-columns: auto auto; gap: 0 6px; align-items: baseline; padding: 12px 16px; border-radius: 16px; background: var(--brand-soft); color: var(--brand-ink); text-decoration: none; min-width: 150px; }
+.count-pill b { font: 800 30px/1 var(--f-display); } .count-pill span { font-weight: 700; font-size: 13px; } .count-pill i { grid-column: 1 / -1; font-style: normal; font-weight: 700; font-size: 13px; margin-top: 4px; }
+.count-pill.soon { background: var(--bad-bg); color: var(--bad); }
+.notes-strip .alert { margin-bottom: 10px; }
+.quick { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 880px) { .quick { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.q { display: grid; gap: 4px; text-decoration: none; color: var(--ink); align-content: start; } .q .ic { color: var(--brand); } .q b { font-weight: 800; } .q span { font-size: 13px; color: var(--muted); }
+.q.gold { background: var(--gold-soft); border-color: var(--gold); } .q.gold .ic { color: var(--gold-ink); }
+.save-off.on { background: var(--good-bg); color: var(--good); border-color: transparent; }
+.shared-by { display: flex; align-items: center; gap: 5px; margin: -4px 0 6px; }
+.grid-rep { display: grid; gap: 16px; margin-top: 26px; grid-template-columns: minmax(0, 1fr); } @media (min-width: 900px) { .grid-rep { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.lb li.rv { flex-wrap: wrap; align-items: flex-start; }
+.lb li.rv > .row { margin-left: auto; }
+
+/* "formerly Exam Warriors" sits under the name, at about the same width as the name */
+.brand .name-wrap { display: inline-flex; flex-direction: column; align-items: stretch; width: max-content; line-height: 1.05; }
+.brand .name-wrap .name { letter-spacing: .06em; }
+.brand .was { display: block; margin-top: 2px; font: italic 500 8.2px var(--f-body); letter-spacing: 0; text-transform: none; color: var(--muted); white-space: nowrap; text-align: justify; text-align-last: justify; }

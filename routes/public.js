@@ -5,11 +5,12 @@ const H = require('../lib/helpers');
 const D = require('../lib/domain');
 const Ac = require('../lib/academics');
 const { looksLike } = require('../lib/files');
+const Cl = require('../lib/classes');
 
 const { HttpError } = H;
 
 module.exports = function registerPublic({ route, store, send, userOf, fileTypes }) {
-  const publicUser = (u) => ({ id: u.id, username: u.username, createdAt: u.createdAt || null, matric: u.matric || '', facultyId: u.facultyId || '', departmentId: u.departmentId || '', level: u.level || 0, avatarId: u.avatarId || '' });
+  const publicUser = (u) => ({ id: u.id, username: u.username, createdAt: u.createdAt || null, matric: u.matric || '', facultyId: u.facultyId || '', departmentId: u.departmentId || '', level: u.level || 0, rep: u.rep || null, avatarId: u.avatarId || '' });
   const AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
   const MAX_AVATAR = 400 * 1024;
 
@@ -40,9 +41,9 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
 
   /* ---------- everything the site needs to draw itself ---------- */
   route('GET', '/api/state', {}, async (req, res, ctx) => {
-    const [materials, quizzes, scores, events, users, notice, config] = await Promise.all([
+    const [materials, quizzes, scores, events, users, notice, config, timetable, classnotes] = await Promise.all([
       store.list('materials'), store.list('quizzes'), store.list('scores'), store.list('events'),
-      store.list('users'), store.get('settings', 'notice'), D.loadConfig(store),
+      store.list('users'), store.get('settings', 'notice'), D.loadConfig(store), store.list('timetable'), store.list('classnotes'),
     ]);
     const academics = await Ac.loadAcademics(store);
     const user = await userOf(req);
@@ -72,7 +73,7 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
           const open = D.hasAccess(user, m);
           // A locked item still shows its title and price, but none of its content.
           return {
-            id: m.id, title: m.title, course: m.course, kind: m.kind, pinned: !!m.pinned, addedAt: m.addedAt,
+            id: m.id, title: m.title, course: m.course, kind: m.kind, pinned: !!m.pinned, addedAt: m.addedAt, ...(m.byName ? { by: m.byName } : {}),
             note: open ? m.note || '' : '', link: open ? m.link || '' : '', fileId: open ? m.fileId || '' : '', fileName: open ? m.fileName || '' : '',
             ...(m.paid ? { paid: true, price: m.price, locked: !open } : {}),
           };
@@ -82,7 +83,10 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
         // A locked quiz keeps its title, price and question count, but no questions or answers.
         return { ...q, count: q.questions.length, questions: open ? q.questions : [], ...(q.paid ? { locked: !open } : {}) };
       }),
-      events: events.sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || ''))).slice(0, 200),
+      events: events.filter((e) => Cl.classMatch(e, user)).sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || ''))).slice(0, 200)
+        .map((e) => ({ id: e.id, title: e.title, date: e.date, time: e.time, location: e.location, description: e.description, link: e.link, ...(e.departmentId || e.level ? { scoped: true } : {}), ...(e.byName ? { by: e.byName } : {}) })),
+      timetable: user ? timetable.filter((t) => (t.uid ? t.uid === user.id : Cl.classMatch(t, user))).slice(0, 400).map((t) => ({ id: t.id, kind: t.kind, title: t.title, course: t.course || '', day: t.day || 0, date: t.date || '', start: t.start || '', end: t.end || '', venue: t.venue || '', mine: !!t.uid, by: t.byName || '' })) : [],
+      classNotes: user ? classnotes.filter((n) => Cl.classMatch(n, user) && n.at > Date.now() - 30 * 86400000).sort((a, b) => b.at - a.at).slice(0, 5).map((n) => ({ id: n.id, text: n.text, by: n.byName, at: n.at })) : [],
       board: config.leaderboardEnabled
         ? board.slice(0, 200).map((b, i) => ({ rank: i + 1, name: b.name, points: b.points, done: b.done, isUser: b.isUser, me: b.id === meId, avatar: b.avatar, dept: b.dept, level: b.level }))
         : [],
@@ -96,7 +100,13 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
     const id = ctx.params[0];
     const mats = await store.list('materials');
     const m = mats.find((x) => x.fileId === id);
-    if (!m || (m.hidden && !H.isAdmin(req))) return send(res, 404, 'Not found', { 'Content-Type': 'text/plain' });
+    let allowed = !!m && (!m.hidden || H.isAdmin(req));
+    if (m && !allowed) { // pending uploads can be opened by the student who shared them and by the class rep who reviews them
+      const u = await userOf(req);
+      if (u && m.by === u.id) allowed = true;
+      else if (u && Cl.repScope(u)) { const course = (await store.list('courses')).find((c) => c.code === m.course); allowed = m.status === 'pending' && Cl.courseInScope(course, Cl.repScope(u)); }
+    }
+    if (!allowed) return send(res, 404, 'Not found', { 'Content-Type': 'text/plain' });
     if (m.paid && !H.isAdmin(req) && !D.hasAccess(await userOf(req), m)) {
       return send(res, 403, 'This file is locked. Open Altidian and unlock it first.', { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
     }
@@ -244,7 +254,8 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
     const [quizzes, scores, users, courses] = await Promise.all([store.list('quizzes'), store.list('scores'), store.list('users'), store.list('courses')]);
     const board = D.buildBoard(new Map(users.map((u) => [u.id, u])), scores, new Set(quizzes.map((q) => q.id)));
     const rec = scores.find((s) => s.id === user.id) || null;
-    send(res, 200, D.buildProfile({ user, rec, quizzes, courses, board, now: Date.now() }));
+    const contributions = (await store.list('materials')).filter((m) => m.by === user.id && m.status === 'approved').length;
+    send(res, 200, D.buildProfile({ user, rec, quizzes, courses, board, now: Date.now(), contributions }));
   });
 
   /* ---------- profile picture ---------- */

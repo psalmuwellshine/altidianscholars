@@ -9,6 +9,13 @@ import * as account from './pages/account.js';
 import * as viewer from './pages/viewer.js';
 import * as pay from './pages/pay.js';
 import * as chat from './pages/chat.js';
+import * as timetable from './pages/timetable.js';
+import * as share from './pages/share.js';
+import * as saved from './pages/saved.js';
+import * as rep from './pages/rep.js';
+import * as notify from './pages/notify.js';
+import { saveSnapshot, loadSnapshot } from './core/offline.js';
+import * as push from './core/push.js';
 
 initTheme();
 
@@ -23,9 +30,19 @@ try {
 } catch (e) { S.device = 'guest' + Math.random().toString(36).slice(2, 12) + 'abcdef'; }
 
 export async function load() {
-  S.state = await api('GET', '/api/state?device=' + encodeURIComponent(S.device));
+  try {
+    S.state = await api('GET', '/api/state?device=' + encodeURIComponent(S.device));
+    S.offline = false;
+    saveSnapshot(S.state);
+  } catch (e) {
+    // No connection: open with the last copy of the data, so saved notes and the timetable still work.
+    const snap = e.status === 0 ? loadSnapshot() : null;
+    if (!snap) throw e;
+    S.state = snap; S.offline = true;
+  }
   S.profile = null;
   renderChrome();
+  if (S.state.user && !S.offline) push.sync();
   return S.state;
 }
 export const user = () => S.state && S.state.user;
@@ -43,7 +60,7 @@ const PAGES = [
 ];
 const visiblePages = () => PAGES.filter((p) => p.id !== 'chat' || (S.state && S.state.config.chatEnabled));
 const ctxApi = { S, load, user, config, go, renderView: () => route() };
-const modules = [home, library, quizzes, board, events, account, viewer, pay, chat];
+const modules = [home, library, quizzes, board, events, account, viewer, pay, chat, timetable, share, saved, rep, notify];
 const actions = Object.assign({}, ...modules.map((m) => m.actions || {}));
 
 /* ---------- chrome (header, notice, tabs, footer) ---------- */
@@ -54,13 +71,14 @@ function renderChrome() {
   const oldView = document.getElementById('view');
   mount(shell, html`
     <header class="topbar"><div class="wrap in">
-      <a class="brand" href="#/"><img src="/logo.png" alt=""><span class="name">${c.siteName}</span></a>
+      <a class="brand" href="#/"><img src="/logo.png" alt=""><span class="name-wrap"><span class="name">${c.siteName}</span>${/^altidian$/i.test(c.siteName) ? html`<span class="was">formerly Exam Warriors</span>` : ''}</span></a>
       ${u ? html`<nav class="nav" aria-label="Main">${visiblePages().map((p) => html`<a href="#${p.path}" class="${cur === p.id ? 'on' : ''}" ${cur === p.id ? raw('aria-current="page"') : ''}>${icon(p.icon, 18)}${p.label}</a>`)}</nav>` : html`<span></span>`}
       <div class="top-end">
         <button class="icon-btn" data-action="theme" type="button" aria-label="Switch light and dark mode">${icon('moon', 19)}</button>
         ${u ? html`<a class="avatar-link" href="#/profile" aria-label="Your profile (${u.username})">${avatar(u.username, u.avatarId)}</a>` : ''}
       </div>
     </div></header>
+    ${S.offline ? html`<div class="notice info" role="status"><div class="wrap">${icon("refresh", 19)}<span>You are offline. Saved notes and your timetable still work. <a href="#/saved">Open saved notes</a></span></div></div>` : ''}
     ${S.state.notice ? html`<div class="notice ${S.state.notice.level}" role="status"><div class="wrap">${icon('bell', 19)}<span>${S.state.notice.text}</span></div></div>` : ''}
     <main id="view" class="wrap" tabindex="-1"></main>
     <footer class="foot"><div class="wrap in">
@@ -91,6 +109,8 @@ function currentId() {
   const hit = PAGES.find((p) => p.path !== '/' && path.startsWith(p.path));
   if (hit) return hit.id;
   if (path.startsWith('/quiz/')) return 'quizzes';
+  if (path === '/timetable') return 'events';
+  if (path === '/share' || path === '/saved') return 'library';
   return '';
 }
 
@@ -108,6 +128,10 @@ async function route() {
   else if (path.startsWith('/quiz/')) { page = quizzes.runner; params = { id: path.slice(6) }; }
   else if (path === '/board') page = board;
   else if (path === '/events') page = events;
+  else if (path === '/timetable') page = timetable;
+  else if (path === '/share') page = share;
+  else if (path === '/saved') page = saved;
+  else if (path === '/rep') page = rep;
   else if (path === '/chat' || path.startsWith('/chat/')) { page = chat; params = { room: path.slice(6) }; }
   else if (path === '/profile') page = account.profile;
   else if (['/login', '/register', '/forgot'].includes(path)) { page = account.auth; params = { mode: path.slice(1) }; }
@@ -170,6 +194,8 @@ document.addEventListener('change', (ev) => {
   if (el && actions[el.dataset.change]) actions[el.dataset.change](el, ev, ctxApi);
 });
 window.addEventListener('hashchange', route);
+window.addEventListener('online', () => { if (S.offline) load().then(route).catch(() => {}); });
+window.addEventListener('offline', () => { /* the next load falls back to the saved copy */ });
 
 /* ---------- start ---------- */
 (async function start() {

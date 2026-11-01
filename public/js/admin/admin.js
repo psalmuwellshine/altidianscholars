@@ -13,6 +13,8 @@ const SECTIONS = [
   { id: 'quizzes', label: 'Quizzes', icon: 'quiz' },
   { id: 'events', label: 'Events', icon: 'calendar' },
   { id: 'chat', label: 'Chat', icon: 'chat' },
+  { id: 'uploads', label: 'Student uploads', icon: 'upload' },
+  { id: 'timetable', label: 'Timetable and exams', icon: 'clock' },
   { id: 'notice', label: 'Announcement', icon: 'bell' },
   { id: 'board', label: 'Leaderboard', icon: 'trophy' },
   { id: 'settings', label: 'Site settings', icon: 'settings' },
@@ -117,12 +119,41 @@ const views = {
   },
 
   async notice() {
-    const n = await api('GET', '/api/admin/notice');
+    const n = await api('GET', '/api/admin/notice'); await loadAcad(); const ps = await api('GET', '/api/admin/push/stats');
     return html`${head('Announcement', 'A banner shown at the top of every page. Leave it empty to hide it.')}
       <div class="card" style="max-width:640px"><div class="msg alert bad" hidden role="alert"></div>
         <form data-submit="notice-save" novalidate><label class="field"><span>Message</span><textarea name="text" maxlength="240" placeholder="e.g. MBH222 test holds on Friday at 10am">${n.text}</textarea><small>Up to 240 characters.</small></label>
         <label class="field"><span>Style</span><select name="level"><option value="info" ${n.level === 'info' ? raw('selected') : ''}>Information (gold)</option><option value="warning" ${n.level === 'warning' ? raw('selected') : ''}>Important (red)</option><option value="success" ${n.level === 'success' ? raw('selected') : ''}>Good news (green)</option></select></label>
-        <div class="row gap-s"><button class="btn primary" type="submit">Publish</button><button class="btn ghost" data-action="notice-clear" type="button">Remove banner</button></div></form></div>`;
+        <label class="check small" style="margin-bottom:14px"><input type="checkbox" name="push"> Also send it as a notification to every student's phone</label>
+        <div class="row gap-s"><button class="btn primary" type="submit">Publish</button><button class="btn ghost" data-action="notice-clear" type="button">Remove banner</button></div></form></div>
+      <div class="card" style="max-width:640px;margin-top:16px"><h3 style="margin-bottom:4px">Send a notification</h3><p class="muted small" style="margin-bottom:12px">${ps.devices} phone${ps.devices === 1 ? '' : 's'} (${ps.students} of ${ps.totalStudents} students) have notifications on.</p>
+        <div class="msg alert bad" hidden role="alert"></div>
+        <form data-submit="push-send" novalidate><label class="field"><span>Title</span><input name="title" maxlength="80" required placeholder="e.g. Test moved to Friday"></label>
+          <label class="field"><span>Message (optional)</span><input name="body" maxlength="160"></label>
+          <div class="grid2"><label class="field"><span>Department</span><select name="departmentId"><option value="">Everyone</option>${A.acad.departments.map((d) => html`<option value="${d.id}">${d.name}</option>`)}</select></label>
+          <label class="field"><span>Level</span><select name="level"><option value="">All levels</option>${[100, 200, 300, 400, 500, 600].map((l) => html`<option value="${l}">${l} level</option>`)}</select></label></div>
+          <button class="btn primary" type="submit">${icon('bell', 16)} Send now</button></form></div>`;
+  },
+
+  async uploads() {
+    await loadAcad(); const d = await api('GET', '/api/admin/uploads');
+    const row = (m, review) => html`<div class="cm"><div class="cm-top"><b>${m.title}</b><span class="chip">${m.course}</span><span class="tiny muted">${kindLabel[m.kind] || 'Resource'} · by ${m.by || 'student'} · ${ago(m.addedAt)}</span>${review ? '' : html`<span class="chip ${m.status === 'approved' ? 'good' : 'bad'}">${m.status}</span>`}</div>
+      ${m.note ? html`<p>${m.note}</p>` : ''}${m.reason ? html`<p class="tiny muted">Reason: ${m.reason}</p>` : ''}
+      ${review ? html`<div class="actions">${m.fileId ? html`<a class="btn ghost small" href="/files/${m.fileId}" target="_blank" rel="noopener">${icon('eye', 15)} Open file</a>` : ''}${m.link ? html`<a class="btn ghost small" href="${m.link}" target="_blank" rel="noopener noreferrer nofollow">${icon('link', 15)} Link</a>` : ''}
+        <button class="btn primary small" data-action="up-approve" data-id="${m.id}" type="button">${icon('check', 15)} Approve</button><button class="btn ghost small" data-action="up-reject" data-id="${m.id}" data-title="${m.title}" type="button">Reject</button></div>` : ''}</div>`;
+    return html`${head('Student uploads', 'Notes and past questions shared by students. Class reps review their own class; you can review anything.')}
+      <div class="card" style="padding:0;overflow:hidden">${d.pending.length ? d.pending.map((m) => row(m, true)) : html`<div style="padding:8px">${empty('check', 'Nothing waiting', 'New uploads will appear here.')}</div>`}</div>
+      ${d.recent.length ? html`<h3 style="margin:24px 0 10px">Recently reviewed</h3><div class="card" style="padding:0;overflow:hidden">${d.recent.map((m) => row(m, false))}</div>` : ''}`;
+  },
+
+  async timetable() {
+    await loadAcad(); const list = await api('GET', '/api/admin/timetable');
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    return html`${head('Timetable and exams', 'Classes, exams and tests for any class. Class reps can also post for their own class.', html`<button class="btn primary small" data-action="tt-add" type="button">${icon('plus', 16)} Add</button>`)}
+      ${list.length ? html`<div class="tbl-wrap"><table><thead><tr><th>What</th><th>When</th><th>Class</th><th>By</th><th></th></tr></thead><tbody>${list.map((x) => html`<tr><td><b>${x.title}</b><br><span class="chip ${x.kind === 'exam' ? 'bad' : 'grey'}">${x.kind}</span> ${x.course ? html`<span class="chip">${x.course}</span>` : ''}</td>
+        <td>${x.kind === 'class' ? days[x.day - 1] : fmtDate(x.date + 'T00:00:00')}${x.start ? html`<br><span class="tiny muted">${x.start}${x.end ? ' – ' + x.end : ''}${x.venue ? ' · ' + x.venue : ''}</span>` : ''}</td>
+        <td>${x.departmentId ? dName(x.departmentId) : 'Everyone'}${x.level ? html`<br><span class="tiny muted">${x.level} level</span>` : ''}</td><td>${x.byName || ''}</td>
+        <td><div class="actions"><button class="btn ghost small icon" data-action="tt-del" data-id="${x.id}" type="button" aria-label="Delete ${x.title}">${icon('trash', 16)}</button></div></td></tr>`)}</tbody></table></div>` : empty('clock', 'Nothing posted', 'Add the first class, exam or test.')}`;
   },
 
   async chat() {
@@ -169,6 +200,8 @@ const views = {
           ${tg('registrationOpen', c.registrationOpen, 'Allow new registrations', 'Turn off to stop new accounts being created.')}
           ${tg('requireLogin', c.requireLogin, 'Require login for quizzes', 'When off, guests can take quizzes, but scores are stored per device.')}
           ${tg('chatEnabled', c.chatEnabled, 'Student chat rooms', 'Turns the chat rooms on or off for all students.')}
+          ${tg('contribEnabled', c.contribEnabled, 'Student uploads', 'Lets students share notes and past questions. Class reps or admins approve them first.')}
+          <label class="field" style="margin-top:10px"><span>Points for each approved upload</span><input name="contribPoints" type="number" min="0" max="500" step="1" value="${c.contribPoints}" style="max-width:140px"></label>
           ${tg('leaderboardEnabled', c.leaderboardEnabled, 'Show the leaderboard', 'Hides rankings everywhere on the site.')}</div>
         <div class="card" style="margin-top:16px"><h3 style="margin-bottom:6px">Pay by bank transfer</h3><p class="muted small" style="margin-bottom:12px">Students see these details when they tap Unlock, transfer the money, then send you proof on WhatsApp (set your WhatsApp link below). You then give them access under Students.</p>
           <div class="grid2"><label class="field"><span>Bank name</span><input name="payBank" maxlength="60" placeholder="e.g. Opay, GTBank" value="${c.payBank || ''}"></label>
@@ -205,6 +238,7 @@ function studentTable(list) {
     <button class="btn ghost small" data-action="stu-access" data-id="${u.id}" type="button">Access</button>
     <button class="btn ghost small icon" data-action="stu-edit" data-id="${u.id}" type="button" aria-label="Edit ${u.username}">${icon('edit', 16)}</button>
     <button class="btn ghost small" data-action="stu-pw" data-id="${u.id}" data-name="${u.username}" type="button">${icon('lock', 15)} Password</button>
+    <button class="btn ghost small" data-action="stu-rep" data-id="${u.id}" type="button">${u.rep ? 'Rep ✓' : 'Make rep'}</button>
     <button class="btn ghost small" data-action="chat-mute" data-id="${u.id}" data-name="${u.username}" data-state="${u.chatMuted ? 1 : 0}" type="button">${u.chatMuted ? 'Unmute chat' : 'Mute chat'}</button>
     <button class="btn ghost small" data-action="stu-disable" data-id="${u.id}" data-name="${u.username}" data-state="${u.disabled ? 1 : 0}" type="button">${u.disabled ? 'Enable' : 'Disable'}</button>
     <button class="btn ghost small icon" data-action="stu-del" data-id="${u.id}" data-name="${u.username}" type="button" aria-label="Delete ${u.username}">${icon('trash', 16)}</button></div></td></tr>`)}</tbody></table></div>`;
@@ -246,6 +280,7 @@ function materialDialog(m) {
       <div class="paid-box" style="margin-bottom:16px"><label class="check"><input type="checkbox" name="paid" ${edit && m.paid ? raw('checked') : ''}> Paid (students must pay to open this)</label>
         <label class="field" style="margin-top:8px"><span>Price in naira</span><input name="price" type="number" inputmode="numeric" min="1" step="1" placeholder="e.g. 500" value="${edit && m.paid ? m.price : ''}"><small>A file on a paid item must be a PDF or an image. Students can only view it, not download it.</small></label></div>
       <div class="row gap wrap-r" style="margin-bottom:16px"><label class="check"><input type="checkbox" name="pinned" ${edit && m.pinned ? raw('checked') : ''}> Pin to top</label><label class="check"><input type="checkbox" name="hidden" ${edit && m.hidden ? raw('checked') : ''}> Hidden from students</label></div>
+      ${edit ? '' : html`<label class="check small" style="margin-bottom:14px"><input type="checkbox" name="notify" checked> Send a notification to students of this course</label>`}
       <div class="row end gap"><button class="btn ghost" data-close type="button">Cancel</button><button class="btn primary" type="submit">${edit ? 'Save changes' : 'Add material'}</button></div></form>`, { wide: true });
   box.querySelector('form').dataset.id = edit ? m.id : '';
   box.querySelector('form').closeFn = close;
@@ -279,6 +314,7 @@ function quizDialog(qz) {
       <label class="check" style="margin-bottom:16px"><input type="checkbox" name="hidden" ${Q.hidden ? raw('checked') : ''}> Hidden from students (draft)</label>
       <div id="q-list">${qEditor()}</div>
       <div class="row gap-s wrap-r" style="margin-bottom:18px"><button class="btn ghost small" data-action="qz-addq" type="button">${icon('plus', 15)} Add question</button><button class="btn ghost small" data-action="qz-bulk" type="button">${icon('upload', 15)} Paste many questions</button></div>
+      ${qz ? '' : html`<label class="check small" style="margin-bottom:14px"><input type="checkbox" name="notify" checked> Send a notification to students of this course</label>`}
       <div class="row end gap"><button class="btn ghost" data-close type="button">Cancel</button><button class="btn primary" type="submit">${qz ? 'Save quiz' : 'Create quiz'}</button></div></form>`, { wide: true });
   const f = box.querySelector('form'); f.dataset.id = qz ? qz.id : ''; f.closeFn = close;
 }
@@ -305,6 +341,9 @@ function eventDialog(e) {
       <label class="field"><span>Location (optional)</span><input name="location" maxlength="120" value="${e ? e.location || '' : ''}"></label>
       <label class="field"><span>Details (optional)</span><textarea name="description" maxlength="1000">${e ? e.description || '' : ''}</textarea></label>
       <label class="field"><span>Link (optional)</span><input name="link" inputmode="url" placeholder="https://" value="${e ? e.link || '' : ''}"></label>
+      <div class="grid2"><label class="field"><span>For which department?</span><select name="departmentId"><option value="">Everyone</option>${A.acad.departments.map((d) => html`<option value="${d.id}" ${e && e.departmentId === d.id ? raw('selected') : ''}>${d.name}</option>`)}</select></label>
+      <label class="field"><span>For which level?</span><select name="level"><option value="">All levels</option>${[100, 200, 300, 400, 500, 600].map((l) => html`<option value="${l}" ${e && e.level === l ? raw('selected') : ''}>${l} level</option>`)}</select></label></div>
+      ${e ? '' : html`<label class="check small" style="margin-bottom:14px"><input type="checkbox" name="notify" checked> Send a notification to those students</label>`}
       <div class="row end gap"><button class="btn ghost" data-close type="button">Cancel</button><button class="btn primary" type="submit">${e ? 'Save event' : 'Add event'}</button></div></form>`);
   const f = box.querySelector('form'); f.dataset.id = e ? e.id : ''; f.closeFn = close;
 }
@@ -326,6 +365,40 @@ const actions = {
   theme: toggleTheme, reload,
   async logout() { try { await api('POST', '/api/admin/logout'); } catch (e) { /* ignore */ } start(); },
   'search-students': debounce((el) => { A.search = el.value; const t = document.getElementById('stu-table'); if (t) t.innerHTML = studentTable(A.cache.students || []).s; }, 120),
+
+  /* uploads, timetable, reps, push */
+  async 'up-approve'(el) { await api('POST', `/api/admin/uploads/${el.dataset.id}/review`, { action: 'approve' }); toast('Approved and published.'); reload(); },
+  'up-reject'(el) {
+    const { box, close } = dialog(html`<h3>Reject "${el.dataset.title}"?</h3><label class="field"><span>Reason the student will see</span><input name="reason" maxlength="200" autofocus></label>
+      <div class="row end gap"><button class="btn ghost" data-close type="button">Cancel</button><button class="btn danger" data-yes type="button">Reject</button></div>`);
+    box.querySelector('[data-yes]').addEventListener('click', async () => { try { await api('POST', `/api/admin/uploads/${el.dataset.id}/review`, { action: 'reject', reason: box.querySelector('[name=reason]').value }); close(); toast('Rejected.'); reload(); } catch (e) { toast(e.message, 'bad'); } });
+  },
+  'tt-add'() {
+    const lv = [100, 200, 300, 400, 500, 600];
+    const { box, close } = dialog(html`<h3>Add to the timetable</h3><div class="msg alert bad" hidden role="alert"></div><form data-submit="tt-save" novalidate>
+      <div class="grid2"><label class="field"><span>What is it?</span><select name="kind" data-change="tt-kind"><option value="class">Weekly class</option><option value="exam">Exam</option><option value="test">Test or quiz</option><option value="other">Other</option></select></label>
+        <label class="field"><span>Course (optional)</span><input name="course" maxlength="10" placeholder="e.g. MBH222" style="text-transform:uppercase"></label></div>
+      <label class="field"><span>Title</span><input name="title" maxlength="80" required autofocus></label>
+      <div class="grid2"><label class="field tt-day"><span>Day</span><select name="day">${['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((d, i) => html`<option value="${i + 1}">${d}</option>`)}</select></label>
+        <label class="field tt-date" hidden><span>Date</span><input name="date" type="date"></label><label class="field"><span>Venue (optional)</span><input name="venue" maxlength="80"></label></div>
+      <div class="grid2"><label class="field"><span>Starts</span><input name="start" type="time"></label><label class="field"><span>Ends (optional)</span><input name="end" type="time"></label></div>
+      <div class="grid2"><label class="field"><span>Department</span><select name="departmentId"><option value="">Everyone</option>${A.acad.departments.map((d) => html`<option value="${d.id}">${d.name}</option>`)}</select></label>
+        <label class="field"><span>Level</span><select name="level"><option value="">All levels</option>${lv.map((l) => html`<option value="${l}">${l} level</option>`)}</select></label></div>
+      <div class="row end gap"><button class="btn ghost" data-close type="button">Cancel</button><button class="btn primary" type="submit">Save</button></div></form>`);
+    box.querySelector('form').closeFn = close;
+  },
+  'tt-kind'(el) { const f = el.closest('form'); const c = el.value === 'class'; f.querySelector('.tt-day').hidden = !c; f.querySelector('.tt-date').hidden = c; },
+  async 'tt-del'(el) { if (!(await sure('Delete this entry?', 'It disappears for the whole class.', 'Delete'))) return; await api('DELETE', '/api/admin/timetable/' + el.dataset.id); toast('Deleted.'); reload(); },
+  'stu-rep'(el) {
+    const u = (A.cache.students || []).find((x) => x.id === el.dataset.id); if (!u) return;
+    const r = u.rep || {};
+    const { box, close } = dialog(html`<h3>Class rep: ${u.username}</h3><p class="muted small" style="margin-bottom:10px">A class rep can approve notes, post materials, events, timetable entries and short updates for one class.</p><div class="msg alert bad" hidden role="alert"></div>
+      <form data-submit="rep-save" data-id="${u.id}" novalidate><div class="grid2"><label class="field"><span>Department</span><select name="departmentId" required><option value="">Choose</option>${A.acad.departments.map((d) => html`<option value="${d.id}" ${(r.departmentId || u.departmentId) === d.id ? raw('selected') : ''}>${d.name}</option>`)}</select></label>
+        <label class="field"><span>Level</span><select name="level"><option value="0">All levels</option>${[100, 200, 300, 400, 500, 600].map((l) => html`<option value="${l}" ${(r.level || u.level) === l ? raw('selected') : ''}>${l} level</option>`)}</select></label></div>
+      <div class="row end gap wrap-r">${u.rep ? html`<button class="btn ghost" data-action="rep-remove" data-id="${u.id}" type="button">Remove as rep</button>` : ''}<button class="btn ghost" data-close type="button">Cancel</button><button class="btn primary" type="submit">${u.rep ? 'Save' : 'Make class rep'}</button></div></form>`);
+    box.querySelector('form').closeFn = close;
+  },
+  async 'rep-remove'(el) { await api('POST', `/api/admin/users/${el.dataset.id}/rep`, { remove: true }); document.querySelector('.modal-back')?.remove(); document.body.classList.remove('noscroll'); toast('No longer a class rep.'); reload(); },
 
   /* chat */
   'chat-room'(el) { A.chatRoom = el.value; reload(); },
@@ -436,6 +509,20 @@ const actions = {
 };
 
 const submits = {
+  async 'push-send'(form) {
+    await busy(form, async () => { const r = await api('POST', '/api/admin/push/send', { title: val(form, 'title'), body: val(form, 'body'), departmentId: val(form, 'departmentId'), level: val(form, 'level') }); toast('Sent to ' + plural(r.devices, 'phone') + '.'); form.reset(); });
+  },
+  async 'tt-save'(form) {
+    await busy(form, async () => {
+      const b = {}; ['kind', 'title', 'course', 'day', 'date', 'venue', 'start', 'end', 'departmentId', 'level'].forEach((k) => { b[k] = val(form, k); });
+      if (b.kind === 'class') b.date = ''; else b.day = '';
+      await api('POST', '/api/admin/timetable', b); form.closeFn(); toast('Added.'); reload();
+    });
+  },
+  async 'rep-save'(form) {
+    await busy(form, async () => { await api('POST', `/api/admin/users/${form.dataset.id}/rep`, { departmentId: val(form, 'departmentId'), level: Number(val(form, 'level')) }); form.closeFn(); toast('Saved. They get a notification.'); reload(); });
+  },
+
   async 'chat-post'(form) {
     await busy(form, async () => { await api('POST', '/api/admin/chat/send', { room: A.chatRoom, text: val(form, 'text') }); toast('Posted.'); reload(); });
   },
@@ -456,7 +543,7 @@ const submits = {
   },
   async 'mat-save'(form) {
     await busy(form, async () => {
-      const body = { title: val(form, 'title'), course: val(form, 'course').toUpperCase(), kind: val(form, 'kind'), note: val(form, 'note'), link: val(form, 'link'), paid: chk(form, 'paid'), price: val(form, 'price'), pinned: chk(form, 'pinned'), hidden: chk(form, 'hidden'), removeFile: chk(form, 'removeFile') };
+      const body = { title: val(form, 'title'), course: val(form, 'course').toUpperCase(), kind: val(form, 'kind'), note: val(form, 'note'), link: val(form, 'link'), paid: chk(form, 'paid'), price: val(form, 'price'), pinned: chk(form, 'pinned'), hidden: chk(form, 'hidden'), notify: chk(form, 'notify'), removeFile: chk(form, 'removeFile') };
       const file = form.querySelector('[name=file]').files[0];
       if (file) { if (file.size > 12 * 1024 * 1024) throw new Error('That file is over 12 MB.'); body.file = await readFile(file); }
       const id = form.dataset.id;
@@ -467,7 +554,7 @@ const submits = {
   async 'qz-save'(form) {
     syncQ(form);
     await busy(form, async () => {
-      const body = { title: val(form, 'title'), course: val(form, 'course').toUpperCase(), paid: chk(form, 'paid'), price: val(form, 'price'), hidden: chk(form, 'hidden'), questions: Q.questions };
+      const body = { title: val(form, 'title'), course: val(form, 'course').toUpperCase(), paid: chk(form, 'paid'), price: val(form, 'price'), hidden: chk(form, 'hidden'), notify: chk(form, 'notify'), questions: Q.questions };
       const id = form.dataset.id;
       await api(id ? 'PUT' : 'POST', '/api/admin/quizzes' + (id ? '/' + id : ''), body);
       form.closeFn(); toast(id ? 'Quiz saved.' : 'Quiz created.'); reload();
@@ -475,19 +562,19 @@ const submits = {
   },
   async 'ev-save'(form) {
     await busy(form, async () => {
-      const body = { title: val(form, 'title'), date: val(form, 'date'), time: val(form, 'time'), location: val(form, 'location'), description: val(form, 'description'), link: val(form, 'link') };
+      const body = { title: val(form, 'title'), date: val(form, 'date'), time: val(form, 'time'), location: val(form, 'location'), description: val(form, 'description'), link: val(form, 'link'), departmentId: val(form, 'departmentId'), level: val(form, 'level'), notify: chk(form, 'notify') };
       const id = form.dataset.id;
       await api(id ? 'PUT' : 'POST', '/api/admin/events' + (id ? '/' + id : ''), body);
       form.closeFn(); toast(id ? 'Event saved.' : 'Event added.'); reload();
     });
   },
   async 'notice-save'(form) {
-    await busy(form, async () => { await api('PUT', '/api/admin/notice', { text: val(form, 'text'), level: val(form, 'level') }); toast('Announcement published.'); });
+    await busy(form, async () => { await api('PUT', '/api/admin/notice', { text: val(form, 'text'), level: val(form, 'level'), push: chk(form, 'push') }); toast('Announcement published.'); });
   },
   async 'settings-save'(form) {
     await busy(form, async () => {
       const body = { siteName: val(form, 'siteName'), tagline: val(form, 'tagline'), motto: val(form, 'motto'), heroTitle: val(form, 'heroTitle'), heroText: val(form, 'heroText'), footerText: val(form, 'footerText'),
-        registrationOpen: chk(form, 'registrationOpen'), requireLogin: chk(form, 'requireLogin'), leaderboardEnabled: chk(form, 'leaderboardEnabled'), chatEnabled: chk(form, 'chatEnabled'), payBank: val(form, 'payBank'), payAccountNumber: val(form, 'payAccountNumber'), payAccountName: val(form, 'payAccountName'), payNote: val(form, 'payNote'), passPrice: val(form, 'passPrice'), passEnds: val(form, 'passEnds'),
+        registrationOpen: chk(form, 'registrationOpen'), requireLogin: chk(form, 'requireLogin'), leaderboardEnabled: chk(form, 'leaderboardEnabled'), chatEnabled: chk(form, 'chatEnabled'), contribEnabled: chk(form, 'contribEnabled'), contribPoints: val(form, 'contribPoints'), payBank: val(form, 'payBank'), payAccountNumber: val(form, 'payAccountNumber'), payAccountName: val(form, 'payAccountName'), payNote: val(form, 'payNote'), passPrice: val(form, 'passPrice'), passEnds: val(form, 'passEnds'),
         links: { whatsapp: val(form, 'whatsapp'), telegram: val(form, 'telegram'), instagram: val(form, 'instagram'), website: val(form, 'website'), email: val(form, 'email') } };
       A.config = await api('PUT', '/api/admin/config', body); toast('Settings saved. The site is updated.');
     });

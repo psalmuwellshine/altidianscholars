@@ -1,6 +1,7 @@
 import { html, icon, plural, esc, avatar, kindLabel, kindIcon } from '../core/ui.js';
 import { resourceCard, quizCard, eventTile, leaderRows, emptyState, inScope, hasPlace, placeLine } from './shared.js';
 import { todayKey } from '../core/ui.js';
+import { upcomingExams, classesToday, daysTo, countdown } from './timetable.js';
 
 export async function render({ S, user, config }) {
   const st = S.state; const c = config(); const u = user();
@@ -11,6 +12,7 @@ export async function render({ S, user, config }) {
   let quizPool = st.quizzes.filter((q) => inScope(S, u, 'mine', q.course));
   if (!quizPool.length) quizPool = st.quizzes;
   const best = (st.me && st.me.best) || {};
+  const exams = u ? upcomingExams(st) : []; const today = u ? classesToday(st) : [];
   // Everything starts minimised. A student taps a heading to open it.
   const fold = (ic, title, total, cards, seeAllHref) => html`<details class="fold">
     <summary><span class="ico-box">${icon(ic, 20)}</span><span class="grow"><b>${title}</b></span><span class="chip grey">${total}</span></summary>
@@ -40,6 +42,11 @@ export async function render({ S, user, config }) {
     ${u && st.me ? html`<section class="sec"><div class="card row gap wrap-r between"><div class="row gap">${avatar(u.username, u.avatarId, 'md')}
       <div><p class="muted small">Welcome back</p><h3>${u.username}</h3><p class="small"><span class="chip brand">${st.me.rank.title}</span> ${st.me.points} points${st.me.position ? ' · #' + st.me.position + ' on the board' : ''}</p></div></div>
       <a class="btn gold" href="#/profile">View my profile ${icon('arrow', 17)}</a></div></section>` : ''}
+
+    ${u && (exams.length || today.length || (st.classNotes || []).length) ? html`<section class="sec"><div class="sec-head"><div><h2>Your plan</h2><p>Countdowns, today's classes and updates from your class.</p></div><a class="btn ghost small" href="#/timetable">Timetable ${icon('arrow', 15)}</a></div>
+      ${(st.classNotes || []).length ? html`<div class="notes-strip">${st.classNotes.slice(0, 2).map((n) => html`<div class="alert info"><b>${n.by}:</b> ${n.text}</div>`)}</div>` : ''}
+      ${exams.length ? html`<div class="count-row">${exams.slice(0, 3).map((x) => html`<a class="count-pill ${daysTo(x.date) <= 1 ? 'soon' : ''}" href="#/timetable"><b>${daysTo(x.date)}</b><span>${daysTo(x.date) === 1 ? 'day' : 'days'}</span><i>${x.course || x.title} ${x.kind}</i></a>`)}</div>` : ''}
+      ${today.length ? html`<div class="card flat" style="margin-top:12px"><p class="muted small" style="margin-bottom:6px">Today's classes</p>${today.map((x) => html`<div class="slot"><b>${x.start}${x.end ? ' – ' + x.end : ''}</b><span>${x.title}${x.venue ? html` <span class="tiny muted">· ${x.venue}</span>` : ''}</span></div>`)}</div>` : ''}</section>` : ''}
 
     <section class="sec"><div class="sec-head"><div><h2>Fresh for you</h2><p>${hasPlace(u) ? 'For ' + placeLine(S, u) + '. Tap a heading to open it.' : 'Pinned and newest resources. Tap a heading to open it.'}</p></div><a class="btn ghost small" href="#/library">See all</a></div>
       ${groups.length ? html`<div class="folds">${groups}</div>` : emptyState('book', 'Nothing here yet', 'New study materials will show up here as soon as they are added.')}</section>
