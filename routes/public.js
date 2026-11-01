@@ -9,6 +9,8 @@ const Cl = require('../lib/classes');
 
 const { HttpError } = H;
 
+const qHash = (q) => H.sha(String(q.q)).slice(0, 10); // follows a question even if the quiz is reordered
+
 module.exports = function registerPublic({ route, store, send, userOf, fileTypes }) {
   const publicUser = (u) => ({ id: u.id, username: u.username, createdAt: u.createdAt || null, matric: u.matric || '', facultyId: u.facultyId || '', departmentId: u.departmentId || '', level: u.level || 0, rep: u.rep || null, avatarId: u.avatarId || '' });
   const AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -59,7 +61,9 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
     if (rec) {
       const { points, done } = D.pointsFor(rec, quizIds);
       const idx = board.findIndex((b) => b.id === meId);
-      me = { points, done, best: rec.best || {}, nick: rec.nick || '', position: idx >= 0 ? idx + 1 : null, rank: D.rankInfo(points) };
+      const missed = {};
+      quizzes.forEach((q) => { const hs = (rec.missed || {})[q.id]; if (!hs || !hs.length || q.hidden) return; const set = new Set(hs); const at = []; q.questions.forEach((x, i) => { if (set.has(qHash(x))) at.push(i); }); if (at.length) missed[q.id] = at; });
+      me = { points, done, best: rec.best || {}, nick: rec.nick || '', position: idx >= 0 ? idx + 1 : null, rank: D.rankInfo(points), missed };
     }
 
     const visibleMaterials = materials.filter((m) => !m.hidden);
@@ -321,13 +325,39 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
     if (improved) rec.best[quizId] = { correct, total };
     rec.history = D.historyOf(rec).concat([{ q: quizId, c: correct, t: total, at: Date.now() }]).slice(-D.HISTORY_LIMIT);
     rec.updatedAt = Date.now();
+    const wrong = []; quiz.questions.forEach((q, i) => { if (answers[i] !== q.a) wrong.push(i); });
+    rec.missed = rec.missed || {};
+    if (wrong.length) rec.missed[quizId] = wrong.map((i) => qHash(quiz.questions[i])); else delete rec.missed[quizId];
     await store.put('scores', rec);
 
     const after = snap(rec);
     const earned = user
       ? after.badges.filter((b) => b.earned && !before.badges.find((x) => x.id === b.id).earned).map((b) => b.name)
       : [];
-    send(res, 200, { correct, total, improved, points: after.points, rank: after.rank.title, newBadges: earned });
+    send(res, 200, { correct, total, improved, points: after.points, rank: after.rank.title, newBadges: earned, missed: wrong });
+  });
+
+  // Practising old mistakes: no points, but each one answered correctly leaves the student's mistakes list.
+  route('POST', '/api/scores/practice', { limit: ['practice', 300, 10 * 60 * 1000] }, async (req, res, ctx) => {
+    const { deviceId, quizId, answers } = ctx.body;
+    const user = await userOf(req); const config = await D.loadConfig(store);
+    let id;
+    if (user) id = user.id; else { if (config.requireLogin) throw new HttpError(401, 'Please log in first.'); if (!H.okDevice(deviceId)) throw new HttpError(400, 'Invalid request.'); id = deviceId; }
+    if (typeof quizId !== 'string' || !answers || typeof answers !== 'object') throw new HttpError(400, 'Invalid request.');
+    const quiz = await store.get('quizzes', quizId);
+    if (!quiz || quiz.hidden) throw new HttpError(404, 'That quiz is no longer available.');
+    if (!D.hasAccess(user, quiz)) throw new HttpError(403, 'This quiz is locked. Unlock it to take it.');
+    const rec = await store.get('scores', id);
+    const left = new Set(((rec && rec.missed) || {})[quizId] || []);
+    let fixed = 0; let tried = 0;
+    Object.keys(answers).slice(0, quiz.questions.length).forEach((k) => {
+      const i = Number(k); if (!Number.isInteger(i) || i < 0 || i >= quiz.questions.length) return;
+      const h = qHash(quiz.questions[i]); if (!left.has(h)) return;
+      tried++; if (answers[k] === quiz.questions[i].a) { left.delete(h); fixed++; }
+    });
+    if (rec) { rec.missed = rec.missed || {}; if (left.size) rec.missed[quizId] = [...left]; else delete rec.missed[quizId]; await store.put('scores', rec); }
+    const idx = []; quiz.questions.forEach((q, i) => { if (left.has(qHash(q))) idx.push(i); });
+    send(res, 200, { fixed, tried, left: idx });
   });
 
   // Guests (only possible when the admin turns off "login required") choose a leaderboard name.

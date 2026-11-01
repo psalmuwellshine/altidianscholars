@@ -293,6 +293,45 @@ module.exports = function registerCommunity({ route, store, send, userOf, push }
     send(res, 200, { ok: true });
   });
 
+
+  /* ================= reports: students flag a problem ================= */
+  const REASONS = ['wrong-answer', 'typo', 'unclear', 'broken-file', 'other'];
+  route('POST', '/api/report', { limit: ['report', 40, 60 * 60 * 1000] }, async (req, res, ctx) => {
+    const u = await need(req); const b = ctx.body;
+    const type = ['question', 'material', 'site'].includes(b.type) ? b.type : '';
+    const reason = REASONS.includes(b.reason) ? b.reason : 'other';
+    const message = clean(b.message, 500);
+    if (!type) throw new HttpError(400, 'Choose what you are reporting.');
+    if (message.length < 5) throw new HttpError(400, 'Tell us a little more, at least a few words.');
+    const doc = { id: newId(), uid: u.id, username: u.username, type, reason, message, status: 'open', at: Date.now() };
+    if (type === 'question') {
+      const quiz = await store.get('quizzes', H.str(b.refId, 40)); const i = Number(b.qIndex);
+      if (!quiz || !Number.isInteger(i) || i < 0 || i >= quiz.questions.length) throw new HttpError(404, 'That question was not found.');
+      Object.assign(doc, { refId: quiz.id, refTitle: quiz.title, course: quiz.course, qIndex: i, qText: quiz.questions[i].q.slice(0, 200) });
+    } else if (type === 'material') {
+      const m = await store.get('materials', H.str(b.refId, 40));
+      if (!m || m.hidden) throw new HttpError(404, 'That material was not found.');
+      Object.assign(doc, { refId: m.id, refTitle: m.title, course: m.course });
+    }
+    const all = await store.list('reports');
+    if (all.some((r) => r.uid === u.id && r.status === 'open' && r.type === type && r.refId === doc.refId && r.qIndex === doc.qIndex && type !== 'site')) throw new HttpError(400, 'You already reported this. Thank you, we will look at it.');
+    if (all.filter((r) => r.uid === u.id && r.status === 'open').length >= 15) throw new HttpError(400, 'You have 15 open reports already. Please wait for those to be handled.');
+    await store.put('reports', doc);
+    send(res, 200, { ok: true });
+  });
+  route('GET', '/api/admin/reports', A, async (req, res) => {
+    const all = (await store.list('reports')).sort((a, b) => b.at - a.at);
+    send(res, 200, { open: all.filter((r) => r.status === 'open').reverse(), done: all.filter((r) => r.status !== 'open').slice(0, 30) });
+  });
+  route('POST', '/api/admin/reports/:id/resolve', A, async (req, res, ctx) => {
+    const r = await store.get('reports', ctx.params[0]);
+    if (!r) throw new HttpError(404, 'Report not found.');
+    r.status = 'resolved'; r.note = clean(ctx.body.note, 200); r.resolvedAt = Date.now(); await store.put('reports', r);
+    push.later({ audience: { uid: r.uid }, type: 'direct', title: 'Thanks for your report', body: (r.refTitle || 'Your report') + (r.note ? ' · ' + r.note : ' · We looked into it.'), url: '/' });
+    send(res, 200, { ok: true });
+  });
+  route('DELETE', '/api/admin/reports/:id', A, async (req, res, ctx) => { await store.del('reports', ctx.params[0]); send(res, 200, { ok: true }); });
+
   /* ================= exam reminders ================= */
   const lagosToday = () => D.lagosDate(Date.now());
   const daysTo = (date) => Math.round((Date.parse(date + 'T00:00:00Z') - Date.parse(lagosToday() + 'T00:00:00Z')) / DAY);
