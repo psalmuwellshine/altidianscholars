@@ -118,3 +118,10 @@ new warrior. Points are 10 per correct answer, counted from the best attempt at 
 - Admin login is limited to a few tries per 15 minutes and lasts 12 hours.
 - Uploaded files are checked by type and contents, and are served in a sandbox.
 - Do not publish the connection string or password anywhere public.
+
+## Quiz mistakes, timed exams, CGPA and reports
+
+- **Practise my mistakes**: every quiz attempt remembers which questions were missed (`scores.missed`, matched by question text so reordering a quiz is safe). The quiz card and result page offer "Practise N mistakes". Practice gives no points; each right answer removes that question from the list.
+- **Timed exam**: `#/quiz/<id>?mode=exam`. One minute per question (minimum 5 minutes), no feedback until submitted, auto-submits at zero. It counts as a normal attempt.
+- **CGPA calculator**: `#/cgpa`, Nigerian 5.0 scale, saved on the phone only (localStorage).
+- **Report a problem**: students flag a quiz question, a resource or the site (`POST /api/report`, 40/hour). Admin > Reports lists them; "Mark as fixed" sends the student a thank-you notification.
