@@ -43,7 +43,8 @@ export async function setPrefs(prefs) {
 export async function sync() {
   try {
     if (!supported() || Notification.permission !== 'granted') return;
-    const sub = await (await ready()).pushManager.getSubscription(); if (!sub) return;
+    const sub = await (await ready()).pushManager.getSubscription();
+    if (!sub) { await enable(); return; } // permission was already given, so switch it on without asking again
     const r = await api('POST', '/api/push/check', { endpoint: sub.endpoint });
     if (!r.on) await api('POST', '/api/push/subscribe', { subscription: sub.toJSON() });
   } catch (e) { /* try again next visit */ }
