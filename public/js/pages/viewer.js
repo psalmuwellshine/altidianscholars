@@ -3,6 +3,7 @@
    no right-click menu on the pages, and nothing to drag out. It stops casual saving; it cannot stop
    screenshots or screen recording, which no website can. */
 import { html, icon, toast, esc } from '../core/ui.js';
+import { embedOf } from '../core/video.js';
 
 const PDFJS = '/vendor/pdfjs/';
 let pdfjsPromise = null;
@@ -101,7 +102,29 @@ async function openViewer(m) {
   }
 }
 
+// Plays a YouTube or Google Drive video inside the page.
+function openVideo(m, emb) {
+  closeViewer();
+  const root = document.createElement('div'); root.className = 'viewer'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-label', m.title);
+  root.innerHTML = '<div class="v-bar"><div class="grow"><b class="v-title"></b><span class="v-count tiny"></span></div><button class="btn ghost small v-close" type="button">Close</button></div><div class="v-body v-video"></div>';
+  root.querySelector('.v-title').textContent = m.title; root.querySelector('.v-count').textContent = emb.label;
+  const frame = document.createElement('iframe');
+  frame.title = m.title; frame.src = emb.src; frame.allowFullscreen = true; frame.referrerPolicy = 'strict-origin-when-cross-origin';
+  frame.setAttribute('allow', 'fullscreen; encrypted-media; picture-in-picture');
+  frame.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox');
+  root.querySelector('.v-body').appendChild(frame);
+  document.body.appendChild(root); document.body.classList.add('viewing');
+  const onKey = (ev) => { if (ev.key === 'Escape') closeViewer(); };
+  document.addEventListener('keydown', onKey);
+  current = { root, onKey };
+  const close = root.querySelector('.v-close'); close.addEventListener('click', closeViewer); close.focus();
+}
+
 export const actions = {
+  'play-video'(el, ev, { S }) {
+    const m = S.state.materials.find((x) => x.id === el.dataset.id); const emb = m && !m.locked ? embedOf(m.link) : null;
+    if (emb) openVideo(m, emb);
+  },
   'view-file'(el, ev, { S }) {
     const m = S.state.materials.find((x) => x.id === el.dataset.id);
     if (m && m.fileId && !m.locked) openViewer(m);

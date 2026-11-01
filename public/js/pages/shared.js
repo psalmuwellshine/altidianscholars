@@ -1,5 +1,6 @@
 /* Pieces used by more than one student page. */
 import { isSaved, canSave } from '../core/offline.js';
+import { embedOf } from '../core/video.js';
 import { html, raw, icon, esc, kindLabel, kindIcon, eventDate, todayKey, pct, initial, avatar } from '../core/ui.js';
 
 const naira = (n) => '₦' + Number(n || 0).toLocaleString('en-NG');
@@ -13,7 +14,8 @@ export function resourceCard(m) {
     ${m.note ? html`<p class="note">${m.note}</p>` : ''}
     ${m.locked ? html`<div class="go"><button class="btn gold small" data-action="unlock" data-id="${m.id}" type="button">${icon('lock', 16)} Unlock</button></div>` : html`<div class="go row wrap-r gap-s">
       ${m.fileId ? (m.paid ? html`<button class="btn primary small" data-action="view-file" data-id="${m.id}" type="button">${icon('eye', 16)} View</button>` : html`<a class="btn primary small" href="/files/${m.fileId}" target="_blank" rel="noopener">${icon('download', 16)} Open file</a>`) : ''}
-      ${m.link ? html`<a class="btn ${m.fileId ? 'ghost' : 'primary'} small" href="${m.link}" target="_blank" rel="noopener noreferrer">${icon(m.kind === 'video' ? 'video' : 'link', 16)} ${m.kind === 'video' ? 'Watch' : 'Open link'}</a>` : ''}
+      ${m.link && embedOf(m.link) ? html`<button class="btn primary small" data-action="play-video" data-id="${m.id}" type="button">${icon('video', 16)} Watch</button>` : ''}
+      ${m.link && !embedOf(m.link) ? html`<a class="btn ${m.fileId ? 'ghost' : 'primary'} small" href="${m.link}" target="_blank" rel="noopener noreferrer">${icon(m.kind === 'video' ? 'video' : 'link', 16)} ${m.kind === 'video' ? 'Watch' : 'Open link'}</a>` : ''}
       ${long || (m.note && !m.fileId && !m.link) ? html`<button class="btn ghost small" data-action="read" data-id="${m.id}" type="button">Read notes</button>` : ''}
       ${canSave(m) ? html`<button class="btn ghost small save-off ${isSaved(m.id) ? 'on' : ''}" data-action="save-offline" data-id="${m.id}" type="button">${isSaved(m.id) ? 'Saved ✓' : 'Save offline'}</button>` : ''}
     </div>`}
