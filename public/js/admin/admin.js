@@ -1,6 +1,7 @@
 /* Altidian admin control panel. */
 import { html, raw, mount, icon, api, toast, dialog, confirmBox, fmtDate, ago, pct, initial, avatar, kindLabel, initTheme, toggleTheme, readFile, debounce, eventDate, todayKey, plural, ApiError } from '../core/ui.js';
 import { parseBulk } from './bulk.js';
+import { embedOf } from '../core/video.js';
 import { placeFields, placeChange } from '../pages/shared.js';
 
 initTheme();
@@ -274,7 +275,7 @@ function materialDialog(m) {
       <div class="grid2"><label class="field"><span>Course</span><select name="course" required>${courseSelect(edit ? m.course : '')}</select></label>
       <label class="field"><span>Type</span><select name="kind">${Object.keys(kindLabel).map((k) => html`<option value="${k}" ${edit && m.kind === k ? raw('selected') : ''}>${kindLabel[k]}</option>`)}</select></label></div>
       <label class="field"><span>Notes (optional)</span><textarea name="note" maxlength="8000">${edit ? m.note || '' : ''}</textarea></label>
-      <label class="field"><span>Link (optional)</span><input name="link" inputmode="url" placeholder="https://… YouTube, Drive, etc." value="${edit ? m.link || '' : ''}"></label>
+      <label class="field"><span>Link (optional)</span><input name="link" inputmode="url" placeholder="Paste a YouTube or Google Drive link, or any web link" value="${edit ? m.link || '' : ''}" data-input="mat-link"><small id="mat-link-hint"></small></label>
       <label class="field"><span>File (optional, up to 12 MB)</span><input type="file" name="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.webp,.csv,.txt"><small>${edit && m.fileName ? 'Current file: ' + m.fileName + '. Choose a new one to replace it.' : 'PDF, Word, PowerPoint, Excel, image, CSV or text.'}</small></label>
       ${edit && m.fileId ? html`<label class="check small" style="margin-bottom:14px"><input type="checkbox" name="removeFile"> Remove the current file</label>` : ''}
       <div class="paid-box" style="margin-bottom:16px"><label class="check"><input type="checkbox" name="paid" ${edit && m.paid ? raw('checked') : ''}> Paid (students must pay to open this)</label>
@@ -284,6 +285,7 @@ function materialDialog(m) {
       <div class="row end gap"><button class="btn ghost" data-close type="button">Cancel</button><button class="btn primary" type="submit">${edit ? 'Save changes' : 'Add material'}</button></div></form>`, { wide: true });
   box.querySelector('form').dataset.id = edit ? m.id : '';
   box.querySelector('form').closeFn = close;
+  const li = box.querySelector('[name=link]'); if (li) linkHint(li);
 }
 
 /* ---------- dialogs: quizzes ---------- */
@@ -361,7 +363,17 @@ const chk = (f, n) => !!f.querySelector(`[name=${n}]`)?.checked;
 const byId = (list, id) => (A.cache[list] || []).find((x) => x.id === id);
 const sure = (title, text, yes, danger = true) => confirmBox({ title, text, yes, danger });
 
+const linkHint = (el) => {
+  const h = document.getElementById('mat-link-hint'); if (!h) return;
+  const v = el.value.trim(); const e = v ? embedOf(v) : null;
+  h.style.color = '';
+  if (!v) { h.textContent = ''; return; }
+  if (!e) { h.textContent = 'This link will open in a new tab. Only YouTube and Google Drive videos play inside Altidian.'; return; }
+  h.textContent = e.kind === 'drive' ? '✓ Google Drive video recognised. Set its sharing to "Anyone with the link", or students will see "access denied".' : '✓ YouTube video recognised. It will play inside Altidian.';
+  h.style.color = 'var(--good)';
+};
 const actions = {
+  'mat-link': linkHint,
   theme: toggleTheme, reload,
   async logout() { try { await api('POST', '/api/admin/logout'); } catch (e) { /* ignore */ } start(); },
   'search-students': debounce((el) => { A.search = el.value; const t = document.getElementById('stu-table'); if (t) t.innerHTML = studentTable(A.cache.students || []).s; }, 120),
