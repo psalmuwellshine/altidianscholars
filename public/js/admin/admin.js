@@ -218,6 +218,11 @@ const views = {
           ${tg('contribEnabled', c.contribEnabled, 'Student uploads', 'Lets students share notes and past questions. Class reps or admins approve them first.')}
           <label class="field" style="margin-top:10px"><span>Points for each approved upload</span><input name="contribPoints" type="number" min="0" max="500" step="1" value="${c.contribPoints}" style="max-width:140px"></label>
           ${tg('leaderboardEnabled', c.leaderboardEnabled, 'Show the leaderboard', 'Hides rankings everywhere on the site.')}</div>
+        <div class="card" style="margin-top:16px"><h3 style="margin-bottom:6px">Move-over banner</h3><p class="muted small" style="margin-bottom:12px">The "Exam Warriors is now Altidian" banner with a countdown, a first-time welcome pop-up, and a ribbon on the login page. Turn it off when the move is done.</p>
+          ${tg('moveOn', c.moveOn, 'Show the move-over banner', 'Stays visible until a week after the countdown day.')}
+          <label class="field" style="margin-top:10px"><span>Countdown day (materials only on Altidian from this day)</span><input name="moveEnds" type="date" value="${c.moveEnds || ''}" style="max-width:200px"></label>
+          <label class="field"><span>Banner headline (optional)</span><input name="moveTitle" maxlength="80" placeholder="Exam Warriors is now Altidian" value="${c.moveTitle || ''}"></label>
+          <label class="field"><span>Banner text (optional)</span><textarea name="moveText" maxlength="240" placeholder="Same team, same quality. Everything now lives in one place.">${c.moveText || ''}</textarea></label></div>
         <div class="card" style="margin-top:16px"><h3 style="margin-bottom:6px">Pay by bank transfer</h3><p class="muted small" style="margin-bottom:12px">Students see these details when they tap Unlock, transfer the money, then send you proof on WhatsApp (set your WhatsApp link below). You then give them access under Students.</p>
           <div class="grid2"><label class="field"><span>Bank name</span><input name="payBank" maxlength="60" placeholder="e.g. Opay, GTBank" value="${c.payBank || ''}"></label>
           <label class="field"><span>Account number (10 digits)</span><input name="payAccountNumber" inputmode="numeric" maxlength="10" value="${c.payAccountNumber || ''}"></label></div>
@@ -607,7 +612,7 @@ const submits = {
   async 'settings-save'(form) {
     await busy(form, async () => {
       const body = { siteName: val(form, 'siteName'), tagline: val(form, 'tagline'), motto: val(form, 'motto'), heroTitle: val(form, 'heroTitle'), heroText: val(form, 'heroText'), footerText: val(form, 'footerText'),
-        registrationOpen: chk(form, 'registrationOpen'), requireLogin: chk(form, 'requireLogin'), leaderboardEnabled: chk(form, 'leaderboardEnabled'), chatEnabled: chk(form, 'chatEnabled'), contribEnabled: chk(form, 'contribEnabled'), contribPoints: val(form, 'contribPoints'), payBank: val(form, 'payBank'), payAccountNumber: val(form, 'payAccountNumber'), payAccountName: val(form, 'payAccountName'), payNote: val(form, 'payNote'), passPrice: val(form, 'passPrice'), passEnds: val(form, 'passEnds'),
+        registrationOpen: chk(form, 'registrationOpen'), requireLogin: chk(form, 'requireLogin'), leaderboardEnabled: chk(form, 'leaderboardEnabled'), chatEnabled: chk(form, 'chatEnabled'), contribEnabled: chk(form, 'contribEnabled'), contribPoints: val(form, 'contribPoints'), moveOn: chk(form, 'moveOn'), moveEnds: val(form, 'moveEnds'), moveTitle: val(form, 'moveTitle'), moveText: val(form, 'moveText'), payBank: val(form, 'payBank'), payAccountNumber: val(form, 'payAccountNumber'), payAccountName: val(form, 'payAccountName'), payNote: val(form, 'payNote'), passPrice: val(form, 'passPrice'), passEnds: val(form, 'passEnds'),
         links: { whatsapp: val(form, 'whatsapp'), telegram: val(form, 'telegram'), instagram: val(form, 'instagram'), website: val(form, 'website'), email: val(form, 'email') } };
       A.config = await api('PUT', '/api/admin/config', body); toast('Settings saved. The site is updated.');
     });
