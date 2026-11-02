@@ -26,6 +26,7 @@ const SECTIONS = [
   { id: 'notice', label: 'Announcement', icon: 'bell' },
   { id: 'board', label: 'Leaderboard', icon: 'trophy' },
   { id: 'settings', label: 'Site settings', icon: 'settings' },
+  { id: 'backup', label: 'Backup', icon: 'download' },
 ];
 const A = { me: null, config: null, acad: { faculties: [], departments: [], courses: [] }, cache: {}, search: '', dept: '', level: '' };
 const fakeS = () => ({ state: { academics: A.acad } });
@@ -61,10 +62,14 @@ const empty = (ic, t, s) => html`<div class="empty">${icon(ic, 34)}<h3>${t}</h3>
 const views = {
   async overview() {
     const o = await api('GET', '/api/admin/overview'); const t = o.totals;
+    const bk = await api('GET', '/api/admin/backup/status').catch(() => null);
+    const stale = bk && (!bk.dataAt || Date.now() - bk.dataAt > 7 * 86400000);
+    const backupNudge = stale ? html`<div class="alert warning" role="status" style="margin-bottom:14px">${icon('download', 18)} <span>${bk.dataAt ? 'Your last data backup was ' + ago(bk.dataAt) + '.' : 'You have never downloaded a backup.'} <a href="#backup"><b>Download a backup now</b></a>.</span></div>` : '';
     const max = Math.max(1, ...o.series.map((d) => d.attempts));
     const sx = Math.max(1, ...o.series.map((d) => d.signups));
     const k = (ic, n, l, sub) => html`<div class="kpi">${icon(ic, 22)}<b>${n}</b><span>${l}</span>${sub ? html`<div class="tiny muted">${sub}</div>` : ''}</div>`;
     return html`${head('Overview', 'How the platform is doing right now.', html`<a class="btn ghost small" href="/" target="_blank" rel="noopener">View site</a>`)}
+      ${backupNudge}
       <div class="k-grid">${k('users', t.students, 'Students', t.activeWeek + ' active this week')}${k('book', t.materials, 'Resources', t.hiddenMaterials ? t.hiddenMaterials + ' hidden' : 'all visible')}${k('quiz', t.quizzes, 'Quizzes', t.hiddenQuizzes ? t.hiddenQuizzes + ' hidden' : 'all visible')}${k('star', t.attempts, 'Quiz attempts', t.guests ? t.guests + ' guest players' : '')}</div>
       <div class="k-grid" style="margin-top:12px">${k('calendar', t.upcoming, 'Upcoming events')}${k('shield', t.disabled, 'Disabled accounts')}${k('file', o.storage === 'mongodb' ? 'MongoDB' : 'File', 'Storage', o.storage === 'file' ? 'Resets on free hosting. Use MongoDB.' : 'Permanent')}</div>
       <section class="sec"><div class="card"><h3>Quiz attempts, last 14 days</h3>
@@ -262,6 +267,26 @@ const views = {
         <td><div class="actions"><button class="btn ghost small" data-action="board-del" data-id="${r.id}" data-name="${r.name}" type="button">${icon('trash', 16)} Clear scores</button></div></td></tr>`)}</tbody></table></div>` : empty('trophy', 'Nothing on the board', 'Scores appear after students take quizzes.')}`;
   },
 
+  async backup() {
+    const b = await api('GET', '/api/admin/backup/status');
+    const when = (t) => (t ? ago(t) + ' (' + new Date(t).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' }) + ')' : 'never');
+    return html`${head('Backup', 'Keep a safe copy of your platform outside the website.')}
+      <div class="card" style="max-width:760px"><h3 style="margin-bottom:6px">1. Data backup</h3>
+        <p class="muted small" style="margin-bottom:10px">Students, scores, resources, quizzes, events, chat, timetables and settings. It is small and quick to download.</p>
+        <p class="small" style="margin-bottom:12px">Last downloaded: <b>${when(b.dataAt)}</b> · ${b.students} students</p>
+        <a class="btn primary" href="/api/admin/backup/data" download>${icon('download', 17)} Download data backup</a></div>
+      <div class="card" style="max-width:760px;margin-top:16px"><h3 style="margin-bottom:6px">2. Files backup</h3>
+        <p class="muted small" style="margin-bottom:10px">Every uploaded PDF, image and profile photo, in one zip file. It can be large, so use Wi-Fi if you can.</p>
+        <p class="small" style="margin-bottom:12px">Last downloaded: <b>${when(b.filesAt)}</b> · ${b.files} files</p>
+        <a class="btn primary" href="/api/admin/backup/files" download>${icon('download', 17)} Download files backup</a></div>
+      <div class="card" style="max-width:760px;margin-top:16px"><h3 style="margin-bottom:6px">Restore data</h3>
+        <p class="muted small" style="margin-bottom:10px">Choose a data backup file you downloaded earlier. Records in the file are added back, and any record that exists in both is replaced by the backup version. Nothing is deleted.</p>
+        <label class="field"><span>Data backup file (.json)</span><input id="bk-file" type="file" accept=".json,application/json"></label>
+        <button class="btn ghost" data-action="backup-pick" type="button">${icon('upload', 17)} Restore from this file</button>
+        <p class="tiny muted" style="margin-top:10px">To restore the files backup (.zip), or a very large data file, ask your developer to run the restore script that comes with the project.</p></div>
+      <div class="card" style="max-width:760px;margin-top:16px"><h3 style="margin-bottom:8px">Keep your backups safe</h3>
+        <ul class="small" style="padding-left:18px;line-height:1.7"><li>These files contain student names, matric numbers, scores and password codes. Do not share them or post them in groups.</li><li>Store them somewhere private, such as your own Google Drive or a computer only you use.</li><li>Download a data backup at least once a week, and before any big change.</li></ul></div>`;
+  },
   async settings() {
     const c = await api('GET', '/api/admin/config'); A.config = c; const L = c.links;
     const tg = (name, on, title, sub) => html`<label class="toggle-row"><input type="checkbox" name="${name}" ${on ? raw('checked') : ''}><span><b>${title}</b><small class="muted" style="display:block">${sub}</small></span></label>`;
@@ -670,6 +695,26 @@ const submits = {
   },
   async 'notice-save'(form) {
     await busy(form, async () => { await api('PUT', '/api/admin/notice', { text: val(form, 'text'), level: val(form, 'level'), push: chk(form, 'push') }); toast('Announcement published.'); });
+  },
+  async 'backup-pick'() {
+    const f = document.getElementById('bk-file').files[0];
+    if (!f) return toast('Choose a backup file first.');
+    if (f.size > 15 * 1024 * 1024) return toast('That file is too large to restore here.');
+    let data; try { data = JSON.parse(await f.text()); } catch (e) { return toast('That is not a valid backup file.'); }
+    if (!data || data.app !== 'altidian-backup' || !data.collections) return toast('That is not an Altidian data backup.');
+    A.pendingBackup = data;
+    const n = Object.values(data.counts || {}).reduce((a, x) => a + x, 0);
+    const dlg = simpleDialog('Restore this backup?', html`<p class="small" style="margin-bottom:10px">Backup made ${new Date(data.createdAt).toLocaleString('en-NG')} with ${n} records.</p>
+      <p class="small" style="margin-bottom:10px">Records in the file are added back. Any record that exists on the site too is replaced by the backup version, so newer changes to those records are lost. Nothing is deleted.</p>
+      <label class="field"><span>Type RESTORE to confirm</span><input name="confirm" autocomplete="off"></label>`, 'backup-restore-go');
+    dlg.querySelector('button[type=submit]').textContent = 'Restore';
+  },
+  async 'backup-restore-go'(form) {
+    await busy(form, async () => {
+      if (val(form, 'confirm') !== 'RESTORE') throw new Error('Type RESTORE exactly, in capital letters.');
+      const r = await api('POST', '/api/admin/backup/restore', { backup: A.pendingBackup, confirm: 'RESTORE' });
+      A.pendingBackup = null; form.closeFn(); toast('Restored ' + r.total + ' records.'); reload();
+    });
   },
   async 'settings-save'(form) {
     await busy(form, async () => {
