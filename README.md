@@ -146,7 +146,12 @@ Admin > Site settings > Move-over banner. Shows a banner with a countdown on the
 - **Transfers**: paste the published list (`matric, department, level` per line), preview, publish. Matching students move automatically. Others can request a department; you approve or reject.
 - **Level window**: open it when a new session begins so students can move up a level; close it afterwards. Department changes happen only through transfers.
 
-**Photo reading (optional)**: pasting text always works. For reading photos, add these files from the tesseract.js project to `public/vendor/tesseract/`: `tesseract.min.js`, `worker.min.js`, `tesseract-core-lstm.wasm.js`, `tesseract-core-simd-lstm.wasm.js`, and `lang/eng.traineddata.gz`. Without them the dialog says photo reading is not switched on and asks for pasted text.
+**Courses from a registration form, departments from a list (admin, Academics page)**
+- **Courses from a form**: take a clear, flat photo of the course registration form (or paste its text). The reader finds each course code, title, unit and semester, reads the department and level from the top of the form, and compares the number of courses with the total printed on the form. You check the rows, pick the department and save. Existing course codes are linked to the department, never duplicated.
+- **Departments from a list**: photo or pasted list with a faculty heading above each group. Faculties that exist are reused; new ones are created. The order of the list is kept.
+- Photo reading is never perfect, so the check screen matters. Sharp, well-lit, flat photos work best. Handwriting does not read well.
+
+**Photo reading engine**: the app uses tesseract.js. It is listed under `optionalDependencies` in `package.json`, so `npm install` on Render fetches it and the server serves it from `node_modules`. The English language file is already in `public/vendor/tesseract/lang/`. Pasting text always works even if the engine is missing.
 
 ## Backup and restore
 

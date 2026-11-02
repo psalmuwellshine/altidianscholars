@@ -31,8 +31,14 @@ const etags = new Map();
 function serveStatic(req, res, pathname) {
   if (REDIRECTS[pathname]) return send(res, 302, '', { Location: REDIRECTS[pathname] });
   const rel = PAGES[pathname] || pathname;
-  const file = path.normalize(path.join(PUBLIC_DIR, rel));
-  if (!file.startsWith(PUBLIC_DIR + path.sep)) return send(res, 404, 'Not found', { 'Content-Type': 'text/plain' });
+  let file = path.normalize(path.join(PUBLIC_DIR, rel));
+  // The photo reader (tesseract.js) comes from npm (node_modules) when its files were not copied into public/vendor/tesseract/.
+  if (file.startsWith(path.join(PUBLIC_DIR, 'vendor', 'tesseract') + path.sep) && !fs.existsSync(file)) {
+    const name = path.basename(file); const dirs = { 'tesseract.min.js': 'tesseract.js/dist', 'worker.min.js': 'tesseract.js/dist' };
+    const dir = dirs[name] || (/^tesseract-core.*\.(js|wasm)$/.test(name) ? 'tesseract.js-core' : '');
+    if (dir) file = path.join(__dirname, 'node_modules', dir, name);
+  }
+  if (!file.startsWith(PUBLIC_DIR + path.sep) && !file.startsWith(path.join(__dirname, 'node_modules') + path.sep)) return send(res, 404, 'Not found', { 'Content-Type': 'text/plain' });
   fs.readFile(file, (err, buf) => {
     if (err) {
       // Unknown file-looking paths are real 404s; anything else is a page route of the app.

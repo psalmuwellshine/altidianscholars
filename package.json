@@ -1,6 +1,6 @@
 {
   "name": "altidian",
-  "version": "8.0.0",
+  "version": "11.0.0",
   "private": true,
   "description": "Altidian: study library, quizzes, leaderboard and student profiles by faculty, department and level",
   "main": "server.js",
@@ -12,5 +12,9 @@
   },
   "dependencies": {
     "mongodb": "^6.10.0"
+  },
+  "optionalDependencies": {
+    "tesseract.js": "5.1.1",
+    "tesseract.js-core": "5.1.1"
   }
 }
