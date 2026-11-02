@@ -147,3 +147,15 @@ Admin > Site settings > Move-over banner. Shows a banner with a countdown on the
 - **Level window**: open it when a new session begins so students can move up a level; close it afterwards. Department changes happen only through transfers.
 
 **Photo reading (optional)**: pasting text always works. For reading photos, add these files from the tesseract.js project to `public/vendor/tesseract/`: `tesseract.min.js`, `worker.min.js`, `tesseract-core-lstm.wasm.js`, `tesseract-core-simd-lstm.wasm.js`, and `lang/eng.traineddata.gz`. Without them the dialog says photo reading is not switched on and asks for pasted text.
+
+## Backup and restore
+
+- **Admin panel -> Backup** has two downloads: a *data backup* (.json: students, scores, resources, quizzes, events, chat, timetables, settings) and a *files backup* (.zip: uploaded PDFs, images, profile photos). The Overview page reminds you when the last data backup is more than 7 days old.
+- Backups contain student details and password codes. Keep them private.
+- **Restore data** from the Backup page (upload the .json). It only adds or replaces records and never deletes anything.
+- **Restore from your own computer** (needed for the files .zip, or a very large .json):
+  ```
+  MONGODB_URI="your database link" node scripts/restore.js altidian-data-backup-2026-11-01.json
+  MONGODB_URI="your database link" node scripts/restore.js altidian-files-backup-2026-11-01.zip
+  ```
+  (Add `MONGODB_DB=...` too if you use a database name other than the default.)

@@ -62,6 +62,7 @@ function fileStore(dir) {
       if (!FILE_ID.test(id)) return;
       try { await fsp.unlink(path.join(filesDir, id)); } catch (e) { /* already gone */ }
     },
+    async listFileIds() { return (await fsp.readdir(filesDir)).filter((f) => FILE_ID.test(f)); },
   };
 }
 
@@ -94,6 +95,7 @@ async function mongoStore(uri) {
       if (!FILE_ID.test(id)) return;
       await db.collection('files').deleteOne({ _id: id });
     },
+    async listFileIds() { return (await db.collection('files').find({}, { projection: { _id: 1 } }).toArray()).map((d) => d._id).filter((id) => FILE_ID.test(id)); },
   };
 }
 
@@ -102,4 +104,4 @@ async function createStore() {
   return fileStore(process.env.DATA_DIR || path.join(__dirname, 'data'));
 }
 
-module.exports = { createStore };
+module.exports = { createStore, COLLECTIONS };

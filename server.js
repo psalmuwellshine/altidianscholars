@@ -80,6 +80,7 @@ async function main() {
   require('./routes/community')({ route, store, send, userOf, push });
   require('./routes/extras')({ route, store, send, userOf, push, stats });
   require('./routes/transfers')({ route, store, send, userOf, push });
+  require('./routes/backup')({ route, store, send });
 
   const server = http.createServer(async (req, res) => {
     try {
