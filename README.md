@@ -138,7 +138,7 @@ Admin > Site settings > Move-over banner. Shows a banner with a countdown on the
 - **Flashcards** on every quiz, **bookmarks and notes** (star any resource or question), **question of the day** with a streak and 5 bonus points, **weak-topic report** on Home, **receipts / purchase history**, and **class summaries** ("what was taught today") posted by reps.
 - **Study groups**: private, join with a 6-letter code, shared to-do list, meeting time and a WhatsApp/Telegram link.
 - **Timetable from a photo or pasted text** (students, reps and admin).
-- **Auto logout**: if the phone cannot reach the server for more than **15 minutes**, the student is logged out and must sign in again. The check runs every minute and whenever the app is reopened. The limit is `LIMIT` in `public/js/core/offlineguard.js`.
+- **Auto logout for inactivity**: after **20 minutes** with no tap, click, key press or scroll, the person is logged out (students and the admin panel), whether online or offline, even if the tab stays open or the phone was closed. One minute before, a warning shows; any tap keeps them in. A running quiz and a playing video count as activity. The limit is `LIMIT` in `public/js/core/idle.js`.
 - **No matric / reg number** anywhere. Students who applied for a transfer can declare their matric number on their profile so the transfer list can move them automatically.
 
 **Admin**
