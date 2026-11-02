@@ -457,6 +457,9 @@ module.exports = function registerAdmin({ route, store, send, push }) {
       payAccountNumber: (() => { const n = String(b.payAccountNumber || '').replace(/\s+/g, ''); if (n && !/^\d{10}$/.test(n)) throw new HttpError(400, 'The account number must be 10 digits.'); return n; })(),
       passPrice: wholeNaira(b.passPrice, 'semester pass price', true),
       passEnds: (() => { const d = String(b.passEnds || '').trim(); if (d && !isDate(d)) throw new HttpError(400, 'Pick a valid last day for the semester pass.'); return d; })(),
+      moveOn: bool(b.moveOn),
+      moveEnds: (() => { const d = String(b.moveEnds || '').trim(); if (d && !isDate(d)) throw new HttpError(400, 'Pick a valid day for the move-over countdown.'); return d; })(),
+      moveTitle: clean(b.moveTitle, 80), moveText: clean(b.moveText, 240),
       links: {},
     };
     const L = b.links || {};
