@@ -63,6 +63,7 @@ export const icon = (name, size = 20) =>
   new Raw(`<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${P[name] || P.star}"/></svg>`);
 
 /* ---------- API ---------- */
+import * as idle from './idle.js';
 export async function api(method, url, body) {
   let res;
   try {
@@ -71,6 +72,7 @@ export async function api(method, url, body) {
   let data = null;
   try { data = await res.json(); } catch (e) { /* not JSON */ }
   if (!res.ok) throw new ApiError(res.status, (data && data.error) || 'Something went wrong. Please try again.');
+  if (/^\/api\/(login|register|user\/reset-password|admin\/login)$/.test(url)) idle.touch(true);
   return data;
 }
 export class ApiError extends Error { constructor(status, message) { super(message); this.status = status; } }
