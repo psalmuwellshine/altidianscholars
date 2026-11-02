@@ -24,7 +24,9 @@ export const forget = () => { last = 0; try { localStorage.removeItem(KEY); } ca
 // Reading a quiz question or watching a video is activity even when nothing is tapped.
 const busy = () => /^#\/quiz\//.test(location.hash) || !!document.querySelector('iframe[src*="youtube"], iframe[src*="youtu.be"], video');
 export function watch(onTick) {
-  ['pointerdown', 'keydown', 'touchstart', 'touchmove', 'wheel', 'scroll', 'input'].forEach((e) => window.addEventListener(e, () => touch(false), { passive: true, capture: true }));
+  // The first tap after a long break must not restart the clock: if 20 minutes have already passed, check instead.
+  const onActivity = () => { if (expired()) onTick(); else touch(false); };
+  ['pointerdown', 'keydown', 'touchstart', 'touchmove', 'wheel', 'scroll', 'input'].forEach((e) => window.addEventListener(e, onActivity, { passive: true, capture: true }));
   const tick = () => { if (!document.hidden && busy()) touch(false); onTick(); };
   setInterval(tick, 30000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) onTick(); });
