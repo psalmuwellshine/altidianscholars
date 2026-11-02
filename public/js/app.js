@@ -220,9 +220,11 @@ async function idleCheck() {
   if (!S.state || !S.state.user) { warned = false; return; }
   if (idle.expired()) {
     warned = false;
-    try { await api('POST', '/api/logout'); } catch (e) { /* offline: the cookie is cleared the next time the app loads */ }
+    // Log out on screen straight away. The server may be asleep (free hosting) and slow to answer, so the cookie is cleared in the background.
     S.cutOff = true; S.state = Object.assign({}, S.state, { user: null, me: null, notice: null }); S.profile = null;
-    renderChrome(); go('/login'); return;
+    renderChrome(); go('/login');
+    api('POST', '/api/logout').catch(() => { /* offline: the cookie is cleared the next time the app loads */ });
+    return;
   }
   if (idle.warning() && !warned) { warned = true; toast('You will be logged out in about a minute because of no activity. Tap anywhere to stay logged in.', 'bad'); }
   if (!idle.warning()) warned = false;
