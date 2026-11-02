@@ -11,7 +11,7 @@ const fs = require('fs');
 const fsp = require('fs/promises');
 const path = require('path');
 
-const COLLECTIONS = ['materials', 'quizzes', 'scores', 'settings', 'users', 'events', 'faculties', 'departments', 'courses', 'chat', 'chatrooms', 'push', 'timetable', 'classnotes', 'reports'];
+const COLLECTIONS = ['materials', 'quizzes', 'scores', 'settings', 'users', 'events', 'faculties', 'departments', 'courses', 'chat', 'chatrooms', 'push', 'timetable', 'classnotes', 'reports', 'stats', 'marks', 'groups', 'scheduled', 'transfers'];
 const FILE_ID = /^[a-f0-9]{16}$/;
 
 function fileStore(dir) {

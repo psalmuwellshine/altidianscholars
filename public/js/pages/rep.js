@@ -1,4 +1,5 @@
 /* Class rep panel: review shared notes, post to the library, set the class timetable, events and short updates. */
+import { openScan } from './scan.js';
 import { html, icon, api, toast, dialog, confirmBox, ago, kindLabel, eventDate } from '../core/ui.js';
 import { emptyState } from './shared.js';
 import { uploadForm, readUploadForm, submitWith } from './share.js';
@@ -25,11 +26,14 @@ export async function render({ S, user }) {
     <div class="grid-rep">
       <section class="card"><h3>Post to the library</h3><p class="muted small" style="margin-bottom:10px">Goes live straight away for your class.</p>${uploadForm(S, null, { action: 'rep-post', courses, button: 'Publish' })}</section>
       <section class="card"><h3>Message your class</h3><p class="muted small" style="margin-bottom:10px">A short update. It shows on their home page and arrives as a notification.</p>
-        <div class="msg alert bad" hidden role="alert"></div><form data-submit="rep-note" novalidate><label class="field"><span class="sr">Message</span><textarea name="text" rows="3" maxlength="300" required placeholder="e.g. Bring your lab coats on Monday"></textarea></label><button class="btn primary" type="submit">${icon('send', 16)} Send</button></form>
+        <div class="msg alert bad" hidden role="alert"></div><form data-submit="rep-note" novalidate>
+          <label class="field"><span>Type</span><select name="kind" data-change="rep-kind"><option value="update">Short update</option><option value="summary">What was taught today</option></select></label>
+          <label class="field" id="rep-course" hidden><span>Course</span><select name="course">${courses.map((c) => html`<option value="${c.code}">${c.code}</option>`)}</select></label>
+          <label class="field"><span class="sr">Message</span><textarea name="text" rows="3" maxlength="600" required placeholder="e.g. Bring your lab coats on Monday"></textarea></label><button class="btn primary" type="submit">${icon('send', 16)} Send</button></form>
         ${P.notes.length ? html`<ol class="lb" style="margin-top:14px">${P.notes.slice(0, 5).map((n) => html`<li><span class="grow small">${n.text}<br><span class="tiny muted">${ago(n.at)}</span></span><button class="icon-btn small-ic" data-action="rep-del" data-kind="notes" data-id="${n.id}" type="button" aria-label="Delete message">${icon('trash', 15)}</button></li>`)}</ol>` : ''}</section>
     </div>
 
-    <section class="sec"><div class="sec-head"><div><h3>Class timetable and exams</h3><p>Everyone in your class sees these. Exams and tests get a countdown and reminders.</p></div><button class="btn primary small" data-action="rep-tt-add" type="button">${icon('plus', 16)} Add</button></div>
+    <section class="sec"><div class="sec-head"><div><h3>Class timetable and exams</h3><p>Everyone in your class sees these. Exams and tests get a countdown and reminders.</p></div><span class="row gap-s"><button class="btn ghost small" data-action="rep-tt-scan" type="button">${icon('upload', 16)} From photo</button><button class="btn primary small" data-action="rep-tt-add" type="button">${icon('plus', 16)} Add</button></span></div>
       ${P.timetable.length ? html`<div class="card flat"><ol class="lb">${P.timetable.map((x) => html`<li><span class="grow"><b>${x.title}</b> <span class="chip ${x.kind === 'exam' ? 'bad' : 'grey'}">${x.kind === 'other' ? 'study' : x.kind}</span><br><span class="tiny muted">${when(x)}${x.start ? ' · ' + x.start + (x.end ? '–' + x.end : '') : ''}${x.venue ? ' · ' + x.venue : ''}</span></span><button class="icon-btn small-ic" data-action="rep-del" data-kind="timetable" data-id="${x.id}" type="button" aria-label="Delete ${x.title}">${icon('trash', 15)}</button></li>`)}</ol></div>` : emptyState('clock', 'Nothing yet', 'Add the weekly timetable and exam dates.')}</section>
 
     <section class="sec"><div class="sec-head"><div><h3>Class events</h3><p>Meetings, tutorials and study groups for your class.</p></div><button class="btn primary small" data-action="rep-ev-add" type="button">${icon('plus', 16)} Add</button></div>
@@ -53,8 +57,10 @@ export const actions = {
     await submitWith(form, async () => { await api('POST', '/api/rep/materials', await readUploadForm(form)); await done(renderView, load, 'Published for your class.'); });
   },
   async 'rep-note'(form, ev, { renderView }) {
-    await submitWith(form, async () => { await api('POST', '/api/rep/notes', { text: new FormData(form).get('text') }); toast('Sent to your class.'); renderView(); });
+    await submitWith(form, async () => { const fd = new FormData(form); await api('POST', '/api/rep/notes', { text: fd.get('text'), kind: fd.get('kind'), course: fd.get('course') }); toast('Sent to your class.'); renderView(); });
   },
+  'rep-kind'(el) { const f = el.closest('form'); f.querySelector('#rep-course').hidden = el.value !== 'summary'; },
+  'rep-tt-scan'(el, ev, { S, renderView, load }) { openScan({ target: 'rep', courses: courseList(S, P.scope).map((c) => c.code), done: async () => { await load(); renderView(); } }); },
   'rep-tt-add'(el, ev, { S }) {
     const { box, close } = dialog(html`<h3>Add to the class timetable</h3><div class="msg alert bad" hidden role="alert"></div><form data-submit="rep-tt-save" novalidate>${entryFields(courseList(S, P.scope).map((c) => c.code))}<div class="row end gap"><button class="btn ghost" data-close type="button">Cancel</button><button class="btn primary" type="submit">Save</button></div></form>`);
     box.querySelector('form').close = close;

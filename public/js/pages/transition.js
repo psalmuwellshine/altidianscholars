@@ -8,9 +8,9 @@ export const active = (c) => !!c.moveOn && (!c.moveEnds || daysTo(c.moveEnds) >=
 function countdown(c) {
   if (!c.moveEnds) return null;
   const n = daysTo(c.moveEnds);
-  if (n > 1) return { big: n, unit: 'days', line: 'until materials live only on Altidian (' + longDate(c.moveEnds) + ')' };
-  if (n === 1) return { big: 1, unit: 'day', line: 'left. From tomorrow, materials live only on Altidian.' };
-  if (n === 0) return { big: 'Today', unit: '', line: 'Materials now live only on Altidian.' };
+  if (n > 1) return { big: n, unit: 'days', line: 'until resources live only on Altidian (' + longDate(c.moveEnds) + ')' };
+  if (n === 1) return { big: 1, unit: 'day', line: 'left. From tomorrow, resources live only on Altidian.' };
+  if (n === 0) return { big: 'Today', unit: '', line: 'Resources now live only on Altidian.' };
   return { big: '✓', unit: '', line: 'Everything now lives on Altidian.' };
 }
 
@@ -38,7 +38,7 @@ export function welcome(user, c) {
       <ol class="welcome-steps">
         <li><b>Set your department and level</b><span>So you see the right courses first.</span></li>
         <li><b>Take a quiz</b><span>Instant answers, and your score counts on the leaderboard.</span></li>
-        <li><b>Turn on notifications</b><span>Hear about new materials and exam dates as they land.</span></li>
+        <li><b>Turn on notifications</b><span>Hear about new resources and exam dates as they land.</span></li>
       </ol>
       <div class="row end gap-s" style="margin-top:16px"><a class="btn ghost" href="#/profile" data-close>My profile</a><a class="btn primary" href="#/quizzes" data-close>Take a quiz ${icon('arrow', 17)}</a></div></div>`);
   }, 700);

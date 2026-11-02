@@ -1,7 +1,8 @@
-import { html, raw, mount, icon, api, toast, fmtDate, ago, pct, initial, plural, confirmBox, avatar, squarePhoto } from '../core/ui.js';
+import { html, raw, mount, icon, api, toast, fmtDate, ago, pct, initial, plural, confirmBox, avatar, squarePhoto, todayKey } from '../core/ui.js';
 import * as notifyMod from './notify.js';
 import * as move from './transition.js';
-import { emptyState, placeFields, placeChange, hasPlace, deptName, facultyName } from './shared.js';
+import * as more from './more.js';
+import { emptyState, placeFields, placeChange, hasPlace, deptName, facultyName, acad } from './shared.js';
 
 let nextPath = '/';
 const safeNext = (n) => (n && n.startsWith('/') && !n.startsWith('//') ? n : '/');
@@ -9,7 +10,7 @@ const showBox = (id, text, kind = 'bad') => { const b = document.getElementById(
 
 /* ---------- login / register / forgot ---------- */
 export const auth = {
-  async render(a, p, q) { const body = await authBody(a, p, q); return html`${a.user() ? '' : move.ribbon(a.config())}${body}`; },
+  async render(a, p, q) { const body = await authBody(a, p, q); return html`${a.user() ? '' : move.ribbon(a.config())}${a.S.cutOff && !a.user() ? html`<div class="alert warning" style="max-width:460px;margin:0 auto 14px">You were offline for more than 15 minutes, so you were logged out. Connect to the internet and log in again.</div>` : ''}${body}`; },
 };
 async function authBody({ S, user, config, go }, { mode }, query) {
   {
@@ -23,7 +24,7 @@ async function authBody({ S, user, config, go }, { mode }, query) {
         <div id="auth-msg" class="alert bad" hidden role="alert"></div>
         <form data-submit="do-register" novalidate>
           <label class="field"><span>Username</span><input name="username" required autocomplete="username" maxlength="24" autofocus><small>3 to 24 characters. This is the name others see on the leaderboard.</small></label>
-          <label class="field"><span>Matric / registration number</span><input name="matric" required autocomplete="off" maxlength="25" placeholder="e.g. NDU/MLS/2023/001" style="text-transform:uppercase"><small>Only admins can see this. Each number can be used for one account.</small></label>
+          
           ${placeFields(S, {})}
           ${pw('reg-pass', 'Password')}
           <label class="field"><span>Recovery phrase</span><input name="phrase" required minlength="4" maxlength="60" autocomplete="off"><small>A secret word or phrase only you know. It is the only way to reset your password if you forget it, so remember it.</small></label>
@@ -61,8 +62,8 @@ async function sendForm(form, work) {
 /* ---------- profile ---------- */
 export const profile = {
   needsLogin: true,
-  after() { notifyMod.hydrate(); },
-  async render({ S, user }) {
+  after({ S }) { notifyMod.hydrate(); more.hydrateTransfer(S); },
+  async render({ S, user, config }) {
     const p = await api('GET', '/api/profile');
     S.profile = p;
     const r = p.rank; const earned = p.badges.filter((b) => b.earned).length;
@@ -73,7 +74,7 @@ export const profile = {
           <div class="upload-row" style="justify-content:center"><button class="btn gold small" data-action="avatar-pick" type="button">${icon('upload', 15)} ${p.user.avatarId ? 'Change' : 'Add photo'}</button>${p.user.avatarId ? html`<button class="btn ghost small" style="color:#fff;border-color:rgba(255,255,255,.6)" data-action="avatar-remove" type="button" aria-label="Remove photo">${icon('trash', 15)}</button>` : ''}</div>
           <input id="avatar-file" type="file" accept="image/jpeg,image/png,image/webp" data-change="avatar-file" hidden></div>
         <div class="grow"><p class="muted small">Student profile</p><h1>${p.user.username}</h1>
-          <div class="me-meta">${p.user.matric ? html`<span class="chip">${icon('shield', 13)} ${p.user.matric}</span>` : ''}${hasPlace(p.user) ? html`<span class="chip gold">${deptName(S, p.user.departmentId)}</span><span class="chip">${p.user.level} level</span><span class="chip">${facultyName(S, p.user.facultyId)}</span>` : ''}</div>
+          <div class="me-meta">${hasPlace(p.user) ? html`<span class="chip gold">${deptName(S, p.user.departmentId)}</span><span class="chip">${p.user.level} level</span><span class="chip">${facultyName(S, p.user.facultyId)}</span>` : ''}</div>
           <p class="muted small" style="margin-top:8px">Joined ${fmtDate(p.user.createdAt)}${p.user.lastLoginAt ? ' · last seen ' + ago(p.user.lastLoginAt) : ''}</p>
           <div class="rankbar"><div class="row between small"><b>${r.title}</b><span>${p.points} pts</span></div><div class="bar"><i style="width:${r.pct}%"></i></div>
             <p>${r.next ? (r.next.at - p.points) + ' points to ' + r.next.title : 'Summit reached. Legend!'}</p></div></div>
@@ -90,10 +91,14 @@ export const profile = {
         <a class="card flat q" href="#/share">${icon('upload', 22)}<b>Share a note</b><span>Earn points when it is approved</span></a>
         <a class="card flat q" href="#/saved">${icon('download', 22)}<b>Saved offline</b><span>Read with no internet</span></a>
         <a class="card flat q" href="#/timetable">${icon('clock', 22)}<b>Timetable and exams</b><span>Your class and countdowns</span></a>
+        <a class="card flat q" href="#/bookmarks">${icon('star', 22)}<b>Bookmarks</b><span>Saved questions and notes</span></a>
+        <a class="card flat q" href="#/groups">${icon('users', 22)}<b>Study groups</b><span>Plan with friends</span></a>
+        <a class="card flat q" href="#/receipts">${icon('check', 22)}<b>My purchases</b><span>Pass and receipts</span></a>
         <a class="card flat q" href="#/cgpa">${icon('trophy', 22)}<b>CGPA calculator</b><span>Work out your GPA and class</span></a>
         <button class="card flat q" data-action="report-open" data-type="site" type="button">${icon('flag', 22)}<b>Report a problem</b><span>Tell us if something is wrong</span></button>
         ${user().rep ? html`<a class="card flat q gold" href="#/rep">${icon('shield', 22)}<b>Class rep panel</b><span>Review notes and post for your class</span></a>` : ''}</div></section>
       ${notifyMod.section()}
+      ${more.transferSection()}
 
       <section class="sec"><div class="sec-head"><div><h2>Badges</h2><p>${earned} of ${p.badges.length} unlocked</p></div></div>
         <div class="badges">${p.badges.map((b) => html`<div class="badge ${b.earned ? '' : 'off'}"><div class="ico-box">${icon(b.earned ? 'medal' : 'lock', 24)}</div><b>${b.name}</b><span>${b.desc}</span>${b.earned ? '' : html`<div class="bar" style="margin-top:8px"><i style="width:${pct(b.progress.current, b.progress.target)}%"></i></div>`}</div>`)}</div></section>
@@ -115,8 +120,10 @@ export const profile = {
         <div class="fold-body"><div class="card" style="max-width:640px"><div id="set-msg" class="alert bad" hidden role="alert"></div>
           <form data-submit="do-update" data-box="set-msg" novalidate>
             <label class="field"><span>Current password</span><input name="currentPassword" type="password" required autocomplete="current-password"></label>
-            <label class="field"><span>Matric / registration number</span><input name="newMatric" autocomplete="off" maxlength="25" value="${p.user.matric}" style="text-transform:uppercase"></label>
-            ${placeFields(S, p.user)}
+            ${hasPlace(p.user) ? html`<div class="card flat" style="margin-bottom:12px"><b>${deptName(S, p.user.departmentId)} · ${p.user.level} level</b>
+              <input type="hidden" name="facultyId" value="${p.user.facultyId}"><input type="hidden" name="departmentId" value="${p.user.departmentId}">
+              ${config().levelOpen && (!config().levelEnds || config().levelEnds >= todayKey()) ? html`<label class="field" style="margin-top:10px"><span>New session: choose your level</span><select name="level">${Array.from({ length: Math.min(6, ((acad(S).departments.find((d) => d.id === p.user.departmentId) || {}).maxLevel || 600) / 100) }, (_, i) => (i + 1) * 100).map((l) => html`<option value="${l}" ${l === p.user.level ? raw('selected') : ''}>${l} level</option>`)}</select></label>`
+                : html`<p class="tiny muted" style="margin-top:6px">Your department changes only through a transfer (see Department transfer above). Your level can be updated when a new session begins.</p>`}</div>` : placeFields(S, p.user)}
             <div class="grid2"><label class="field"><span>New username</span><input name="newUsername" autocomplete="username" maxlength="24" placeholder="${p.user.username}"></label>
               <label class="field"><span>New password</span><input name="newPassword" type="password" minlength="6" autocomplete="new-password"></label></div>
             <label class="field"><span>New recovery phrase</span><input name="newRecoveryPhrase" autocomplete="off" maxlength="60"><small>Leave blank to keep the one you have.</small></label>
@@ -156,12 +163,11 @@ export const actions = {
     return sendForm(form, async () => {
       const f = new FormData(form);
       const username = String(f.get('username')).trim(); const password = String(f.get('reg-pass')); const phrase = String(f.get('phrase')).trim();
-      const matric = String(f.get('matric')).trim();
-      if (!username || !password || !phrase || !matric) throw new Error('Fill in every field.');
+      if (!username || !password || !phrase) throw new Error('Fill in every field.');
       if (!f.get('facultyId') || !f.get('departmentId') || !f.get('level')) throw new Error('Choose your faculty, department and level.');
       if (password.length < 6) throw new Error('Password must be at least 6 characters.');
       if (phrase.length < 4) throw new Error('Recovery phrase must be at least 4 characters.');
-      await api('POST', '/api/register', { username, password, recoveryPhrase: phrase, matric, facultyId: f.get('facultyId'), departmentId: f.get('departmentId'), level: Number(f.get('level')), deviceId: S.device });
+      await api('POST', '/api/register', { username, password, recoveryPhrase: phrase, facultyId: f.get('facultyId'), departmentId: f.get('departmentId'), level: Number(f.get('level')), deviceId: S.device });
       await load(); toast('Account created. Welcome aboard!'); go(nextPath);
     });
   },
@@ -176,7 +182,6 @@ export const actions = {
     return sendForm(form, async () => {
       const f = new FormData(form);
       const body = { currentPassword: String(f.get('currentPassword')) };
-      const nm = String(f.get('newMatric') || '').trim(); if (nm) body.newMatric = nm;
       if (f.get('facultyId') && f.get('departmentId') && f.get('level')) { body.facultyId = f.get('facultyId'); body.departmentId = f.get('departmentId'); body.level = Number(f.get('level')); }
       ['newUsername', 'newPassword', 'newRecoveryPhrase'].forEach((k) => { const v = String(f.get(k) || '').trim(); if (v) body[k] = k === 'newPassword' ? String(f.get(k)) : v; });
       const d = await api('POST', '/api/user/update', body);

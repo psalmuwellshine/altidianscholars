@@ -18,6 +18,9 @@ import * as cgpa from './pages/cgpa.js';
 import * as report from './pages/report.js';
 import { saveSnapshot, loadSnapshot } from './core/offline.js';
 import * as push from './core/push.js';
+import * as guard from './core/offlineguard.js';
+import * as more from './pages/more.js';
+import * as scan from './pages/scan.js';
 
 initTheme();
 
@@ -31,18 +34,26 @@ try {
   }
 } catch (e) { S.device = 'guest' + Math.random().toString(36).slice(2, 12) + 'abcdef'; }
 
+let lastUid = '';
 export async function load() {
   try {
     S.state = await api('GET', '/api/state?device=' + encodeURIComponent(S.device));
-    S.offline = false;
+    // Back online after more than 15 minutes without a connection: log out and ask for a fresh login.
+    if (S.state.user && guard.expired()) {
+      try { await api('POST', '/api/logout'); } catch (e) { /* the session cookie is cleared next time */ }
+      S.state = await api('GET', '/api/state?device=' + encodeURIComponent(S.device)); S.cutOff = true;
+    }
+    guard.markOnline(); S.offline = false;
     saveSnapshot(S.state);
   } catch (e) {
     // No connection: open with the last copy of the data, so saved notes and the timetable still work.
     const snap = e.status === 0 ? loadSnapshot() : null;
     if (!snap) throw e;
-    S.state = snap; S.offline = true;
+    guard.markOffline(); S.state = snap; S.offline = true;
+    if (guard.expired()) { S.state = Object.assign({}, snap, { user: null, me: null, notice: null }); S.cutOff = true; }
   }
   S.profile = null;
+  if (S.state.user) { S.cutOff = false; if (lastUid !== S.state.user.id) { more.resetMarks(); lastUid = S.state.user.id; } if (!S.offline) more.prime(); }
   renderChrome();
   if (S.state.user && !S.offline) push.sync();
   return S.state;
@@ -62,7 +73,7 @@ const PAGES = [
 ];
 const visiblePages = () => PAGES.filter((p) => p.id !== 'chat' || (S.state && S.state.config.chatEnabled));
 const ctxApi = { S, load, user, config, go, renderView: () => route() };
-const modules = [home, library, quizzes, board, events, account, viewer, pay, chat, timetable, share, saved, rep, notify, cgpa, report];
+const modules = [home, library, quizzes, board, events, account, viewer, pay, chat, timetable, share, saved, rep, notify, cgpa, report, more, scan];
 const actions = Object.assign({}, ...modules.map((m) => m.actions || {}));
 
 /* ---------- chrome (header, notice, tabs, footer) ---------- */
@@ -113,7 +124,7 @@ function currentId() {
   if (path.startsWith('/quiz/')) return 'quizzes';
   if (path === '/timetable') return 'events';
   if (path === '/share' || path === '/saved') return 'library';
-  if (path === '/cgpa') return 'home';
+  if (path === '/cgpa' || path === '/bookmarks' || path === '/groups' || path.startsWith('/group/') || path === '/receipts') return 'home';
   return '';
 }
 
@@ -136,6 +147,10 @@ async function route() {
   else if (path === '/saved') page = saved;
   else if (path === '/rep') page = rep;
   else if (path === '/cgpa') page = cgpa;
+  else if (path === '/bookmarks') page = more.bookmarks;
+  else if (path === '/groups') page = more.groups;
+  else if (path.startsWith('/group/')) { page = more.group; params = { id: path.slice(7) }; }
+  else if (path === '/receipts') page = more.receipts;
   else if (path === '/chat' || path.startsWith('/chat/')) { page = chat; params = { room: path.slice(6) }; }
   else if (path === '/profile') page = account.profile;
   else if (['/login', '/register', '/forgot'].includes(path)) { page = account.auth; params = { mode: path.slice(1) }; }
@@ -199,7 +214,20 @@ document.addEventListener('change', (ev) => {
 });
 window.addEventListener('hashchange', route);
 window.addEventListener('online', () => { if (S.offline) load().then(route).catch(() => {}); });
-window.addEventListener('offline', () => { /* the next load falls back to the saved copy */ });
+window.addEventListener('offline', () => { guard.markOffline(); });
+// Checks the connection once a minute. Offline for over 15 minutes means logged out.
+async function heartbeat() {
+  if (!S.state || !S.state.user) return;
+  try { await api('GET', '/api/ping'); if (guard.expired()) { await load(); route(); } else { guard.markOnline(); if (S.offline) { load().then(route).catch(() => {}); } } }
+  catch (e) {
+    if (e.status !== 0) return;
+    guard.markOffline(); S.offline = true;
+    if (guard.expired()) { S.state = Object.assign({}, S.state, { user: null, me: null, notice: null }); S.cutOff = true; renderChrome(); go('/login'); }
+    else renderChrome();
+  }
+}
+setInterval(heartbeat, 60000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) heartbeat(); });
 
 /* ---------- start ---------- */
 (async function start() {

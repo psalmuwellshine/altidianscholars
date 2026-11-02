@@ -22,7 +22,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const STATIC_TYPES = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.mjs': 'text/javascript; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.txt': 'text/plain; charset=utf-8',
+  '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.txt': 'text/plain; charset=utf-8', '.wasm': 'application/wasm', '.gz': 'application/gzip',
 };
 const PAGES = { '/': '/index.html', '/admin': '/admin.html' };
 const REDIRECTS = { '/login': '/#/login', '/login.html': '/#/login', '/profile': '/#/profile', '/profile.html': '/#/profile' };
@@ -72,11 +72,14 @@ async function main() {
     return u;
   }
 
-  require('./routes/public')({ route, store, send, userOf, fileTypes: FILE_TYPES });
+  const stats = require('./lib/stats')(store);
+  require('./routes/public')({ route, store, send, userOf, fileTypes: FILE_TYPES, stats });
   const push = require('./lib/push')(store);
   require('./routes/admin')({ route, store, send, push });
   require('./routes/chat')({ route, store, send, userOf });
   require('./routes/community')({ route, store, send, userOf, push });
+  require('./routes/extras')({ route, store, send, userOf, push, stats });
+  require('./routes/transfers')({ route, store, send, userOf, push });
 
   const server = http.createServer(async (req, res) => {
     try {

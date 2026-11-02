@@ -76,7 +76,7 @@ module.exports = function registerAdmin({ route, store, send, push }) {
   const userRow = (u, rec, quizIds) => {
     const p = D.pointsFor(rec, quizIds);
     return {
-      id: u.id, username: u.username, matric: u.matric || '', facultyId: u.facultyId || '', departmentId: u.departmentId || '', level: u.level || 0, avatarId: u.avatarId || '', createdAt: u.createdAt || null, lastLoginAt: u.lastLoginAt || null,
+      id: u.id, username: u.username, facultyId: u.facultyId || '', departmentId: u.departmentId || '', level: u.level || 0, avatarId: u.avatarId || '', createdAt: u.createdAt || null, lastLoginAt: u.lastLoginAt || null,
       paidUntil: u.paidUntil || '', unlocked: Array.isArray(u.unlocked) ? u.unlocked : [], unlockedCount: Array.isArray(u.unlocked) ? u.unlocked.length : 0,
       disabled: !!u.disabled, chatMuted: !!u.chatMuted, rep: u.rep || null, hasRecovery: !!u.recovery, points: p.points, done: p.done, rank: D.rankInfo(p.points).title,
       attempts: D.historyOf(rec).length || p.done,
@@ -132,10 +132,8 @@ module.exports = function registerAdmin({ route, store, send, push }) {
     const user = await store.get('users', ctx.params[0]);
     if (!user) throw new HttpError(404, 'Student not found.');
     const b = ctx.body;
-    const matric = Ac.cleanMatric(b.matric);
-    if ((await store.list('users')).some((u) => u.matric === matric && u.id !== user.id)) throw new HttpError(400, 'That matric number belongs to another student.');
     const place = Ac.pickAcademic(b, await Ac.loadAcademics(store));
-    user.matric = matric; Object.assign(user, place);
+    Object.assign(user, place);
     await store.put('users', user);
     send(res, 200, { ok: true });
   });
@@ -149,9 +147,18 @@ module.exports = function registerAdmin({ route, store, send, push }) {
     const [mats, qzs] = await Promise.all([store.list('materials'), store.list('quizzes')]);
     const paidIds = new Set(mats.concat(qzs).filter((x) => x.paid).map((x) => x.id));
     const want = Array.isArray(b.unlocked) ? b.unlocked.map(String) : [];
+    const hadItems = new Set(Array.isArray(user.unlocked) ? user.unlocked : []); const prevUntil = user.paidUntil || '';
     user.paidUntil = until;
     user.unlocked = Array.from(new Set(want.filter((id) => paidIds.has(id))));
+    // A receipt for everything newly unlocked, so the student can see what they have paid for.
+    const cfg = await D.loadConfig(store); const byId = new Map(mats.concat(qzs).map((x) => [x.id, x]));
+    const now = Date.now(); user.receipts = Array.isArray(user.receipts) ? user.receipts : [];
+    const no = () => 'ALT-' + H.sha(newId() + now).slice(0, 8).toUpperCase(); const gained = [];
+    user.unlocked.filter((id) => !hadItems.has(id)).forEach((id) => { const x = byId.get(id); user.receipts.push({ id: newId(), no: no(), kind: 'item', ref: id, title: x.title, amount: x.price || 0, at: now }); gained.push(x.title); });
+    if (until && until !== prevUntil && until >= D.lagosDate(now)) { user.receipts.push({ id: newId(), no: no(), kind: 'pass', title: 'Semester pass', amount: cfg.passPrice || 0, until, at: now }); gained.push('Semester pass'); }
+    user.receipts = user.receipts.slice(-100);
     await store.put('users', user);
+    if (gained.length) push.later({ audience: { uid: user.id }, type: 'direct', title: 'Access unlocked', body: gained.slice(0, 3).join(', ') + (gained.length > 3 ? ' and more' : ''), url: '/#/receipts' });
     send(res, 200, { ok: true, paidUntil: user.paidUntil, unlocked: user.unlocked.length });
   });
   route('DELETE', '/api/admin/users/:id/avatar', A, async (req, res, ctx) => {
@@ -255,7 +262,7 @@ module.exports = function registerAdmin({ route, store, send, push }) {
     const c = await store.get('courses', ctx.params[0]);
     if (!c) return send(res, 200, { ok: true });
     const used = (await store.list('materials')).some((m) => m.course === c.code) || (await store.list('quizzes')).some((q) => q.course === c.code);
-    if (used) throw new HttpError(400, 'Materials or quizzes still use ' + c.code + '. Delete or move them first.');
+    if (used) throw new HttpError(400, 'Resources or quizzes still use ' + c.code + '. Delete or move them first.');
     await store.del('courses', c.id);
     send(res, 200, { ok: true });
   });
@@ -317,12 +324,12 @@ module.exports = function registerAdmin({ route, store, send, push }) {
     const r = await readMaterial(ctx.body, null);
     await requireCourse(r.doc.course);
     await saveMaterial(r);
-    if (!r.doc.hidden && ctx.body.notify !== false) notifyCourse(r.doc.course, 'materials', 'New ' + r.doc.course + ' material', r.doc.title);
+    if (!r.doc.hidden && ctx.body.notify !== false) notifyCourse(r.doc.course, 'materials', 'New ' + r.doc.course+ ' resource', r.doc.title);
     send(res, 200, { ok: true, id: r.doc.id });
   });
   route('PUT', '/api/admin/materials/:id', A, async (req, res, ctx) => {
     const m = await store.get('materials', ctx.params[0]);
-    if (!m) throw new HttpError(404, 'Material not found.');
+    if (!m) throw new HttpError(404, 'Resource not found.');
     const r = await readMaterial(ctx.body, m);
     if (r.doc.course !== m.course) await requireCourse(r.doc.course);
     await saveMaterial(r);
@@ -457,6 +464,7 @@ module.exports = function registerAdmin({ route, store, send, push }) {
       payAccountNumber: (() => { const n = String(b.payAccountNumber || '').replace(/\s+/g, ''); if (n && !/^\d{10}$/.test(n)) throw new HttpError(400, 'The account number must be 10 digits.'); return n; })(),
       passPrice: wholeNaira(b.passPrice, 'semester pass price', true),
       passEnds: (() => { const d = String(b.passEnds || '').trim(); if (d && !isDate(d)) throw new HttpError(400, 'Pick a valid last day for the semester pass.'); return d; })(),
+      levelOpen: cur.levelOpen, levelEnds: cur.levelEnds,
       moveOn: bool(b.moveOn),
       moveEnds: (() => { const d = String(b.moveEnds || '').trim(); if (d && !isDate(d)) throw new HttpError(400, 'Pick a valid day for the move-over countdown.'); return d; })(),
       moveTitle: clean(b.moveTitle, 80), moveText: clean(b.moveText, 240),
@@ -502,18 +510,18 @@ module.exports = function registerAdmin({ route, store, send, push }) {
     if (what === 'students') {
       const acad = await Ac.loadAcademics(store);
       const fn = (id) => (acad.faculties.find((f) => f.id === id) || {}).name || ''; const dn = (id) => (acad.departments.find((d) => d.id === id) || {}).name || '';
-      rows = [['Username', 'Matric number', 'Faculty', 'Department', 'Level', 'Joined', 'Last login', 'Status', 'Points', 'Quizzes done', 'Rank']].concat(users.map((u) => {
+      rows = [['Username', 'Faculty', 'Department', 'Level', 'Joined', 'Last login', 'Status', 'Points', 'Quizzes done', 'Rank']].concat(users.map((u) => {
         const r = userRow(u, byId.get(u.id), ids);
-        return [r.username, r.matric, fn(r.facultyId), dn(r.departmentId), r.level || '', r.createdAt ? new Date(r.createdAt).toISOString() : '', r.lastLoginAt ? new Date(r.lastLoginAt).toISOString() : '', r.disabled ? 'disabled' : 'active', r.points, r.done, r.rank];
+        return [r.username, fn(r.facultyId), dn(r.departmentId), r.level || '', r.createdAt ? new Date(r.createdAt).toISOString() : '', r.lastLoginAt ? new Date(r.lastLoginAt).toISOString() : '', r.disabled ? 'disabled' : 'active', r.points, r.done, r.rank];
       }));
     } else if (what === 'scores') {
-      const name = new Map(users.map((u) => [u.id, u.username])); const mat = new Map(users.map((u) => [u.id, u.matric || '']));
-      rows = [['Student', 'Matric number', 'Quiz', 'Course', 'Best correct', 'Out of', 'Percent']];
+      const name = new Map(users.map((u) => [u.id, u.username]));
+      rows = [['Student', 'Quiz', 'Course', 'Best correct', 'Out of', 'Percent']];
       scores.forEach((s) => {
         Object.keys(s.best || {}).forEach((qid) => {
           const q = quizzes.find((x) => x.id === qid); if (!q) return;
           const b = s.best[qid];
-          rows.push([name.get(s.id) || s.nick || 'Guest', mat.get(s.id) || '', q.title, q.course, b.correct, b.total, b.total ? Math.round((b.correct / b.total) * 100) : 0]);
+          rows.push([name.get(s.id) || s.nick || 'Guest', q.title, q.course, b.correct, b.total, b.total ? Math.round((b.correct / b.total) * 100) : 0]);
         });
       });
     } else throw new HttpError(404, 'Unknown export.');

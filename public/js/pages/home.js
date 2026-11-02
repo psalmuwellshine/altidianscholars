@@ -2,6 +2,7 @@ import { html, raw, icon, plural, esc, avatar, kindLabel, kindIcon, debounce } f
 import { resourceCard, quizCard, eventTile, leaderRows, emptyState, inScope, hasPlace, placeLine } from './shared.js';
 import { todayKey } from '../core/ui.js';
 import * as move from './transition.js';
+import * as more from './more.js';
 import * as notifyMod from './notify.js';
 import { upcomingExams, classesToday, daysTo, countdown } from './timetable.js';
 
@@ -86,6 +87,7 @@ export async function render({ S, user, config }) {
     ${u && !hasPlace(u) ? html`<div class="alert warning" style="margin-top:16px">Tell us your department and level to see the right courses. <a href="#/profile">Update my profile</a></div>` : ''}
     ${u ? html`<div id="push-nudge" style="margin-top:16px"></div>` : ''}
     ${move.banner(c)}
+    ${u && c.levelOpen && (!c.levelEnds || c.levelEnds >= todayKey()) ? html`<div class="alert warning level-banner"><b>New session!</b> Update your level so you see the right courses. <a href="#/profile" data-action="goto-settings">Update my level</a></div>` : ''}
     <section class="hero">
       ${c.tagline ? html`<span class="tag">${c.tagline}</span>` : ''}
       <h1>${c.heroTitle}</h1><p>${c.heroText}</p>
@@ -95,6 +97,7 @@ export async function render({ S, user, config }) {
         ${!u && c.registrationOpen ? html`<a class="btn ghost" href="#/register">Create account</a>` : ''}
       </div>
     </section>
+    ${u ? more.qotdSlot() : ''}
     <section class="sec home-search">
       <form class="hs-form" data-submit="home-search-go" role="search">
         <label class="searchbox big">${icon('search', 20)}<span class="sr">Search Altidian</span><input id="hs-input" type="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Search notes, past questions, quizzes…" value="${Q}" data-input="home-search"></label>
@@ -114,12 +117,12 @@ export async function render({ S, user, config }) {
       <a class="btn gold" href="#/profile">View my profile ${icon('arrow', 17)}</a></div></section>` : ''}
 
     ${u && (exams.length || today.length || (st.classNotes || []).length) ? html`<section class="sec"><div class="sec-head"><div><h2>Your plan</h2><p>Countdowns, today's classes and updates from your class.</p></div><a class="btn ghost small" href="#/timetable">Timetable ${icon('arrow', 15)}</a></div>
-      ${(st.classNotes || []).length ? html`<div class="notes-strip">${st.classNotes.slice(0, 2).map((n) => html`<div class="alert info"><b>${n.by}:</b> ${n.text}</div>`)}</div>` : ''}
+      ${(st.classNotes || []).length ? html`<div class="notes-strip">${st.classNotes.slice(0, 3).map((n) => n.kind === 'summary' ? html`<div class="alert info"><span class="chip">${n.course}</span> <b>Today in class</b> · ${n.by}<br>${n.text}</div>` : html`<div class="alert info"><b>${n.by}:</b> ${n.text}</div>`)}</div>` : ''}
       ${exams.length ? html`<div class="count-row">${exams.slice(0, 3).map((x) => html`<a class="count-pill ${daysTo(x.date) <= 1 ? 'soon' : ''}" href="#/timetable"><b>${daysTo(x.date)}</b><span>${daysTo(x.date) === 1 ? 'day' : 'days'}</span><i>${x.course || x.title} ${x.kind}</i></a>`)}</div>` : ''}
       ${today.length ? html`<div class="card flat" style="margin-top:12px"><p class="muted small" style="margin-bottom:6px">Today's classes</p>${today.map((x) => html`<div class="slot"><b>${x.start}${x.end ? ' – ' + x.end : ''}</b><span>${x.title}${x.venue ? html` <span class="tiny muted">· ${x.venue}</span>` : ''}</span></div>`)}</div>` : ''}</section>` : ''}
 
     <section class="sec"><div class="sec-head"><div><h2>Fresh for you</h2><p>${hasPlace(u) ? 'For ' + placeLine(S, u) + '. Tap a heading to open it.' : 'Pinned and newest resources. Tap a heading to open it.'}</p></div><a class="btn ghost small" href="#/library">See all</a></div>
-      ${groups.length ? html`<div class="folds">${groups}</div>` : emptyState('book', 'Nothing here yet', 'New study materials will show up here as soon as they are added.')}</section>
+      ${groups.length ? html`<div class="folds">${groups}</div>` : emptyState('book', 'Nothing here yet', 'New study resources will show up here as soon as they are added.')}</section>
 
     <section class="sec"><div class="sec-head"><div><h2>Coming up</h2><p>Notices and events from ${c.siteName}.</p></div><a class="btn ghost small" href="#/events">All events</a></div>
       ${upcoming.length ? html`<div class="cards">${upcoming.map(eventTile)}</div>` : emptyState('calendar', 'No upcoming events', 'Check back soon.')}</section>
@@ -128,7 +131,7 @@ export async function render({ S, user, config }) {
       <div class="card flat">${st.board.length ? leaderRows(st.board.slice(0, 5)) : emptyState('trophy', 'Be the first', 'Take a quiz to claim the top spot.')}</div></section>` : ''}
     </div>`;
 }
-export function after(ctx) { notifyMod.nudge(); move.welcome(ctx.user(), ctx.config()); }
+export function after(ctx) { notifyMod.nudge(); move.welcome(ctx.user(), ctx.config()); more.hydrateQotd(); }
 function runSearch(S, user, q, jump) {
   Q = q; LIM.m = LIM.q = LIM.e = 12;
   const on = Q.trim().length >= 2;

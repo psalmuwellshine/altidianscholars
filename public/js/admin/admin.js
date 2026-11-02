@@ -4,18 +4,22 @@ import { parseBulk } from './bulk.js';
 import { embedOf } from '../core/video.js';
 import { placeFields, placeChange } from '../pages/shared.js';
 import { reasonLabel } from '../pages/report.js';
+import { openScan, actions as scanActions } from '../pages/scan.js';
 
 initTheme();
 const root = document.getElementById('root');
 const SECTIONS = [
   { id: 'overview', label: 'Overview', icon: 'chart' },
+  { id: 'signups', label: 'Sign-up progress', icon: 'users' },
+  { id: 'analytics', label: 'Analytics', icon: 'chart' },
   { id: 'students', label: 'Students', icon: 'users' },
   { id: 'academics', label: 'Academics', icon: 'shield' },
-  { id: 'materials', label: 'Materials', icon: 'book' },
+  { id: 'materials', label: 'Resources', icon: 'book' },
   { id: 'quizzes', label: 'Quizzes', icon: 'quiz' },
   { id: 'events', label: 'Events', icon: 'calendar' },
   { id: 'chat', label: 'Chat', icon: 'chat' },
   { id: 'uploads', label: 'Student uploads', icon: 'upload' },
+  { id: 'transfers', label: 'Transfers and levels', icon: 'refresh' },
   { id: 'reports', label: 'Reports', icon: 'flag' },
   { id: 'timetable', label: 'Timetable and exams', icon: 'clock' },
   { id: 'notice', label: 'Announcement', icon: 'bell' },
@@ -60,7 +64,7 @@ const views = {
     const sx = Math.max(1, ...o.series.map((d) => d.signups));
     const k = (ic, n, l, sub) => html`<div class="kpi">${icon(ic, 22)}<b>${n}</b><span>${l}</span>${sub ? html`<div class="tiny muted">${sub}</div>` : ''}</div>`;
     return html`${head('Overview', 'How the platform is doing right now.', html`<a class="btn ghost small" href="/" target="_blank" rel="noopener">View site</a>`)}
-      <div class="k-grid">${k('users', t.students, 'Students', t.activeWeek + ' active this week')}${k('book', t.materials, 'Materials', t.hiddenMaterials ? t.hiddenMaterials + ' hidden' : 'all visible')}${k('quiz', t.quizzes, 'Quizzes', t.hiddenQuizzes ? t.hiddenQuizzes + ' hidden' : 'all visible')}${k('star', t.attempts, 'Quiz attempts', t.guests ? t.guests + ' guest players' : '')}</div>
+      <div class="k-grid">${k('users', t.students, 'Students', t.activeWeek + ' active this week')}${k('book', t.materials, 'Resources', t.hiddenMaterials ? t.hiddenMaterials + ' hidden' : 'all visible')}${k('quiz', t.quizzes, 'Quizzes', t.hiddenQuizzes ? t.hiddenQuizzes + ' hidden' : 'all visible')}${k('star', t.attempts, 'Quiz attempts', t.guests ? t.guests + ' guest players' : '')}</div>
       <div class="k-grid" style="margin-top:12px">${k('calendar', t.upcoming, 'Upcoming events')}${k('shield', t.disabled, 'Disabled accounts')}${k('file', o.storage === 'mongodb' ? 'MongoDB' : 'File', 'Storage', o.storage === 'file' ? 'Resets on free hosting. Use MongoDB.' : 'Permanent')}</div>
       <section class="sec"><div class="card"><h3>Quiz attempts, last 14 days</h3>
         <div class="chart" role="img" aria-label="Bar chart of daily quiz attempts for the last 14 days">${o.series.map((d) => html`<div class="col" title="${d.date}: ${d.attempts} attempts, ${d.signups} new students"><b>${d.attempts || ''}</b><i style="height:${(d.attempts / max) * 100}%"></i><span>${d.date.slice(8)}</span></div>`)}</div>
@@ -73,7 +77,7 @@ const views = {
   async students() {
     const list = await api('GET', '/api/admin/users'); A.cache.students = list;
     return html`${head('Students', plural(list.length, 'account') + ' registered.', html`<a class="btn ghost small" href="/api/admin/export/students">${icon('download', 16)} Students CSV</a><a class="btn ghost small" href="/api/admin/export/scores">${icon('download', 16)} Scores CSV</a>`)}
-      <div class="toolbar"><label class="searchbox" style="max-width:340px">${icon('search', 18)}<span class="sr">Search students</span><input type="search" placeholder="Search username or matric" data-input="search-students" value="${A.search}"></label>
+      <div class="toolbar"><label class="searchbox" style="max-width:340px">${icon('search', 18)}<span class="sr">Search students</span><input type="search" placeholder="Search username" data-input="search-students" value="${A.search}"></label>
         <select data-change="stu-dept" style="width:auto;max-width:260px" aria-label="Department"><option value="">All departments</option>${A.acad.departments.map((d) => html`<option value="${d.id}" ${A.dept === d.id ? raw('selected') : ''}>${d.name}</option>`)}</select>
         <select data-change="stu-level" style="width:auto" aria-label="Level"><option value="">All levels</option>${[100, 200, 300, 400, 500, 600].map((l) => html`<option value="${l}" ${String(A.level) === String(l) ? raw('selected') : ''}>${l} level</option>`)}</select></div>
       <div id="stu-table">${studentTable(list)}</div>`;
@@ -93,15 +97,61 @@ const views = {
         <div id="crs-table">${courseTable(ac, deps)}</div></section>`;
   },
 
+  async signups() {
+    const d = await api('GET', '/api/admin/signups'); const max = Math.max(1, ...d.series.map((x) => x.n)); const lv = d.levels;
+    return html`${head('Sign-up progress', 'Who has joined, by department and level. Use it to see which classes need a nudge from their rep.')}
+      <div class="k-grid">${[['users', d.total, 'Students joined', ''], ['star', d.today, 'Joined today', ''], ['calendar', d.week, 'Joined this week', ''], ['shield', d.unplaced, 'Without a department or level', 'They need to set it in their profile']].map(([ic, n, l, sub]) => html`<div class="kpi">${icon(ic, 22)}<b>${n}</b><span>${l}</span>${sub ? html`<div class="tiny muted">${sub}</div>` : ''}</div>`)}</div>
+      <div class="card" style="margin-top:16px"><h3 style="margin-bottom:10px">Last 14 days</h3><div class="spark">${d.series.map((x) => html`<div class="sp" title="${x.date}: ${x.n}"><i style="height:${Math.max(3, (x.n / max) * 100)}%"></i><span>${x.n}</span></div>`)}</div></div>
+      <h3 style="margin:22px 0 10px">By department and level</h3>
+      ${d.byDept.length ? html`<div class="tbl-wrap"><table><thead><tr><th>Department</th>${lv.map((l) => html`<th class="num">${l}L</th>`)}<th class="num">Total</th><th class="num">This week</th></tr></thead><tbody>${d.byDept.map((r) => html`<tr><td><b>${r.name}</b></td>${lv.map((l) => html`<td class="num">${r.levels[l] || '–'}</td>`)}<td class="num"><b>${r.total}</b></td><td class="num">${r.week}</td></tr>`)}</tbody></table></div>` : empty('users', 'No departments yet', 'Add departments under Academics.')}
+      ${d.recent.length ? html`<h3 style="margin:22px 0 10px">Newest students</h3><div class="card flat"><ol class="lb">${d.recent.map((r) => html`<li><span class="grow"><b>${r.username}</b><br><span class="tiny muted">${r.dept || 'No department'}${r.level ? ' · ' + r.level + ' level' : ''}</span></span><span class="tiny muted">${ago(r.at)}</span></li>`)}</ol></div>` : ''}`;
+  },
+
+  async analytics() {
+    const d = await api('GET', '/api/admin/analytics');
+    return html`${head('Analytics', 'What students open and which questions they miss, so you know what to improve.')}
+      <div class="k-grid">${[['book', d.totals.opens, 'Resource opens'], ['quiz', d.totals.attempts, 'Quiz attempts'], ['users', d.totals.students, 'Students'], ['users', d.totals.groups, 'Study groups']].map(([ic, n, l]) => html`<div class="kpi">${icon(ic, 22)}<b>${n}</b><span>${l}</span></div>`)}</div>
+      <h3 style="margin:22px 0 10px">Most opened resources</h3>
+      ${d.resources.some((r) => r.opens) ? html`<div class="tbl-wrap"><table><thead><tr><th>Resource</th><th>Course</th><th class="num">Opens</th><th class="num">Last 14 days</th></tr></thead><tbody>${d.resources.filter((r) => r.opens).map((r) => html`<tr><td><b>${r.title}</b></td><td><span class="chip">${r.course}</span></td><td class="num">${r.opens}</td><td class="num">${r.recent}</td></tr>`)}</tbody></table></div><p class="tiny muted" style="margin-top:6px">${d.unopened} of ${d.resourceCount} resources have not been opened yet.</p>` : empty('book', 'Nothing opened yet', 'Counts start from the day this was switched on.')}
+      <h3 style="margin:22px 0 10px">Questions students miss most</h3>
+      ${d.questions.length ? html`<div class="tbl-wrap"><table><thead><tr><th>Question</th><th>Quiz</th><th class="num">Missed</th><th class="num">Asked</th></tr></thead><tbody>${d.questions.map((q) => html`<tr><td>${q.q}</td><td><span class="chip">${q.course}</span><br><span class="tiny muted">${q.title} · Q${q.n}</span></td><td class="num"><span class="chip ${q.miss >= 60 ? 'bad' : 'grey'}">${q.miss}%</span></td><td class="num">${q.seen}</td></tr>`)}</tbody></table></div><p class="tiny muted" style="margin-top:6px">A question missed by most students may have a wrong key or need a better explanation.</p>` : empty('quiz', 'Not enough attempts yet', 'Questions show here once at least 3 students have answered them.')}
+      <h3 style="margin:22px 0 10px">By course</h3>
+      ${d.courses.length ? html`<div class="tbl-wrap"><table><thead><tr><th>Course</th><th class="num">Resources</th><th class="num">Opens</th><th class="num">Quizzes</th><th class="num">Attempts</th><th class="num">Average score</th></tr></thead><tbody>${d.courses.map((c) => html`<tr><td><b>${c.course}</b></td><td class="num">${c.resources}</td><td class="num">${c.opens}</td><td class="num">${c.quizzes}</td><td class="num">${c.attempts}</td><td class="num">${c.avg === null ? '–' : c.avg + '%'}</td></tr>`)}</tbody></table></div>` : ''}`;
+  },
+
+  async transfers() {
+    await loadAcad(); const d = await api('GET', '/api/admin/transfers'); const cfg = await api('GET', '/api/admin/config'); const dn2 = (id) => dName(id) || '—';
+    const st = { waiting: 'chip grey', moved: 'chip good', 'not-listed': 'chip bad' };
+    return html`${head('Transfers and levels', 'Publish the transfer list, approve department change requests, and open the level window when a new session begins.')}
+      <div class="card" style="max-width:760px"><h3 style="margin-bottom:4px">New session: level window</h3><p class="muted small" style="margin-bottom:12px">When open, students can move to their new level from their profile. When closed, a level cannot be changed. ${cfg.levelOpen ? html`<b>It is open${cfg.levelEnds ? ' until ' + cfg.levelEnds : ''}.</b>` : 'It is closed.'}</p>
+        <div class="msg alert bad" hidden role="alert"></div>
+        <form data-submit="lvl-save" novalidate><div class="grid2"><label class="field"><span>Last day (optional)</span><input name="ends" type="date" value="${cfg.levelEnds || ''}"></label>
+          <label class="check small" style="align-self:end;margin-bottom:12px"><input type="checkbox" name="notify"> Notify students when I open it</label></div>
+          <div class="row gap-s"><button class="btn primary" type="submit" name="open" value="1">${cfg.levelOpen ? 'Update window' : 'Open the window'}</button>${cfg.levelOpen ? html`<button class="btn ghost" data-action="lvl-close" type="button">Close it</button>` : ''}</div></form></div>
+      <div class="card" style="max-width:760px;margin-top:16px"><h3 style="margin-bottom:4px">Transfer list</h3><p class="muted small" style="margin-bottom:10px">${d.listCount ? d.listCount + ' matric numbers are on the published list. ' : ''}Paste the list, one student per line: <span class="mono">matric, department, level (optional)</span>. Students who applied are moved automatically.</p>
+        <div class="msg alert bad" hidden role="alert"></div>
+        <form data-submit="tr-publish" novalidate><label class="field"><span class="sr">List</span><textarea name="text" class="code" rows="6" placeholder="NDU/MLS/2023/001, Biochemistry, 200&#10;NDU/ANA/2023/014, Medical Laboratory Science"></textarea></label>
+          <div id="tr-preview" class="small muted" style="margin-bottom:8px"></div>
+          <label class="check small" style="margin-bottom:10px"><input type="checkbox" name="ignoreBad"> Skip lines that cannot be read</label>
+          <div class="row gap-s"><button class="btn ghost" data-action="tr-preview" type="button">Check the list</button><button class="btn primary" type="submit">Publish and move students</button></div></form>
+        <p class="tiny muted" style="margin-top:8px">${d.listOut ? 'The list is out: students not on it can request a department change.' : 'Requests open once you publish a list.'} ${d.listOut ? html`<button class="btn ghost small" data-action="tr-listout" data-open="0" type="button">Close requests</button>` : ''}</p></div>
+      <h3 style="margin:24px 0 10px">Department change requests</h3>
+      ${d.requests.length ? html`<div class="card" style="padding:0;overflow:hidden">${d.requests.map((r) => html`<div class="cm"><div class="cm-top"><b>${r.username}</b><span class="tiny muted">${dn2(r.fromDepartmentId)} → <b>${r.toName}</b></span><span class="tiny muted">${ago(r.createdAt)}</span></div><p>${r.reason}</p>
+        <div class="actions"><button class="btn primary small" data-action="tr-approve" data-id="${r.id}" type="button">${icon('check', 15)} Approve and move</button><button class="btn ghost small" data-action="tr-reject" data-id="${r.id}" type="button">Decline</button></div></div>`)}</div>` : empty('check', 'No requests waiting', 'Requests show here when students ask for a department change.')}
+      ${d.decided.length ? html`<h3 style="margin:24px 0 10px">Recently decided</h3><div class="card flat"><ol class="lb">${d.decided.map((r) => html`<li><span class="grow"><b>${r.username}</b> → ${r.toName}<br><span class="tiny muted">${r.status}${r.note ? ' · ' + r.note : ''}</span></span><span class="${r.status === 'approved' ? 'chip good' : 'chip bad'}">${r.status}</span></li>`)}</ol></div>` : ''}
+      <h3 style="margin:24px 0 10px">Students who applied for a transfer (${d.declared.length})</h3>
+      ${d.declared.length ? html`<div class="tbl-wrap"><table><thead><tr><th>Student</th><th>Matric number</th><th>Status</th><th>Now in</th><th></th></tr></thead><tbody>${d.declared.map((r) => html`<tr><td><b>${r.username}</b></td><td class="mono">${r.matric}</td><td><span class="${st[r.status] || 'chip'}">${r.status}</span></td><td>${r.movedTo ? dName(r.movedTo) : dn2(r.fromDepartmentId)}</td><td><button class="btn ghost small icon" data-action="tr-del" data-id="${r.id}" type="button" aria-label="Remove">${icon('trash', 16)}</button></td></tr>`)}</tbody></table></div>` : empty('users', 'No applications yet', 'Students enter their matric number on their profile when they have applied for a transfer.')}`;
+  },
+
   async materials() {
     const list = await api('GET', '/api/admin/materials'); A.cache.materials = list;
-    return html`${head('Materials', plural(list.length, 'resource') + '. Notes, past questions, slides, videos and links.', html`<button class="btn primary" data-action="mat-new" type="button">${icon('plus', 18)} Add material</button>`)}
+    return html`${head('Resources', plural(list.length, 'resource') + '. Notes, past questions, slides, videos and links.', html`<button class="btn ghost" data-action="mat-bulk" type="button">${icon('upload', 18)} Bulk upload</button> <button class="btn primary" data-action="mat-new" type="button">${icon('plus', 18)} Add resource</button>`)}
       ${list.length ? html`<div class="tbl-wrap"><table><thead><tr><th>Title</th><th>Course</th><th>Type</th><th>Status</th><th></th></tr></thead><tbody>${list.map((m) => html`<tr><td><b>${m.title}</b><br><span class="tiny muted">${m.fileName || m.link || 'Notes only'}</span></td><td><span class="chip">${m.course}</span></td><td>${kindLabel[m.kind] || m.kind}</td>
         <td>${m.paid ? html`<span class="chip brand">${naira(m.price)}</span> ` : ''}${m.pinned ? html`<span class="chip brand">Pinned</span> ` : ''}${m.hidden ? html`<span class="chip grey">Hidden</span>` : html`<span class="chip good">Live</span>`}</td>
         <td><div class="actions"><button class="btn ghost small icon" data-action="mat-pin" data-id="${m.id}" type="button" title="${m.pinned ? 'Unpin' : 'Pin to top'}" aria-label="${m.pinned ? 'Unpin' : 'Pin'}">${icon('pin', 17)}</button>
         <button class="btn ghost small icon" data-action="mat-hide" data-id="${m.id}" type="button" title="${m.hidden ? 'Show' : 'Hide'}" aria-label="${m.hidden ? 'Show' : 'Hide'}">${icon(m.hidden ? 'eye' : 'eyeoff', 17)}</button>
         <button class="btn ghost small icon" data-action="mat-edit" data-id="${m.id}" type="button" title="Edit" aria-label="Edit ${m.title}">${icon('edit', 17)}</button>
-        <button class="btn ghost small icon" data-action="mat-del" data-id="${m.id}" type="button" title="Delete" aria-label="Delete ${m.title}">${icon('trash', 17)}</button></div></td></tr>`)}</tbody></table></div>` : empty('book', 'No materials yet', 'Add your first study resource.')}`;
+        <button class="btn ghost small icon" data-action="mat-del" data-id="${m.id}" type="button" title="Delete" aria-label="Delete ${m.title}">${icon('trash', 17)}</button></div></td></tr>`)}</tbody></table></div>` : empty('book', 'No resources yet', 'Add your first study resource.')}`;
   },
 
   async quizzes() {
@@ -122,7 +172,7 @@ const views = {
   },
 
   async notice() {
-    const n = await api('GET', '/api/admin/notice'); await loadAcad(); const ps = await api('GET', '/api/admin/push/stats');
+    const n = await api('GET', '/api/admin/notice'); await loadAcad(); const ps = await api('GET', '/api/admin/push/stats'); const sch = await api('GET', '/api/admin/schedule');
     return html`${head('Announcement', 'A banner shown at the top of every page. Leave it empty to hide it.')}
       <div class="card" style="max-width:640px"><div class="msg alert bad" hidden role="alert"></div>
         <form data-submit="notice-save" novalidate><label class="field"><span>Message</span><textarea name="text" maxlength="240" placeholder="e.g. MBH222 test holds on Friday at 10am">${n.text}</textarea><small>Up to 240 characters.</small></label>
@@ -135,7 +185,18 @@ const views = {
           <label class="field"><span>Message (optional)</span><input name="body" maxlength="160"></label>
           <div class="grid2"><label class="field"><span>Department</span><select name="departmentId"><option value="">Everyone</option>${A.acad.departments.map((d) => html`<option value="${d.id}">${d.name}</option>`)}</select></label>
           <label class="field"><span>Level</span><select name="level"><option value="">All levels</option>${[100, 200, 300, 400, 500, 600].map((l) => html`<option value="${l}">${l} level</option>`)}</select></label></div>
-          <button class="btn primary" type="submit">${icon('bell', 16)} Send now</button></form></div>`;
+          <button class="btn primary" type="submit">${icon('bell', 16)} Send now</button></form></div>
+      <div class="card" style="max-width:640px;margin-top:16px"><h3 style="margin-bottom:4px">Schedule for later</h3><p class="muted small" style="margin-bottom:12px">Write it now and it goes out at the time you pick. The site checks every minute.</p>
+        <div class="msg alert bad" hidden role="alert"></div>
+        <form data-submit="sched-save" novalidate>
+          <div class="grid2"><label class="field"><span>What</span><select name="kind" data-change="sched-kind"><option value="notice">Announcement banner</option><option value="push">Notification only</option></select></label>
+            <label class="field"><span>Send at</span><input name="at" type="datetime-local" required></label></div>
+          <div data-k="notice"><label class="field"><span>Banner message</span><textarea name="text" maxlength="240"></textarea></label><label class="check small" style="margin-bottom:12px"><input type="checkbox" name="push"> Also send it as a notification</label></div>
+          <div data-k="push" hidden><label class="field"><span>Title</span><input name="title" maxlength="80"></label><label class="field"><span>Message (optional)</span><input name="body" maxlength="160"></label>
+            <div class="grid2"><label class="field"><span>Department</span><select name="departmentId"><option value="">Everyone</option>${A.acad.departments.map((d) => html`<option value="${d.id}">${d.name}</option>`)}</select></label><label class="field"><span>Level</span><select name="slevel"><option value="">All levels</option>${[100, 200, 300, 400, 500, 600].map((l) => html`<option value="${l}">${l} level</option>`)}</select></label></div></div>
+          <button class="btn primary" type="submit">${icon('clock', 16)} Schedule</button></form>
+        ${sch.pending.length ? html`<h4 style="margin:16px 0 8px">Waiting to go out</h4><ol class="lb">${sch.pending.map((x) => html`<li><span class="grow small"><b>${x.kind === 'notice' ? 'Banner' : 'Notification'}</b> · ${fmtDate(x.at, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}<br>${x.kind === 'notice' ? x.text : x.title}</span><button class="icon-btn small-ic" data-action="sched-del" data-id="${x.id}" type="button" aria-label="Cancel">${icon('x', 14)}</button></li>`)}</ol>` : ''}
+        ${sch.done.length ? html`<p class="tiny muted" style="margin-top:12px">Recently sent: ${sch.done.map((x) => (x.kind === 'notice' ? x.text : x.title).slice(0, 30)).join(' · ')}</p>` : ''}</div>`;
   },
 
   async uploads() {
@@ -164,7 +225,7 @@ const views = {
   async timetable() {
     await loadAcad(); const list = await api('GET', '/api/admin/timetable');
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    return html`${head('Timetable and exams', 'Classes, exams and tests for any class. Class reps can also post for their own class.', html`<button class="btn primary small" data-action="tt-add" type="button">${icon('plus', 16)} Add</button>`)}
+    return html`${head('Timetable and exams', 'Classes, exams and tests for any class. Class reps can also post for their own class.', html`<button class="btn ghost small" data-action="tt-scan" type="button">${icon('upload', 16)} From photo</button> <button class="btn primary small" data-action="tt-add" type="button">${icon('plus', 16)} Add</button>`)}
       ${list.length ? html`<div class="tbl-wrap"><table><thead><tr><th>What</th><th>When</th><th>Class</th><th>By</th><th></th></tr></thead><tbody>${list.map((x) => html`<tr><td><b>${x.title}</b><br><span class="chip ${x.kind === 'exam' ? 'bad' : 'grey'}">${x.kind}</span> ${x.course ? html`<span class="chip">${x.course}</span>` : ''}</td>
         <td>${x.kind === 'class' ? days[x.day - 1] : fmtDate(x.date + 'T00:00:00')}${x.start ? html`<br><span class="tiny muted">${x.start}${x.end ? ' – ' + x.end : ''}${x.venue ? ' · ' + x.venue : ''}</span>` : ''}</td>
         <td>${x.departmentId ? dName(x.departmentId) : 'Everyone'}${x.level ? html`<br><span class="tiny muted">${x.level} level</span>` : ''}</td><td>${x.byName || ''}</td>
@@ -185,7 +246,7 @@ const views = {
         ${room.kind === 'custom' ? html`<button class="btn ghost small" data-action="chat-edit" data-id="${room.customId}" type="button">${icon('edit', 15)} Edit room</button><button class="btn ghost small" data-action="chat-rmroom" data-id="${room.customId}" data-name="${room.name}" type="button">${icon('trash', 15)} Delete room</button>` : ''}
         ${room.count ? html`<button class="btn danger small" data-action="chat-clear" type="button">Clear room</button>` : ''}</div>
       <div class="card" style="padding:0;overflow:hidden">${d.messages.length ? html`<div class="chat-admin">${d.messages.slice().reverse().map((m) => html`<div class="cm ${m.reports ? 'flag' : ''}">
-        <div class="cm-top"><b>${m.name}</b>${m.admin ? html` <span class="chip">Admin</span>` : html` <span class="tiny muted mono">${m.matric || ''}</span>`}<span class="tiny muted">${fmtDate(m.at, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>${m.reports ? html`<span class="chip bad">${icon('flag', 13)} ${plural(m.reports, 'report')}</span>` : ''}</div>
+        <div class="cm-top"><b>${m.name}</b>${m.admin ? html` <span class="chip">Admin</span>` : ''}<span class="tiny muted">${fmtDate(m.at, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>${m.reports ? html`<span class="chip bad">${icon('flag', 13)} ${plural(m.reports, 'report')}</span>` : ''}</div>
         <p>${m.text}</p>
         <div class="actions"><button class="btn ghost small" data-action="chat-del" data-id="${m.id}" type="button">${icon('trash', 15)} Delete</button>${m.reports ? html`<button class="btn ghost small" data-action="chat-dismiss" data-id="${m.id}" type="button">Dismiss reports</button>` : ''}${m.admin ? '' : html`<button class="btn ghost small" data-action="chat-mute" data-id="${m.uid}" data-name="${m.name}" data-state="${mutedIds.has(m.uid) ? 1 : 0}" type="button">${mutedIds.has(m.uid) ? 'Unmute' : 'Mute'} ${m.name}</button>`}</div></div>`)}</div>` : html`<div style="padding:8px">${empty('chat', 'No messages yet', 'Messages show up here as students chat.')}</div>`}</div>
       <div class="card" style="margin-top:16px"><h3 style="margin-bottom:8px">Post as admin</h3><div class="msg alert bad" hidden role="alert"></div>
@@ -220,7 +281,7 @@ const views = {
           ${tg('leaderboardEnabled', c.leaderboardEnabled, 'Show the leaderboard', 'Hides rankings everywhere on the site.')}</div>
         <div class="card" style="margin-top:16px"><h3 style="margin-bottom:6px">Move-over banner</h3><p class="muted small" style="margin-bottom:12px">The "Exam Warriors is now Altidian" banner with a countdown, a first-time welcome pop-up, and a ribbon on the login page. Turn it off when the move is done.</p>
           ${tg('moveOn', c.moveOn, 'Show the move-over banner', 'Stays visible until a week after the countdown day.')}
-          <label class="field" style="margin-top:10px"><span>Countdown day (materials only on Altidian from this day)</span><input name="moveEnds" type="date" value="${c.moveEnds || ''}" style="max-width:200px"></label>
+          <label class="field" style="margin-top:10px"><span>Countdown day (resources only on Altidian from this day)</span><input name="moveEnds" type="date" value="${c.moveEnds || ''}" style="max-width:200px"></label>
           <label class="field"><span>Banner headline (optional)</span><input name="moveTitle" maxlength="80" placeholder="Exam Warriors is now Altidian" value="${c.moveTitle || ''}"></label>
           <label class="field"><span>Banner text (optional)</span><textarea name="moveText" maxlength="240" placeholder="Same team, same quality. Everything now lives in one place.">${c.moveText || ''}</textarea></label></div>
         <div class="card" style="margin-top:16px"><h3 style="margin-bottom:6px">Pay by bank transfer</h3><p class="muted small" style="margin-bottom:12px">Students see these details when they tap Unlock, transfer the money, then send you proof on WhatsApp (set your WhatsApp link below). You then give them access under Students.</p>
@@ -248,10 +309,10 @@ function courseTable(ac, deps) {
 }
 function studentTable(list) {
   const q = A.search.trim().toLowerCase();
-  const rows = list.filter((u) => (!q || u.username.toLowerCase().includes(q) || (u.matric || '').toLowerCase().includes(q)) && (!A.dept || u.departmentId === A.dept) && (!A.level || String(u.level) === String(A.level)));
+  const rows = list.filter((u) => (!q || u.username.toLowerCase().includes(q)) && (!A.dept || u.departmentId === A.dept) && (!A.level || String(u.level) === String(A.level)));
   if (!rows.length) return empty('users', q ? 'No match' : 'No students yet', q ? 'Try another name.' : 'Students show up here after they register.');
   return html`<div class="tbl-wrap"><table><thead><tr><th>Student</th><th>Department</th><th>Rank</th><th class="num">Points</th><th class="num">Quizzes</th><th>Last login</th><th>Access</th><th>Status</th><th></th></tr></thead><tbody>${rows.map((u) => html`<tr>
-    <td><div class="row gap-s">${avatar(u.username, u.avatarId, 'sm')}<span><b>${u.username}</b><br><span class="tiny muted mono">${u.matric || 'no matric number'}</span></span></div></td><td>${u.departmentId ? dName(u.departmentId) : html`<span class="muted">Not set</span>`}${u.level ? html`<br><span class="tiny muted">${u.level} level</span>` : ''}</td><td>${u.rank}</td><td class="num">${u.points}</td><td class="num">${u.done}</td><td>${ago(u.lastLoginAt)}</td>
+    <td><div class="row gap-s">${avatar(u.username, u.avatarId, 'sm')}<span><b>${u.username}</b></span></div></td><td>${u.departmentId ? dName(u.departmentId) : html`<span class="muted">Not set</span>`}${u.level ? html`<br><span class="tiny muted">${u.level} level</span>` : ''}</td><td>${u.rank}</td><td class="num">${u.points}</td><td class="num">${u.done}</td><td>${ago(u.lastLoginAt)}</td>
     <td>${u.paidUntil ? html`<span class="chip good">Pass to ${u.paidUntil}</span>` : html`<span class="chip grey">No pass</span>`}${u.unlockedCount ? html`<br><span class="tiny muted">+ ${u.unlockedCount} item${u.unlockedCount === 1 ? '' : 's'}</span>` : ''}</td>
     <td>${u.disabled ? html`<span class="chip bad">Disabled</span>` : html`<span class="chip good">Active</span>`}</td>
     <td><div class="actions"><button class="btn ghost small" data-action="stu-view" data-id="${u.id}" type="button">View</button>
@@ -284,11 +345,11 @@ async function route() {
 }
 const reload = () => route();
 
-/* ---------- dialogs: materials ---------- */
+/* ---------- dialogs: resources ---------- */
 const courseSelect = (sel) => html`<option value="">Choose a course</option>${A.acad.courses.map((c) => html`<option value="${c.code}" ${c.code === sel ? raw('selected') : ''}>${c.code}${c.name ? ' · ' + c.name : ''} (${c.level}${c.departmentIds.length ? '' : ', all depts'})</option>`)}${sel && !A.acad.courses.some((c) => c.code === sel) ? html`<option value="${sel}" selected>${sel} (not in Academics yet)</option>` : ''}`;
 function materialDialog(m) {
   const edit = !!m;
-  const { box, close } = dialog(html`<h3>${edit ? 'Edit material' : 'Add material'}</h3><div class="msg alert bad" hidden role="alert"></div>
+  const { box, close } = dialog(html`<h3>${edit ? 'Edit resource' : 'Add resource'}</h3><div class="msg alert bad" hidden role="alert"></div>
     <form data-submit="mat-save" novalidate>
       <label class="field"><span>Title</span><input name="title" maxlength="120" required value="${edit ? m.title : ''}" autofocus></label>
       <div class="grid2"><label class="field"><span>Course</span><select name="course" required>${courseSelect(edit ? m.course : '')}</select></label>
@@ -430,7 +491,7 @@ const actions = {
   'stu-rep'(el) {
     const u = (A.cache.students || []).find((x) => x.id === el.dataset.id); if (!u) return;
     const r = u.rep || {};
-    const { box, close } = dialog(html`<h3>Class rep: ${u.username}</h3><p class="muted small" style="margin-bottom:10px">A class rep can approve notes, post materials, events, timetable entries and short updates for one class.</p><div class="msg alert bad" hidden role="alert"></div>
+    const { box, close } = dialog(html`<h3>Class rep: ${u.username}</h3><p class="muted small" style="margin-bottom:10px">A class rep can approve notes, post resources, events, timetable entries and short updates for one class.</p><div class="msg alert bad" hidden role="alert"></div>
       <form data-submit="rep-save" data-id="${u.id}" novalidate><div class="grid2"><label class="field"><span>Department</span><select name="departmentId" required><option value="">Choose</option>${A.acad.departments.map((d) => html`<option value="${d.id}" ${(r.departmentId || u.departmentId) === d.id ? raw('selected') : ''}>${d.name}</option>`)}</select></label>
         <label class="field"><span>Level</span><select name="level"><option value="0">All levels</option>${[100, 200, 300, 400, 500, 600].map((l) => html`<option value="${l}" ${(r.level || u.level) === l ? raw('selected') : ''}>${l} level</option>`)}</select></label></div>
       <div class="row end gap wrap-r">${u.rep ? html`<button class="btn ghost" data-action="rep-remove" data-id="${u.id}" type="button">Remove as rep</button>` : ''}<button class="btn ghost" data-close type="button">Cancel</button><button class="btn primary" type="submit">${u.rep ? 'Save' : 'Make class rep'}</button></div></form>`);
@@ -465,7 +526,7 @@ const actions = {
   /* students */
   async 'stu-view'(el) {
     const p = await api('GET', '/api/admin/users/' + el.dataset.id);
-    dialog(html`<div class="row gap">${avatar(p.user.username, p.user.avatarId, 'md')}<div><h3 style="margin:0">${p.user.username}</h3><p class="muted small">${p.user.matric || 'No matric number'} · ${p.user.departmentId ? dName(p.user.departmentId) + ', ' + p.user.level + ' level' : 'department not set'}</p><p class="muted small">Joined ${fmtDate(p.user.createdAt)} · last login ${ago(p.user.lastLoginAt)}</p>
+    dialog(html`<div class="row gap">${avatar(p.user.username, p.user.avatarId, 'md')}<div><h3 style="margin:0">${p.user.username}</h3><p class="muted small">${p.user.departmentId ? dName(p.user.departmentId) + ', ' + p.user.level + ' level' : 'department not set'}</p><p class="muted small">Joined ${fmtDate(p.user.createdAt)} · last login ${ago(p.user.lastLoginAt)}</p>
       <p style="margin-top:4px"><span class="chip brand">${p.rank.title}</span> ${p.user.disabled ? html`<span class="chip grey">Disabled</span>` : ''} ${p.user.hasRecovery ? '' : html`<span class="chip grey">No recovery phrase</span>`}</p></div></div>
       <div class="kpis" style="margin:16px 0"><div class="kpi"><b>${p.points}</b><span>Points</span></div><div class="kpi"><b>${p.done}</b><span>Quizzes</span></div><div class="kpi"><b>${p.accuracy === null ? '—' : p.accuracy + '%'}</b><span>Accuracy</span></div><div class="kpi"><b>${p.streak.longest}</b><span>Best streak</span></div></div>
       ${p.quizzes.some((q) => q.best) ? html`<div class="tbl-wrap"><table><thead><tr><th>Quiz</th><th class="num">Best</th><th class="num">Tries</th></tr></thead><tbody>${p.quizzes.filter((q) => q.best).map((q) => html`<tr><td>${q.title} <span class="chip">${q.course}</span></td><td class="num">${q.best.correct}/${q.best.total}</td><td class="num">${q.attempts}</td></tr>`)}</tbody></table></div>` : html`<p class="muted">No quiz scores yet.</p>`}
@@ -498,7 +559,7 @@ const actions = {
   async 'mat-hide'(el) { const m = byId('materials', el.dataset.id); await api('PUT', '/api/admin/materials/' + m.id, { ...m, hidden: !m.hidden }); toast(m.hidden ? 'Now visible to students.' : 'Hidden from students.'); reload(); },
   async 'mat-del'(el) {
     const m = byId('materials', el.dataset.id);
-    if (!(await sure('Delete “' + m.title + '”?', 'The material and its file will be removed for good. You can hide it instead.', 'Delete'))) return;
+    if (!(await sure('Delete “' + m.title + '”?', 'The resource and its file will be removed for good. You can hide it instead.', 'Delete'))) return;
     await api('DELETE', '/api/admin/materials/' + m.id); toast('Deleted.'); reload();
   },
 
@@ -586,7 +647,7 @@ const submits = {
       if (file) { if (file.size > 12 * 1024 * 1024) throw new Error('That file is over 12 MB.'); body.file = await readFile(file); }
       const id = form.dataset.id;
       await api(id ? 'PUT' : 'POST', '/api/admin/materials' + (id ? '/' + id : ''), body);
-      form.closeFn(); toast(id ? 'Saved.' : 'Material added.'); reload();
+      form.closeFn(); toast(id ? 'Saved.' : 'Resource added.'); reload();
     });
   },
   async 'qz-save'(form) {
@@ -658,7 +719,7 @@ Object.assign(actions, {
 
   'stu-edit'(el) {
     const u = (A.cache.students || []).find((x) => x.id === el.dataset.id); if (!u) return;
-    simpleDialog('Edit ' + u.username, html`<label class="field"><span>Matric / registration number</span><input name="matric" maxlength="25" required value="${u.matric}" style="text-transform:uppercase" autofocus></label>${placeFields(fakeS(), u)}
+    simpleDialog('Edit ' + u.username, html`${placeFields(fakeS(), u)}
       ${u.avatarId ? html`<p class="small"><button class="btn ghost small" data-action="stu-avatar-del" data-id="${u.id}" type="button">${icon('trash', 15)} Remove profile picture</button></p>` : ''}`, 'stu-edit-save', u.id);
   },
   async 'stu-access'(el) {
@@ -712,7 +773,7 @@ Object.assign(submits, {
   async 'stu-edit-save'(form) {
     await busy(form, async () => {
       if (!val(form, 'facultyId') || !val(form, 'departmentId') || !val(form, 'level')) throw new Error('Choose faculty, department and level.');
-      await api('PUT', '/api/admin/users/' + form.dataset.id, { matric: val(form, 'matric'), facultyId: val(form, 'facultyId'), departmentId: val(form, 'departmentId'), level: Number(val(form, 'level')) });
+      await api('PUT', '/api/admin/users/' + form.dataset.id, { facultyId: val(form, 'facultyId'), departmentId: val(form, 'departmentId'), level: Number(val(form, 'level')) });
       form.closeFn(); toast('Student updated.'); reload();
     });
   },
@@ -740,3 +801,80 @@ async function start() {
   route();
 }
 start();
+
+/* ---------- sign-ups, analytics, transfers, scheduled posts, bulk upload, timetable scan ---------- */
+Object.assign(actions, scanActions, {
+  'tt-scan'() {
+    openScan({ target: 'admin', done: reload,
+      scopeHtml: html`<div class="grid2"><label class="field"><span>Department</span><select name="scope-dept"><option value="">Everyone</option>${A.acad.departments.map((d) => html`<option value="${d.id}">${d.name}</option>`)}</select></label>
+        <label class="field"><span>Level</span><select name="scope-level"><option value="">All levels</option>${[100, 200, 300, 400, 500, 600].map((l) => html`<option value="${l}">${l} level</option>`)}</select></label></div>`,
+      scope: (box) => { const o = {}; const d = box.querySelector('[name=scope-dept]').value; const l = box.querySelector('[name=scope-level]').value; if (d) o.departmentId = d; if (l) o.level = Number(l); return o; } });
+  },
+  'sched-kind'(el) { const f = el.closest('form'); f.querySelector('[data-k=notice]').hidden = el.value !== 'notice'; f.querySelector('[data-k=push]').hidden = el.value !== 'push'; },
+  async 'sched-del'(el) { await api('DELETE', '/api/admin/schedule/' + el.dataset.id); toast('Cancelled.'); reload(); },
+  'mat-bulk'() {
+    const { box, close } = dialog(html`<h3>Bulk upload resources</h3><p class="muted small">Pick many files at once. Each becomes a resource, titled from its file name. You can also paste a list of links.</p>
+      <div class="msg alert bad" hidden role="alert"></div>
+      <form data-submit="mat-bulk-go" novalidate>
+        <div class="grid2"><label class="field"><span>Course</span><select name="course" required>${courseSelect('')}</select></label>
+          <label class="field"><span>Type</span><select name="kind">${Object.keys(kindLabel).map((k) => html`<option value="${k}">${kindLabel[k]}</option>`)}</select></label></div>
+        <label class="field"><span>Files (PDF, Word, PowerPoint or pictures)</span><input name="files" type="file" multiple accept=".pdf,.docx,.pptx,image/png,image/jpeg,image/webp"></label>
+        <label class="field"><span>Links (optional): one per line as <span class="mono">Title | link</span></span><textarea name="links" class="code" rows="4" placeholder="Glycolysis explained | https://www.youtube.com/watch?v=…"></textarea></label>
+        <label class="check small" style="margin-bottom:12px"><input type="checkbox" name="notify"> Notify students (sends one notification per upload)</label>
+        <div id="bulk-log" class="small muted" style="margin-bottom:8px"></div>
+        <div class="row end gap"><button class="btn ghost" data-close type="button">Cancel</button><button class="btn primary" type="submit">Upload</button></div></form>`);
+    box.querySelector('form').closeFn = close;
+  },
+  async 'lvl-close'() { await api('POST', '/api/admin/level-window', { open: false }); toast('Level window closed.'); reload(); },
+  async 'tr-preview'(el) {
+    const f = el.closest('form'); const out = f.querySelector('#tr-preview'); const text = val(f, 'text'); if (!text) { out.textContent = 'Paste the list first.'; return; }
+    const r = await api('POST', '/api/admin/transfers/preview', { text });
+    out.innerHTML = html`<b>${r.rows}</b> readable lines · <b>${r.willMove}</b> students who applied will be moved now${r.bad.length ? html` · <span style="color:#c0392b">${r.bad.length} unreadable</span><ul class="small">${r.bad.slice(0, 6).map((b) => html`<li>Line ${b.line}: ${b.why} <span class="mono">${b.text}</span></li>`)}</ul>` : ''}`.s;
+  },
+  async 'tr-listout'(el) { await api('POST', '/api/admin/transfers/list-out', { open: el.dataset.open === '1' }); toast('Updated.'); reload(); },
+  async 'tr-approve'(el) { if (!(await sure('Approve this move?', 'The student is moved to the new department straight away.', 'Approve', false))) return; await api('POST', `/api/admin/transfers/requests/${el.dataset.id}/resolve`, { action: 'approve' }); toast('Moved.'); reload(); },
+  'tr-reject'(el) {
+    const { box, close } = dialog(html`<h3>Decline this request</h3><label class="field"><span>Note for the student (optional)</span><input name="note" maxlength="200" autofocus></label><div class="row end gap"><button class="btn ghost" data-close type="button">Cancel</button><button class="btn primary" type="button" data-yes>Decline</button></div>`);
+    box.querySelector('[data-yes]').addEventListener('click', async () => { try { await api('POST', `/api/admin/transfers/requests/${el.dataset.id}/resolve`, { action: 'reject', note: box.querySelector('[name=note]').value }); close(); toast('Declined.'); reload(); } catch (e) { toast(e.message, 'bad'); } });
+  },
+  async 'tr-del'(el) { await api('DELETE', '/api/admin/transfers/' + el.dataset.id); reload(); },
+});
+Object.assign(submits, {
+  async 'sched-save'(form) {
+    await busy(form, async () => {
+      const at = new Date(val(form, 'at')).getTime(); if (!Number.isFinite(at)) throw new Error('Pick the date and time.');
+      const kind = val(form, 'kind');
+      await api('POST', '/api/admin/schedule', kind === 'notice' ? { kind, at, text: val(form, 'text'), push: chk(form, 'push') } : { kind, at, title: val(form, 'title'), body: val(form, 'body'), departmentId: val(form, 'departmentId'), level: Number(val(form, 'slevel')) || 0 });
+      toast('Scheduled.'); reload();
+    });
+  },
+  async 'lvl-save'(form) { await busy(form, async () => { await api('POST', '/api/admin/level-window', { open: true, ends: val(form, 'ends'), notify: chk(form, 'notify') }); toast('Level window is open.'); reload(); }); },
+  async 'tr-publish'(form) {
+    await busy(form, async () => {
+      const text = val(form, 'text'); if (!text) throw new Error('Paste the transfer list first.');
+      if (!(await sure('Publish this list?', 'Students on it are moved to their new department now.', 'Publish', false))) return;
+      const r = await api('POST', '/api/admin/transfers/publish', { text, ignoreBad: chk(form, 'ignoreBad') });
+      toast(r.moved + ' moved, ' + r.notListed + ' not on the list.'); reload();
+    });
+  },
+  async 'mat-bulk-go'(form) { await busy(form, () => bulkRun(form)); },
+});
+async function bulkRun(form) {
+    const course = val(form, 'course').toUpperCase(); if (!course) throw new Error('Choose the course first.');
+    const kind = val(form, 'kind'); const notify = chk(form, 'notify'); const files = [...form.querySelector('[name=files]').files];
+    const links = val(form, 'links').split(/\r?\n/).map((l) => l.split('|').map((x) => x.trim())).filter((p) => p.length >= 2 && /^https?:\/\//i.test(p[1]));
+    if (!files.length && !links.length) throw new Error('Pick some files or paste some links.');
+    const log = form.querySelector('#bulk-log'); const msg = form.parentElement.querySelector('.msg'); msg.hidden = true;
+    let ok = 0; const failed = []; const total = files.length + links.length; let n = 0;
+    const nice = (name) => name.replace(/\.[^.]+$/, '').replace(/[_]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120) || 'Untitled';
+    for (const f of files) {
+      log.textContent = 'Uploading ' + (++n) + ' of ' + total + ': ' + f.name;
+      try { if (f.size > 12 * 1024 * 1024) throw new Error('over 12 MB'); await api('POST', '/api/admin/materials', { title: nice(f.name), course, kind, notify, file: await readFile(f) }); ok++; } catch (e) { failed.push(f.name + ' (' + e.message + ')'); }
+    }
+    for (const [title, link] of links) {
+      log.textContent = 'Adding ' + (++n) + ' of ' + total + ': ' + title;
+      try { await api('POST', '/api/admin/materials', { title: title.slice(0, 120), course, kind: /youtu|drive\.google/i.test(link) && kind === 'notes' ? 'video' : kind, notify, link }); ok++; } catch (e) { failed.push(title + ' (' + e.message + ')'); }
+    }
+    if (failed.length) { msg.textContent = ok + ' added. These failed: ' + failed.join('; '); msg.hidden = false; log.textContent = ''; reload(); return; }
+    form.closeFn(); toast(ok + ' resource' + (ok === 1 ? '' : 's') + ' added.'); reload();
+}

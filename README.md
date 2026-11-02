@@ -129,3 +129,21 @@ new warrior. Points are 10 per correct answer, counted from the best attempt at 
 ## Move-over banner (Exam Warriors to Altidian)
 
 Admin > Site settings > Move-over banner. Shows a banner with a countdown on the home page, a one-time welcome pop-up for each student, and a ribbon on the login and sign-up pages for people arriving from old links. Settings: `moveOn`, `moveEnds` (countdown day), optional `moveTitle` and `moveText`. The banner hides itself a week after the countdown day.
+
+## Version 8: what was added
+
+**Students**
+- **Resources** (renamed from Materials everywhere).
+- **Timed exam**: pick your own time. The fastest option is 3 questions a minute, the slowest 1 a minute (70 questions gives 24, 35 or 70 minutes). The timer starts when you choose.
+- **Flashcards** on every quiz, **bookmarks and notes** (star any resource or question), **question of the day** with a streak and 5 bonus points, **weak-topic report** on Home, **receipts / purchase history**, and **class summaries** ("what was taught today") posted by reps.
+- **Study groups**: private, join with a 6-letter code, shared to-do list, meeting time and a WhatsApp/Telegram link.
+- **Timetable from a photo or pasted text** (students, reps and admin).
+- **Auto logout**: if the phone cannot reach the server for more than **15 minutes**, the student is logged out and must sign in again. The check runs every minute and whenever the app is reopened. The limit is `LIMIT` in `public/js/core/offlineguard.js`.
+- **No matric / reg number** anywhere. Students who applied for a transfer can declare their matric number on their profile so the transfer list can move them automatically.
+
+**Admin**
+- Sign-up progress, per-course analytics, bulk upload of resources (many files and links at once), scheduled announcements and notifications, transfers and levels.
+- **Transfers**: paste the published list (`matric, department, level` per line), preview, publish. Matching students move automatically. Others can request a department; you approve or reject.
+- **Level window**: open it when a new session begins so students can move up a level; close it afterwards. Department changes happen only through transfers.
+
+**Photo reading (optional)**: pasting text always works. For reading photos, add these files from the tesseract.js project to `public/vendor/tesseract/`: `tesseract.min.js`, `worker.min.js`, `tesseract-core-lstm.wasm.js`, `tesseract-core-simd-lstm.wasm.js`, and `lang/eng.traineddata.gz`. Without them the dialog says photo reading is not switched on and asks for pasted text.

@@ -2,6 +2,7 @@
 import { isSaved, canSave } from '../core/offline.js';
 import { embedOf } from '../core/video.js';
 import { reportButton } from './report.js';
+import { markBtn } from './more.js';
 import { html, raw, icon, esc, kindLabel, kindIcon, eventDate, todayKey, pct, initial, avatar } from '../core/ui.js';
 
 const naira = (n) => '₦' + Number(n || 0).toLocaleString('en-NG');
@@ -19,7 +20,7 @@ export function resourceCard(m) {
       ${m.link && !embedOf(m.link) ? html`<a class="btn ${m.fileId ? 'ghost' : 'primary'} small" href="${m.link}" target="_blank" rel="noopener noreferrer">${icon(m.kind === 'video' ? 'video' : 'link', 16)} ${m.kind === 'video' ? 'Watch' : 'Open link'}</a>` : ''}
       ${long || (m.note && !m.fileId && !m.link) ? html`<button class="btn ghost small" data-action="read" data-id="${m.id}" type="button">Read notes</button>` : ''}
       ${canSave(m) ? html`<button class="btn ghost small save-off ${isSaved(m.id) ? 'on' : ''}" data-action="save-offline" data-id="${m.id}" type="button">${isSaved(m.id) ? 'Saved ✓' : 'Save offline'}</button>` : ''}
-      ${reportButton('material', m.id)}
+      ${markBtn('m', m.id)}${reportButton('material', m.id)}
     </div>`}
   </article>`;
 }
@@ -45,7 +46,7 @@ export function quizCard(q, best, ctx) {
     ${best ? html`<div><div class="row between small"><span class="muted">Best score</span><b>${best.correct}/${best.total}</b></div><div class="bar" style="margin-top:6px"><i style="width:${done}%"></i></div></div>` : html`<p class="muted small">Not tried yet. Every correct answer earns 10 points.</p>`}
     ${q.locked ? html`<button class="btn gold block" style="margin-top:auto" data-action="unlock" data-id="${q.id}" type="button">${icon('lock', 17)} Unlock</button>` : html`<div class="qc-go" style="margin-top:auto">
       <a class="btn ${best ? 'ghost' : 'primary'} block" href="#/quiz/${q.id}">${best ? 'Try again' : 'Start quiz'} ${icon('arrow', 17)}</a>
-      <div class="row gap-s qc-extra"><a class="btn ghost small grow" href="#/quiz/${q.id}?mode=exam">${icon('clock', 15)} Timed exam</a>${ctx && ctx.missed && ctx.missed.length ? html`<a class="btn gold small grow" href="#/quiz/${q.id}?mode=practice">${icon('refresh', 15)} Practise ${ctx.missed.length} mistake${ctx.missed.length > 1 ? 's' : ''}</a>` : ''}</div></div>`}
+      <div class="row gap-s qc-extra"><a class="btn ghost small grow" href="#/quiz/${q.id}?mode=exam">${icon('clock', 15)} Timed exam</a><a class="btn ghost small grow" href="#/quiz/${q.id}?mode=cards">${icon('refresh', 15)} Flashcards</a>${ctx && ctx.missed && ctx.missed.length ? html`<a class="btn gold small grow" href="#/quiz/${q.id}?mode=practice">${icon('refresh', 15)} Practise ${ctx.missed.length} mistake${ctx.missed.length > 1 ? 's' : ''}</a>` : ''}</div></div>`}
   </article>`;
 }
 

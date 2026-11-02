@@ -1,5 +1,6 @@
 import { html, mount, icon, api, toast, pct, esc } from '../core/ui.js';
 import { reportButton } from './report.js';
+import { markBtn, weakCard } from './more.js';
 import { quizCard, emptyState, scopeBar, inScope, currentScope, scopeState } from './shared.js';
 
 const F = { course: '' };
@@ -14,6 +15,7 @@ export async function render({ S, user, config }) {
   const gate = config().requireLogin && !user();
   return html`<div class="sec-head"><div><h2>Quizzes</h2><p>Practise, see the right answer straight away, and climb the leaderboard.</p></div></div>
     ${gate ? html`<div class="alert info">You need an account to take quizzes and save your scores. <a href="#/login?next=%2Fquizzes">Log in</a> or <a href="#/register">create one free</a>.</div>` : ''}
+    ${weakCard(S)}
     ${scopeBar(S, u, 'qz-scope')}
     ${courses.length > 1 ? html`<div class="filters"><button class="pill ${F.course ? '' : 'on'}" data-action="qz-course" data-v="" type="button">All courses</button>${courses.map((c) => html`<button class="pill ${F.course === c ? 'on' : ''}" data-action="qz-course" data-v="${c}" type="button">${c}</button>`)}</div>` : ''}
     ${list.length ? html`<div class="cards">${list.map((q) => quizCard(q, best[q.id], { missed: (st.me && st.me.missed || {})[q.id] }))}</div>` : emptyState('quiz', 'No quizzes yet', 'New quizzes will appear here soon.')}`;
@@ -35,10 +37,12 @@ function start(quiz, mode, missed) {
   const all = quiz.questions.map((_, i) => i);
   const list = mode === 'practice' ? missed.slice() : all;
   run = { quiz, mode, list, i: 0, answers: all.map(() => null), picked: null, result: null, endAt: 0, tick: null };
-  if (mode === 'exam') run.endAt = Date.now() + Math.max(5, list.length) * 60 * 1000; // one minute a question
+  if (mode === 'cards') { run.queue = list.slice(); run.again = new Set(); run.show = false; run.total = list.length; }
 }
+// Time choices for a timed exam: 3, 2 or 1 questions a minute.
+export const timeOptions = (n) => [[Math.ceil(n / 3), 'Fast', '3 questions a minute'], [Math.ceil(n / 2), 'Steady', '2 questions a minute'], [n, 'Relaxed', '1 question a minute']].filter((o, i, a) => a.findIndex((x) => x[0] === o[0]) === i);
 function beginClock() {
-  if (!run || run.mode !== 'exam' || run.result || run.tick) return;
+  if (!run || run.mode !== 'exam' || !run.endAt || run.result || run.tick) return;
   run.tick = setInterval(() => {
     const t = document.getElementById('timer'); if (!t) { stopTimer(); return; }
     const r = left(); t.textContent = fmt(r); t.classList.toggle('low', r <= 60);
@@ -46,7 +50,27 @@ function beginClock() {
   }, 500);
 }
 
+function chooser() {
+  const n = run.list.length;
+  return html`<div class="row between small"><button class="btn ghost small" data-action="qz-quit" type="button">${icon('x', 15)} Leave</button><span class="muted">${n} questions</span></div>
+    <h2 class="q-text">How much time do you want?</h2><p class="muted">Pick one. The timer starts as soon as you choose, and the exam submits itself when time is up.</p>
+    <div class="opts">${timeOptions(n).map(([m, name, pace]) => html`<button class="opt" data-action="qz-time" data-min="${m}" type="button"><span class="l">${icon('clock', 18)}</span><span><b>${m} minute${m === 1 ? '' : 's'}</b> · ${name}<br><span class="tiny muted">${pace}</span></span></button>`)}</div>`;
+}
+function cardScreen() {
+  const { quiz } = run;
+  if (!run.queue.length) { const first = run.total - run.again.size; return html`<div class="result card pop"><div class="ring" style="--p:${pct(first, run.total)}"><b>${first}<small>/${run.total}</small></b></div><h2>Deck finished</h2><p class="muted" style="margin-top:6px">You knew <b>${first}</b> of ${run.total} the first time${run.again.size ? ', and went over ' + run.again.size + ' again until they stuck.' : '.'}</p>
+    <div class="row gap wrap-r" style="justify-content:center;margin-top:20px"><button class="btn primary" data-action="qz-cards-again" type="button">${icon('refresh', 17)} Go again</button><a class="btn ghost" href="#/quizzes">All quizzes</a></div></div>`; }
+  const qi = run.queue[0]; const q = quiz.questions[qi]; const done = run.total - new Set(run.queue).size;
+  return html`<div class="row between small"><button class="btn ghost small" data-action="qz-quit" type="button">${icon('x', 15)} Leave</button><span class="muted"><b>${run.queue.length}</b> left</span></div>
+    <div class="bar" style="margin-top:12px"><i style="width:${(done / run.total) * 100}%"></i></div>
+    <div class="flash card ${run.show ? 'back' : ''}"><p class="tiny muted">${quiz.course} · ${quiz.title}</p><h2 class="q-text" style="margin:8px 0 0">${q.q}</h2>
+      ${run.show ? html`<div class="flash-ans"><span class="chip good">${icon('check', 13)} Answer</span><p style="font-weight:700;margin:8px 0">${q.o[q.a]}</p>${q.e ? html`<p class="small muted">${q.e}</p>` : ''}</div>` : ''}</div>
+    ${run.show ? html`<div class="row gap" style="margin-top:14px"><button class="btn ghost grow" data-action="qz-card-again" type="button">${icon('refresh', 16)} Again</button><button class="btn primary grow" data-action="qz-card-got" type="button">${icon('check', 16)} Got it</button></div>`
+      : html`<div class="row between" style="margin-top:14px"><span>${markBtn('q', quiz.id, qi)}</span><button class="btn primary" data-action="qz-card-show" type="button">Show answer</button></div>`}`;
+}
 function screen() {
+  if (run.mode === 'cards') return cardScreen();
+  if (run.mode === 'exam' && !run.endAt && !run.result) return chooser();
   const { quiz, mode } = run; const qi = run.list[run.i]; const q = quiz.questions[qi]; const n = run.list.length;
   const exam = mode === 'exam';
   const locked = !exam && run.picked !== null;
@@ -66,7 +90,7 @@ function screen() {
     })}</div>
     ${locked && q.e ? html`<div class="expl"><b>Why: </b>${q.e}</div>` : ''}
     <div class="row between" style="margin-top:18px">
-      <span>${reportButton('question', quiz.id, qi)}</span>
+      <span>${markBtn('q', quiz.id, qi)} ${reportButton('question', quiz.id, qi)}</span>
       <span class="row gap-s">${exam && run.i > 0 ? html`<button class="btn ghost" data-action="qz-prev" type="button">Back</button>` : ''}
       ${(exam || locked) ? html`<button class="btn primary" data-action="qz-next" type="button">${last ? (exam ? 'Submit exam' : 'Finish') : 'Next question'} ${icon('arrow', 17)}</button>` : ''}</span></div>`;
 }
@@ -106,7 +130,7 @@ function reviewHtml() {
       <p class="small"><b>Your answer:</b> ${a === null || a === undefined ? '— skipped' : q.o[a]}</p>
       ${ok ? '' : html`<p class="small"><b>Correct answer:</b> ${q.o[q.a]}</p>`}
       ${q.e ? html`<p class="small muted" style="margin-top:6px">${q.e}</p>` : ''}
-      <p style="margin-top:8px">${reportButton('question', quiz.id, i)}</p></div>`;
+      <p style="margin-top:8px">${markBtn('q', quiz.id, i)} ${reportButton('question', quiz.id, i)}</p></div>`;
   })}`;
 }
 const draw = () => { mount(document.getElementById('runner'), run.result ? resultScreen() : screen()); beginClock(); };
@@ -138,7 +162,7 @@ export const runner = {
     const missed = ((S.state.me && S.state.me.missed) || {})[quiz.id] || [];
     let mode = query && query.get('mode');
     if (mode === 'practice' && !missed.length) mode = 'full';
-    if (mode !== 'exam' && mode !== 'practice') mode = 'full';
+    if (mode !== 'exam' && mode !== 'practice' && mode !== 'cards') mode = 'full';
     start(quiz, mode, missed);
     return html`<div class="runner ${quiz.paid ? 'no-copy' : ''}" id="runner"></div>`;
   },
@@ -157,6 +181,11 @@ export const actions = {
     run.picked = v; run.answers[qi] = v; draw();
     const nx = document.querySelector('[data-action="qz-next"]'); if (nx) nx.focus();
   },
+  'qz-time'(el) { if (!run || run.endAt) return; run.endAt = Date.now() + Number(el.dataset.min) * 60000; draw(); window.scrollTo(0, 0); },
+  'qz-card-show'() { run.show = true; draw(); },
+  'qz-card-got'() { run.queue.shift(); run.show = false; draw(); },
+  'qz-card-again'() { const i = run.queue.shift(); run.again.add(i); run.queue.splice(Math.min(3, run.queue.length), 0, i); run.show = false; draw(); },
+  'qz-cards-again'() { start(run.quiz, 'cards'); draw(); },
   'qz-prev'() { if (!run || run.i === 0) return; run.i--; run.picked = null; draw(); window.scrollTo(0, 0); },
   async 'qz-next'(el, ev, ctx) {
     if (!run) return; ctxRef = ctx;
@@ -173,5 +202,5 @@ export const actions = {
   'qz-mistakes'() { start(run.quiz, 'practice', run.result.missed); draw(); window.scrollTo(0, 0); },
   'qz-practice-again'() { start(run.quiz, 'practice', run.result.left); draw(); window.scrollTo(0, 0); },
   'qz-review'() { const b = document.getElementById('review'); b.innerHTML = reviewHtml().s; b.scrollIntoView({ behavior: 'smooth' }); },
-  'qz-quit'(el, ev, { go }) { if (run.result || (run.mode !== 'exam' && run.picked === null && run.i === 0) || confirm('Leave this quiz? Your progress will be lost.')) { stopTimer(); go('/quizzes'); } },
+  'qz-quit'(el, ev, { go }) { if (run.result || run.mode === 'cards' || (run.mode === 'exam' && !run.endAt) || (run.mode !== 'exam' && run.picked === null && run.i === 0) || confirm('Leave this quiz? Your progress will be lost.')) { stopTimer(); go('/quizzes'); } },
 };

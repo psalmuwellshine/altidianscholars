@@ -11,8 +11,8 @@ const { HttpError } = H;
 
 const qHash = (q) => H.sha(String(q.q)).slice(0, 10); // follows a question even if the quiz is reordered
 
-module.exports = function registerPublic({ route, store, send, userOf, fileTypes }) {
-  const publicUser = (u) => ({ id: u.id, username: u.username, createdAt: u.createdAt || null, matric: u.matric || '', facultyId: u.facultyId || '', departmentId: u.departmentId || '', level: u.level || 0, rep: u.rep || null, avatarId: u.avatarId || '' });
+module.exports = function registerPublic({ route, store, send, userOf, fileTypes, stats }) {
+  const publicUser = (u) => ({ id: u.id, username: u.username, createdAt: u.createdAt || null, facultyId: u.facultyId || '', departmentId: u.departmentId || '', level: u.level || 0, rep: u.rep || null, avatarId: u.avatarId || '' });
   const AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
   const MAX_AVATAR = 400 * 1024;
 
@@ -90,7 +90,7 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
       events: events.filter((e) => Cl.classMatch(e, user)).sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || ''))).slice(0, 200)
         .map((e) => ({ id: e.id, title: e.title, date: e.date, time: e.time, location: e.location, description: e.description, link: e.link, ...(e.departmentId || e.level ? { scoped: true } : {}), ...(e.byName ? { by: e.byName } : {}) })),
       timetable: user ? timetable.filter((t) => (t.uid ? t.uid === user.id : Cl.classMatch(t, user))).slice(0, 400).map((t) => ({ id: t.id, kind: t.kind, title: t.title, course: t.course || '', day: t.day || 0, date: t.date || '', start: t.start || '', end: t.end || '', venue: t.venue || '', mine: !!t.uid, by: t.byName || '' })) : [],
-      classNotes: user ? classnotes.filter((n) => Cl.classMatch(n, user) && n.at > Date.now() - 30 * 86400000).sort((a, b) => b.at - a.at).slice(0, 5).map((n) => ({ id: n.id, text: n.text, by: n.byName, at: n.at })) : [],
+      classNotes: user ? classnotes.filter((n) => Cl.classMatch(n, user) && n.at > Date.now() - 30 * 86400000).sort((a, b) => b.at - a.at).slice(0, 8).map((n) => ({ id: n.id, text: n.text, by: n.byName, at: n.at, kind: n.kind === 'summary' ? 'summary' : 'update', course: n.course || '' })) : [],
       board: config.leaderboardEnabled
         ? board.slice(0, 200).map((b, i) => ({ rank: i + 1, name: b.name, points: b.points, done: b.done, isUser: b.isUser, me: b.id === meId, avatar: b.avatar, dept: b.dept, level: b.level }))
         : [],
@@ -145,13 +145,11 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
     if (phrase.length < 4 || phrase.length > 60) throw new HttpError(400, 'Recovery phrase must be 4 to 60 characters.');
     if (await findByName(username)) throw new HttpError(400, 'Username already taken.');
     const acad = await Ac.loadAcademics(store);
-    const matric = Ac.cleanMatric(b.matric);
-    if ((await store.list('users')).some((u) => u.matric === matric)) throw new HttpError(400, 'That matric number is already registered. If it is yours, log in or contact an admin.');
     const place = Ac.pickAcademic(b, acad);
 
     const salt = crypto.randomBytes(16).toString('hex');
     const user = {
-      id: H.newId(), username, sv: 0, matric, facultyId: place.facultyId, departmentId: place.departmentId, level: place.level,
+      id: H.newId(), username, sv: 0, facultyId: place.facultyId, departmentId: place.departmentId, level: place.level,
       password: await H.hashPassword(password),
       recovery: { salt, hash: await H.hashPhrase(phrase, salt) },
       createdAt: Date.now(), lastLoginAt: Date.now(),
@@ -241,15 +239,13 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
       const salt = crypto.randomBytes(16).toString('hex');
       user.recovery = { salt, hash: await H.hashPhrase(phrase, salt) }; changes.push('recovery phrase');
     }
-    const newMatric = H.str(b.newMatric, 40);
-    if (newMatric && Ac.normMatric(newMatric) !== user.matric) {
-      const m = Ac.cleanMatric(newMatric);
-      if ((await store.list('users')).some((u) => u.matric === m && u.id !== user.id)) throw new HttpError(400, 'That matric number is already registered.');
-      user.matric = m; changes.push('matric number');
-    }
     if (b.departmentId || b.facultyId || b.level) {
       const place = Ac.pickAcademic(b, await Ac.loadAcademics(store));
-      if (place.departmentId !== user.departmentId || place.level !== user.level) changes.push('department and level');
+      const placed = !!(user.departmentId && user.level);
+      // A department only changes through a transfer, and a level only while the admin has the new-session window open.
+      if (placed && place.departmentId !== user.departmentId) throw new HttpError(403, 'Your department changes only through a transfer. Use the Transfer section on your profile.');
+      if (placed && place.level !== user.level && !D.levelWindowOpen(await D.loadConfig(store))) throw new HttpError(403, 'Level changes open when a new session begins. Your admin will announce it.');
+      if (place.departmentId !== user.departmentId || place.level !== user.level) changes.push(placed ? 'level' : 'department and level');
       Object.assign(user, place);
     }
     if (!changes.length) throw new HttpError(400, 'There is nothing to change yet.');
@@ -335,6 +331,7 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
     rec.missed = rec.missed || {};
     if (wrong.length) rec.missed[quizId] = wrong.map((i) => qHash(quiz.questions[i])); else delete rec.missed[quizId];
     await store.put('scores', rec);
+    stats.attempt(quiz, answers, correct);
 
     const after = snap(rec);
     const earned = user

@@ -128,7 +128,7 @@ module.exports = function registerChat({ route, store, send, userOf }) {
   route('GET', '/api/admin/chat/messages', A, async (req, res, ctx) => {
     const { room } = await adminRoom(ctx.query.get('room'));
     const users = await usersMap();
-    send(res, 200, { room, messages: (await chat.read(room.id)).slice(-150).map((m) => Object.assign(C.clientMsg(m, users, true), { matric: (users.get(m.uid) || {}).matric || '' })), online: chat.online(room.id) });
+    send(res, 200, { room, messages: (await chat.read(room.id)).slice(-150).map((m) => C.clientMsg(m, users, true)), online: chat.online(room.id) });
   });
   route('POST', '/api/admin/chat/send', A, async (req, res, ctx) => {
     const { room, st } = await adminRoom(ctx.body.room);

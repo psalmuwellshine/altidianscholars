@@ -1,4 +1,5 @@
 /* Study timetable, exam countdown and personal entries. */
+import { openScan } from './scan.js';
 import { html, raw, icon, api, toast, dialog, confirmBox, todayKey, eventDate } from '../core/ui.js';
 import { emptyState } from './shared.js';
 
@@ -43,7 +44,7 @@ export async function render({ S }) {
   const week = DAYS.map((name, i) => ({ name, n: i + 1, items: (st.timetable || []).filter((x) => x.kind === 'class' && x.day === i + 1).sort((a, b) => a.start.localeCompare(b.start)) }));
   const t = todayDay(); const any = week.some((d) => d.items.length);
   return html`${tabs('timetable')}
-    <div class="sec-head"><div><h2>Timetable and exams</h2><p>Your class timetable and exam dates, posted by your class rep and admins. You can add your own too.</p></div><button class="btn primary small" data-action="tt-add" type="button">${icon('plus', 16)} Add mine</button></div>
+    <div class="sec-head"><div><h2>Timetable and exams</h2><p>Your class timetable and exam dates, posted by your class rep and admins. You can add your own too.</p></div><button class="btn ghost small" data-action="tt-scan" type="button">${icon('upload', 16)} From photo</button> <button class="btn primary small" data-action="tt-add" type="button">${icon('plus', 16)} Add mine</button></div>
     <h3 style="margin:6px 0 12px">Exam and test countdown</h3>
     ${exams.length ? html`<div class="cards">${exams.map(examCard)}</div>` : emptyState('clock', 'No exams or tests yet', 'When your class rep or an admin posts one, a countdown shows up here and on your home page.')}
     ${other.length ? html`<h3 style="margin:22px 0 12px">My study sessions</h3><div class="cards">${other.map(examCard)}</div>` : ''}
@@ -55,6 +56,7 @@ export async function render({ S }) {
 export function after() { /* nothing to attach */ }
 
 export const actions = {
+  'tt-scan'(el, ev, { S, load, renderView }) { openScan({ target: 'mine', done: async () => { await load(); renderView(); } }); },
   'tt-kind'(el) { const f = el.closest('form'); const c = el.value === 'class'; f.querySelector('.tt-day').hidden = !c; f.querySelector('.tt-date').hidden = c; },
   'tt-add'(el, ev, { S }) {
     const courses = S.state.academics.courses.map((c) => c.code);

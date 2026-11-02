@@ -135,7 +135,7 @@ module.exports = function registerCommunity({ route, store, send, userOf, push }
       await store.put('materials', m);
       await award(m.by, cfg.contribPoints);
       push.later({ audience: { uid: m.by }, type: 'direct', title: 'Your upload is live 🎉', body: m.title + (cfg.contribPoints ? ' · +' + cfg.contribPoints + ' points' : ''), url: '/#/share' });
-      push.later({ audience: { departmentIds: course ? course.departmentIds || [] : [], level: course ? course.level : 0 }, type: 'materials', title: 'New ' + m.course + ' material', body: m.title + (m.byName ? ' · shared by ' + m.byName : ''), url: '/#/library' });
+      push.later({ audience: { departmentIds: course ? course.departmentIds || [] : [], level: course ? course.level : 0 }, type: 'materials', title: 'New ' + m.course + ' resource', body: m.title + (m.byName ? ' · shared by ' + m.byName : ''), url: '/#/library' });
     } else {
       m.status = 'rejected'; m.reason = clean(reason, 200) || 'Not suitable for the library.';
       if (m.fileId) { await store.delFile(m.fileId); delete m.fileId; delete m.fileType; delete m.fileName; }
@@ -196,7 +196,7 @@ module.exports = function registerCommunity({ route, store, send, userOf, push }
     Object.assign(doc, { status: 'approved', by: user.id, byName: user.username, approvedAt: Date.now() });
     if (fileBuf) await store.putFile(doc.fileId, fileBuf);
     await store.put('materials', doc);
-    push.later({ audience: audienceOfScope(scope), type: 'materials', title: 'New ' + doc.course + ' material', body: doc.title, url: '/#/library' });
+    push.later({ audience: audienceOfScope(scope), type: 'materials', title: 'New ' + doc.course + ' resource', body: doc.title, url: '/#/library' });
     send(res, 200, { ok: true, id: doc.id });
   });
 
@@ -281,10 +281,17 @@ module.exports = function registerCommunity({ route, store, send, userOf, push }
 
   /* ================= class notes (short messages from a rep) ================= */
   route('POST', '/api/rep/notes', { limit: ['repnote', 30, 60 * 60 * 1000] }, async (req, res, ctx) => {
-    const { user, scope } = await needRep(req); const text = clean(ctx.body.text, 300);
-    if (!text) throw new HttpError(400, 'Write the message first.');
-    await store.put('classnotes', { id: newId(), departmentId: scope.departmentId, level: scope.level, text, byName: user.username, byUid: user.id, at: Date.now() });
-    push.later({ audience: audienceOfScope(scope), type: 'notices', title: 'Class update from ' + user.username, body: text, url: '/' });
+    const { user, scope } = await needRep(req);
+    const summary = ctx.body.kind === 'summary'; const text = clean(ctx.body.text, summary ? 600 : 300);
+    if (!text) throw new HttpError(400, summary ? 'Write what was taught first.' : 'Write the message first.');
+    let course = '';
+    if (summary) {
+      course = String(ctx.body.course || '').trim().toUpperCase();
+      const acad = await Ac.loadAcademics(store); const c = acad.courses.find((x) => x.code === course);
+      if (!c || !Cl.courseInScope(c, scope)) throw new HttpError(400, 'Choose one of your class courses.');
+    }
+    await store.put('classnotes', { id: newId(), departmentId: scope.departmentId, level: scope.level, text, kind: summary ? 'summary' : 'update', course, byName: user.username, byUid: user.id, at: Date.now() });
+    push.later({ audience: audienceOfScope(scope), type: 'notices', title: summary ? 'Today in ' + course : 'Class update from ' + user.username, body: text, url: '/' });
     send(res, 200, { ok: true });
   });
   route('DELETE', '/api/rep/notes/:id', {}, async (req, res, ctx) => {
@@ -310,7 +317,7 @@ module.exports = function registerCommunity({ route, store, send, userOf, push }
       Object.assign(doc, { refId: quiz.id, refTitle: quiz.title, course: quiz.course, qIndex: i, qText: quiz.questions[i].q.slice(0, 200) });
     } else if (type === 'material') {
       const m = await store.get('materials', H.str(b.refId, 40));
-      if (!m || m.hidden) throw new HttpError(404, 'That material was not found.');
+      if (!m || m.hidden) throw new HttpError(404, 'That resource was not found.');
       Object.assign(doc, { refId: m.id, refTitle: m.title, course: m.course });
     }
     const all = await store.list('reports');
