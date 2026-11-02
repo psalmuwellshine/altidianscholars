@@ -1,5 +1,6 @@
 import { html, raw, mount, icon, api, toast, fmtDate, ago, pct, initial, plural, confirmBox, avatar, squarePhoto } from '../core/ui.js';
 import * as notifyMod from './notify.js';
+import * as move from './transition.js';
 import { emptyState, placeFields, placeChange, hasPlace, deptName, facultyName } from './shared.js';
 
 let nextPath = '/';
@@ -8,7 +9,10 @@ const showBox = (id, text, kind = 'bad') => { const b = document.getElementById(
 
 /* ---------- login / register / forgot ---------- */
 export const auth = {
-  async render({ S, user, config, go }, { mode }, query) {
+  async render(a, p, q) { const body = await authBody(a, p, q); return html`${a.user() ? '' : move.ribbon(a.config())}${body}`; },
+};
+async function authBody({ S, user, config, go }, { mode }, query) {
+  {
     if (user()) { go(safeNext(query.get('next'))); return html``; }
     nextPath = safeNext(query.get('next'));
     const c = config(); const q = nextPath !== '/' ? '?next=' + encodeURIComponent(nextPath) : '';
@@ -44,8 +48,8 @@ export const auth = {
         <div class="row between" style="margin:-6px 0 14px"><label class="check small"><input type="checkbox" data-change="show-pw"> Show password</label><a class="link-btn" href="#/forgot${q}">Forgot password?</a></div>
         <button class="btn primary block" type="submit">Log in</button></form>
       ${c.registrationOpen ? html`<p class="muted small" style="text-align:center;margin-top:18px">New here? <a href="#/register${q}">Create a free account</a></p>` : ''}</div>`;
-  },
-};
+  }
+}
 
 async function sendForm(form, work) {
   const btn = form.querySelector('button[type=submit]'); const label = btn.textContent;

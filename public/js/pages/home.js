@@ -1,6 +1,7 @@
 import { html, raw, icon, plural, esc, avatar, kindLabel, kindIcon, debounce } from '../core/ui.js';
 import { resourceCard, quizCard, eventTile, leaderRows, emptyState, inScope, hasPlace, placeLine } from './shared.js';
 import { todayKey } from '../core/ui.js';
+import * as move from './transition.js';
 import * as notifyMod from './notify.js';
 import { upcomingExams, classesToday, daysTo, countdown } from './timetable.js';
 
@@ -84,6 +85,7 @@ export async function render({ S, user, config }) {
   return html`
     ${u && !hasPlace(u) ? html`<div class="alert warning" style="margin-top:16px">Tell us your department and level to see the right courses. <a href="#/profile">Update my profile</a></div>` : ''}
     ${u ? html`<div id="push-nudge" style="margin-top:16px"></div>` : ''}
+    ${move.banner(c)}
     <section class="hero">
       ${c.tagline ? html`<span class="tag">${c.tagline}</span>` : ''}
       <h1>${c.heroTitle}</h1><p>${c.heroText}</p>
@@ -126,7 +128,7 @@ export async function render({ S, user, config }) {
       <div class="card flat">${st.board.length ? leaderRows(st.board.slice(0, 5)) : emptyState('trophy', 'Be the first', 'Take a quiz to claim the top spot.')}</div></section>` : ''}
     </div>`;
 }
-export function after() { notifyMod.nudge(); }
+export function after(ctx) { notifyMod.nudge(); move.welcome(ctx.user(), ctx.config()); }
 function runSearch(S, user, q, jump) {
   Q = q; LIM.m = LIM.q = LIM.e = 12;
   const on = Q.trim().length >= 2;
