@@ -18,7 +18,7 @@ import * as cgpa from './pages/cgpa.js';
 import * as report from './pages/report.js';
 import { saveSnapshot, loadSnapshot } from './core/offline.js';
 import * as push from './core/push.js';
-import * as guard from './core/offlineguard.js';
+import * as idle from './core/idle.js';
 import * as more from './pages/more.js';
 import * as scan from './pages/scan.js';
 
@@ -38,22 +38,22 @@ let lastUid = '';
 export async function load() {
   try {
     S.state = await api('GET', '/api/state?device=' + encodeURIComponent(S.device));
-    // Back online after more than 15 minutes without a connection: log out and ask for a fresh login.
-    if (S.state.user && guard.expired()) {
+    // No activity for 20 minutes (even if the tab stayed open): log out and ask for a fresh login.
+    if (S.state.user && idle.expired()) {
       try { await api('POST', '/api/logout'); } catch (e) { /* the session cookie is cleared next time */ }
       S.state = await api('GET', '/api/state?device=' + encodeURIComponent(S.device)); S.cutOff = true;
     }
-    guard.markOnline(); S.offline = false;
+    S.offline = false;
     saveSnapshot(S.state);
   } catch (e) {
     // No connection: open with the last copy of the data, so saved notes and the timetable still work.
     const snap = e.status === 0 ? loadSnapshot() : null;
     if (!snap) throw e;
-    guard.markOffline(); S.state = snap; S.offline = true;
-    if (guard.expired()) { S.state = Object.assign({}, snap, { user: null, me: null, notice: null }); S.cutOff = true; }
+    S.state = snap; S.offline = true;
+    if (idle.expired()) { S.state = Object.assign({}, snap, { user: null, me: null, notice: null }); S.cutOff = true; }
   }
   S.profile = null;
-  if (S.state.user) { S.cutOff = false; if (lastUid !== S.state.user.id) { more.resetMarks(); lastUid = S.state.user.id; } if (!S.offline) more.prime(); }
+  if (S.state.user) { idle.ensure(); S.cutOff = false; if (lastUid !== S.state.user.id) { more.resetMarks(); lastUid = S.state.user.id; } if (!S.offline) more.prime(); }
   renderChrome();
   if (S.state.user && !S.offline) push.sync();
   return S.state;
@@ -214,19 +214,28 @@ document.addEventListener('change', (ev) => {
 });
 window.addEventListener('hashchange', route);
 window.addEventListener('online', () => { if (S.offline) load().then(route).catch(() => {}); });
-window.addEventListener('offline', () => { guard.markOffline(); });
-// Checks the connection once a minute. Offline for over 15 minutes means logged out.
+// Checks every 30 seconds. No activity for 20 minutes means logged out; one minute before that a warning shows.
+let warned = false;
+async function idleCheck() {
+  if (!S.state || !S.state.user) { warned = false; return; }
+  if (idle.expired()) {
+    warned = false;
+    try { await api('POST', '/api/logout'); } catch (e) { /* offline: the cookie is cleared the next time the app loads */ }
+    S.cutOff = true; S.state = Object.assign({}, S.state, { user: null, me: null, notice: null }); S.profile = null;
+    renderChrome(); go('/login'); return;
+  }
+  if (idle.warning() && !warned) { warned = true; toast('You will be logged out in about a minute because of no activity. Tap anywhere to stay logged in.', 'bad'); }
+  if (!idle.warning()) warned = false;
+}
+idle.watch(idleCheck);
+// A quiet ping once a minute keeps the offline banner honest; it does not count as activity.
 async function heartbeat() {
   if (!S.state || !S.state.user) return;
-  try { await api('GET', '/api/ping'); if (guard.expired()) { await load(); route(); } else { guard.markOnline(); if (S.offline) { load().then(route).catch(() => {}); } } }
-  catch (e) {
-    if (e.status !== 0) return;
-    guard.markOffline(); S.offline = true;
-    if (guard.expired()) { S.state = Object.assign({}, S.state, { user: null, me: null, notice: null }); S.cutOff = true; renderChrome(); go('/login'); }
-    else renderChrome();
-  }
+  try { await api('GET', '/api/ping'); if (S.offline) { load().then(route).catch(() => {}); } }
+  catch (e) { if (e.status === 0 && !S.offline) { S.offline = true; renderChrome(); } }
 }
 setInterval(heartbeat, 60000);
+window.addEventListener('online', () => { idleCheck(); });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) heartbeat(); });
 
 /* ---------- start ---------- */
