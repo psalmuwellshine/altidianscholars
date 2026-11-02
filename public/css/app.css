@@ -114,7 +114,6 @@ input[type=checkbox], input[type=radio] { width: 20px; height: 20px; min-height:
 
 /* ---------- hero ---------- */
 .hero { position: relative; overflow: hidden; border-radius: 28px; padding: clamp(26px, 5vw, 56px); background: var(--hero); color: #fff; margin-top: 20px; isolation: isolate; }
-.hero::after { content: ''; position: absolute; right: -60px; top: -60px; width: 320px; height: 320px; border-radius: 50%; background: radial-gradient(circle, rgba(244,180,0,.55), transparent 65%); z-index: -1; }
 .hero::before { content: ''; position: absolute; right: 8%; bottom: -90px; width: 220px; height: 220px; border-radius: 40% 60% 55% 45%; background: rgba(255,255,255,.07); z-index: -1; }
 .hero h1 { color: #fff; max-width: 14ch; text-wrap: balance; } .hero p { margin-top: 14px; max-width: 46ch; font-size: clamp(16px, 2vw, 19px); color: #E3ECFF; }
 .hero .tag { display: inline-block; margin-bottom: 14px; padding: 5px 13px; border-radius: 999px; background: rgba(0,0,0,.22); font: 700 13px var(--f-body); letter-spacing: .04em; }
@@ -392,3 +391,27 @@ button.q { text-align: left; font: inherit; color: inherit; cursor: pointer; wid
 .hs-group { margin-bottom: 22px; }
 .hs-h { display: flex; align-items: center; gap: 8px; font-size: 1.05rem; margin: 0 0 12px; }
 @media (max-width: 480px) { .hs-form .btn { padding-left: 14px; padding-right: 14px; } }
+
+/* Move-over banner, welcome and login ribbon */
+.move { position: relative; margin-top: 16px; padding: 20px; border-radius: 20px; color: #fff; display: grid; gap: 16px; overflow: hidden;
+  background: linear-gradient(120deg, #17306f 0%, #1f3a8a 55%, #2b4aa5 100%); border: 1px solid rgba(232,163,61,.55); box-shadow: 0 10px 30px -12px rgba(31,58,138,.55); }
+.move::after { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 35%, rgba(232,163,61,.28) 50%, transparent 65%); background-size: 250% 100%; animation: move-shine 4.5s ease-in-out infinite; pointer-events: none; }
+@keyframes move-shine { 0% { background-position: 130% 0; } 60%, 100% { background-position: -80% 0; } }
+@media (prefers-reduced-motion: reduce) { .move::after { animation: none; opacity: 0; } }
+.move-tag { display: inline-flex; align-items: center; gap: 6px; font-size: .74rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #1a2238; background: #E8A33D; padding: 4px 10px; border-radius: 999px; }
+.move h2 { color: #fff; margin: 10px 0 6px; font-size: clamp(1.25rem, 5vw, 1.7rem); line-height: 1.2; }
+.move p { margin: 0; color: #dfe6fb; font-size: .95rem; }
+.move-count { position: relative; z-index: 1; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; padding: 12px 14px; border-radius: 14px; background: rgba(255,255,255,.1); }
+.move-count b { font-size: 2.3rem; line-height: 1; color: #E8A33D; font-variant-numeric: tabular-nums; }
+.move-count span { font-weight: 700; color: #fff; }
+.move-count small { flex-basis: 100%; color: #dfe6fb; font-size: .82rem; }
+.move > * { position: relative; z-index: 1; }
+@media (min-width: 720px) { .move { grid-template-columns: 1fr auto; align-items: center; } .move-count { flex-direction: column; align-items: center; text-align: center; min-width: 180px; } .move-count small { flex-basis: auto; } }
+.move-ribbon { display: flex; gap: 8px; align-items: flex-start; margin: 0 auto 14px; max-width: 460px; padding: 10px 14px; border-radius: 12px; background: #fff7e6; border: 1px solid #E8A33D; color: #5a3b00; font-size: .9rem; }
+.move-ribbon svg { flex: none; margin-top: 2px; color: #c47d0a; }
+.welcome { text-align: center; }
+.welcome-ico { width: 60px; height: 60px; margin: 0 auto 10px; display: grid; place-items: center; border-radius: 50%; background: #E8A33D; color: #1a2238; }
+.welcome-steps { text-align: left; list-style: none; counter-reset: s; padding: 0; margin: 14px 0 0; display: grid; gap: 10px; }
+.welcome-steps li { counter-increment: s; display: grid; grid-template-columns: 30px 1fr; column-gap: 10px; }
+.welcome-steps li::before { content: counter(s); grid-row: span 2; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: var(--brand); color: #fff; font-weight: 700; font-size: .85rem; }
+.welcome-steps span { color: var(--muted); font-size: .88rem; }
