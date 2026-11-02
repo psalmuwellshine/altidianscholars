@@ -10,7 +10,7 @@ const showBox = (id, text, kind = 'bad') => { const b = document.getElementById(
 
 /* ---------- login / register / forgot ---------- */
 export const auth = {
-  async render(a, p, q) { const body = await authBody(a, p, q); return html`${a.user() ? '' : move.ribbon(a.config())}${a.S.cutOff && !a.user() ? html`<div class="alert warning" style="max-width:460px;margin:0 auto 14px">You were offline for more than 15 minutes, so you were logged out. Connect to the internet and log in again.</div>` : ''}${body}`; },
+  async render(a, p, q) { const body = await authBody(a, p, q); return html`${a.user() ? '' : move.ribbon(a.config())}${a.S.cutOff && !a.user() ? html`<div class="alert warning" style="max-width:460px;margin:0 auto 14px">You were logged out because there was no activity for 20 minutes. Log in again to carry on.</div>` : ''}${body}`; },
 };
 async function authBody({ S, user, config, go }, { mode }, query) {
   {
