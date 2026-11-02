@@ -433,3 +433,13 @@ button.q { text-align: left; font: inherit; color: inherit; cursor: pointer; wid
 .scan-row.bad input, .scan-row.bad select { border-color: #c0392b; }
 @media (max-width: 720px) { .scan-row { grid-template-columns: 1fr 1fr; padding: 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); } .scan-row [name=title] { grid-column: span 2; } .scan-row [name=venue] { grid-column: 1; } .scan-row .icon-btn { grid-column: 2; justify-self: end; } .scan-row input[type=time] { min-width: 0; font-size: 13px; padding: 8px 4px; } }
 .level-banner { margin-top: 16px; }
+
+/* course form and department list import */
+.imp-row { display: grid; grid-template-columns: 100px 64px 78px 1fr 34px; gap: 6px; align-items: center; margin-top: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); }
+.imp-row [name=code] { grid-row: 1; grid-column: 1; } .imp-row [name=units] { grid-row: 1; grid-column: 2; } .imp-row [name=semester] { grid-row: 1; grid-column: 3; } .imp-row .icon-btn { grid-row: 1; grid-column: 5; } .imp-row [name=name] { grid-row: 2; grid-column: 1 / -1; }
+.imp-row input, .imp-row select, .imp-dept input, .imp-group > .row input { min-width: 0; width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; }
+.imp-row.bad { border-color: #c0392b; background: color-mix(in srgb, #c0392b 8%, var(--surface)); }
+.imp-row.warn { border-color: #d49a00; }
+.imp-group { margin-top: 14px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); }
+.imp-dept { display: grid; grid-template-columns: minmax(0, 1fr) 34px; gap: 6px; align-items: center; margin-top: 8px; }
+@media (max-width: 720px) { .imp-row { grid-template-columns: 1fr 64px 78px 34px; } .imp-row .icon-btn { grid-column: 4; } }

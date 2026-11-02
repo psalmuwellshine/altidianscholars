@@ -232,6 +232,29 @@ module.exports = function registerAdmin({ route, store, send, push }) {
     await store.del('departments', id);
     send(res, 200, { ok: true });
   });
+  // Faculties and departments from a list: faculties that already exist are reused, the rest are created.
+  route('POST', '/api/admin/academics/import', A, async (req, res, ctx) => {
+    const groups = Array.isArray(ctx.body && ctx.body.groups) ? ctx.body.groups.slice(0, 40) : [];
+    const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z ]/g, ' ').replace(/\b(faculty|of|and|the)\b/g, ' ').replace(/\s+/g, ' ').trim();
+    const facs = await store.list('faculties'); const deps = await store.list('departments');
+    let newFac = 0, newDep = 0, skipped = 0;
+    for (const g of groups) {
+      let fac = null;
+      if (g.facultyId) fac = facs.find((f) => f.id === String(g.facultyId));
+      if (!fac) {
+        const name = clean(g.faculty, 90); if (!name) { skipped += (g.departments || []).length; continue; }
+        fac = facs.find((f) => norm(f.name) === norm(name));
+        if (!fac) { fac = { id: newId(), name }; await store.put('faculties', fac); facs.push(fac); newFac++; }
+      }
+      const maxLevel = Ac.LEVELS.includes(Number(g.maxLevel)) ? Number(g.maxLevel) : 400;
+      for (const n0 of (Array.isArray(g.departments) ? g.departments : []).slice(0, 80)) {
+        const name = clean(n0, 90); if (!name) continue;
+        if (deps.some((d) => d.facultyId === fac.id && d.name.toLowerCase() === name.toLowerCase())) { skipped++; continue; }
+        const d = { id: newId(), name, facultyId: fac.id, maxLevel }; await store.put('departments', d); deps.push(d); newDep++;
+      }
+    }
+    send(res, 200, { ok: true, newFac, newDep, skipped });
+  });
   async function readCourse(b, existing) {
     const code = clean(b.code, 10).toUpperCase();
     if (!okCourse(code)) throw new HttpError(400, 'Course code must be 2 to 10 letters or digits, like MBH222.');
@@ -246,6 +269,31 @@ module.exports = function registerAdmin({ route, store, send, push }) {
   route('POST', '/api/admin/courses', A, async (req, res, ctx) => {
     const c = await readCourse(ctx.body, null); await store.put('courses', c);
     send(res, 200, { ok: true, id: c.id });
+  });
+  // Many courses at once (from a registration form): new codes are created, existing codes are linked to this department.
+  route('POST', '/api/admin/courses/bulk', A, async (req, res, ctx) => {
+    const b = ctx.body || {}; const dep = await store.get('departments', String(b.departmentId || ''));
+    if (!dep) throw new HttpError(400, 'Choose the department these courses belong to.');
+    const list = Array.isArray(b.courses) ? b.courses.slice(0, 120) : [];
+    if (!list.length) throw new HttpError(400, 'There are no courses to add.');
+    const all = await store.list('courses'); const byCode = new Map(all.map((c) => [c.code, c]));
+    let added = 0, linked = 0, same = 0; const bad = [];
+    for (const r of list) {
+      const code = clean(r.code, 10).toUpperCase();
+      if (!okCourse(code)) { bad.push(code || '(blank)'); continue; }
+      const cur = byCode.get(code);
+      if (cur) {
+        if ((cur.departmentIds || []).length && !cur.departmentIds.includes(dep.id)) { cur.departmentIds = cur.departmentIds.concat(dep.id); await store.put('courses', cur); linked++; } else same++;
+        continue;
+      }
+      const level = Ac.LEVELS.includes(Number(r.level)) ? Number(r.level) : (Ac.LEVELS.includes(Number(b.level)) ? Number(b.level) : 0);
+      if (!level) { bad.push(code); continue; }
+      const c = { id: newId(), code, name: clean(r.name, 90), level, departmentIds: [dep.id] };
+      const u = Number(r.units); if (u >= 1 && u <= 9) c.units = u;
+      const sm = Number(r.semester); if (sm === 1 || sm === 2) c.semester = sm;
+      await store.put('courses', c); byCode.set(code, c); added++;
+    }
+    send(res, 200, { ok: true, added, linked, same, bad });
   });
   route('PUT', '/api/admin/courses/:id', A, async (req, res, ctx) => {
     const cur = await store.get('courses', ctx.params[0]);

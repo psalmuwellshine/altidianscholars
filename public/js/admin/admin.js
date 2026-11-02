@@ -6,6 +6,7 @@ import { placeFields, placeChange } from '../pages/shared.js';
 import { reasonLabel } from '../pages/report.js';
 import { openScan, actions as scanActions } from '../pages/scan.js';
 import * as idle from '../core/idle.js';
+import { openCourseImport, openDeptImport, actions as importActions } from '../pages/import.js';
 
 initTheme();
 const root = document.getElementById('root');
@@ -92,7 +93,7 @@ const views = {
   async academics() {
     await loadAcad(); const ac = A.acad; A.cache.acad = ac;
     const deps = (c) => (c.departmentIds.length ? c.departmentIds.map(dName).join(', ') : 'All departments');
-    return html`${head('Academics', 'Faculties, departments or programmes, and the courses taught at each level.', html`<button class="btn ghost" data-action="fac-new" type="button">${icon('plus', 16)} Faculty</button><button class="btn ghost" data-action="dep-new" type="button" ${ac.faculties.length ? '' : raw('disabled')}>${icon('plus', 16)} Department</button><button class="btn primary" data-action="crs-new" type="button">${icon('plus', 16)} Course</button>`)}
+    return html`${head('Academics', 'Faculties, departments or programmes, and the courses taught at each level.', html`<button class="btn ghost" data-action="fac-new" type="button">${icon('plus', 16)} Faculty</button><button class="btn ghost" data-action="dep-new" type="button" ${ac.faculties.length ? '' : raw('disabled')}>${icon('plus', 16)} Department</button><button class="btn ghost" data-action="dep-import" type="button">${icon('upload', 16)} Departments from a list</button><button class="btn ghost" data-action="crs-import" type="button">${icon('upload', 16)} Courses from a form</button><button class="btn primary" data-action="crs-new" type="button">${icon('plus', 16)} Course</button>`)}
       <section><h3 style="margin-bottom:10px">Faculties</h3>${ac.faculties.length ? html`<div class="tbl-wrap"><table><thead><tr><th>Faculty</th><th class="num">Departments</th><th class="num">Students</th><th></th></tr></thead><tbody>${ac.faculties.map((f) => html`<tr><td><b>${f.name}</b></td><td class="num">${f.departments}</td><td class="num">${f.students}</td>
         <td><div class="actions"><button class="btn ghost small icon" data-action="fac-edit" data-id="${f.id}" type="button" aria-label="Edit ${f.name}">${icon('edit', 16)}</button><button class="btn ghost small icon" data-action="fac-del" data-id="${f.id}" type="button" aria-label="Delete ${f.name}">${icon('trash', 16)}</button></div></td></tr>`)}</tbody></table></div>` : empty('shield', 'No faculties yet', 'Add a faculty first, then its departments.')}</section>
       <section class="sec"><h3 style="margin-bottom:10px">Departments and programmes</h3>${ac.departments.length ? html`<div class="tbl-wrap"><table><thead><tr><th>Department</th><th>Faculty</th><th class="num">Levels</th><th class="num">Courses</th><th class="num">Students</th><th></th></tr></thead><tbody>${ac.departments.map((d) => html`<tr><td><b>${d.name}</b></td><td>${fName(d.facultyId)}</td><td class="num">100 to ${d.maxLevel}</td><td class="num">${d.courses}</td><td class="num">${d.students}</td>
@@ -855,7 +856,9 @@ idle.watch(async () => {
 start();
 
 /* ---------- sign-ups, analytics, transfers, scheduled posts, bulk upload, timetable scan ---------- */
-Object.assign(actions, scanActions, {
+Object.assign(actions, scanActions, importActions, {
+  'crs-import'() { openCourseImport({ acad: A.acad, done: reload }); },
+  'dep-import'() { openDeptImport({ acad: A.acad, done: reload }); },
   'tt-scan'() {
     openScan({ target: 'admin', done: reload,
       scopeHtml: html`<div class="grid2"><label class="field"><span>Department</span><select name="scope-dept"><option value="">Everyone</option>${A.acad.departments.map((d) => html`<option value="${d.id}">${d.name}</option>`)}</select></label>

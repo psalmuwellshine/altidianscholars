@@ -13,15 +13,15 @@ function loadEngine() {
 }
 export const engineReady = () => loadEngine();
 
-async function readPhoto(file, onProgress) {
+export async function readPhoto(file, onProgress) {
   const ok = await loadEngine(); if (!ok) return null;
   const worker = await window.Tesseract.createWorker('eng', 1, { workerPath: ENGINE + 'worker.min.js', corePath: ENGINE, langPath: ENGINE + 'lang', workerBlobURL: false, logger: (m) => { if (m.status === 'recognizing text') onProgress(Math.round(m.progress * 100)); } });
   try { const { data } = await worker.recognize(file); return data.text || ''; } finally { await worker.terminate(); }
 }
 // Phone photos are huge; a smaller copy reads just as well and is much faster.
-async function shrink(file) {
+export async function shrink(file, max = 1800, min = 0) {
   try {
-    const bmp = await createImageBitmap(file); const max = 1800; const k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    const bmp = await createImageBitmap(file); const big = Math.max(bmp.width, bmp.height); const k = Math.min(max / big, Math.max(1, min / big));
     const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
     const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height); g.filter = 'none';
     return await new Promise((r) => c.toBlob((b) => r(b || file), 'image/png'));
