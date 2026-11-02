@@ -125,3 +125,7 @@ new warrior. Points are 10 per correct answer, counted from the best attempt at 
 - **Timed exam**: `#/quiz/<id>?mode=exam`. One minute per question (minimum 5 minutes), no feedback until submitted, auto-submits at zero. It counts as a normal attempt.
 - **CGPA calculator**: `#/cgpa`, Nigerian 5.0 scale, saved on the phone only (localStorage).
 - **Report a problem**: students flag a quiz question, a resource or the site (`POST /api/report`, 40/hour). Admin > Reports lists them; "Mark as fixed" sends the student a thank-you notification.
+
+## Move-over banner (Exam Warriors to Altidian)
+
+Admin > Site settings > Move-over banner. Shows a banner with a countdown on the home page, a one-time welcome pop-up for each student, and a ribbon on the login and sign-up pages for people arriving from old links. Settings: `moveOn`, `moveEnds` (countdown day), optional `moveTitle` and `moveText`. The banner hides itself a week after the countdown day.
