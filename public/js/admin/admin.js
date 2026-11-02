@@ -5,6 +5,7 @@ import { embedOf } from '../core/video.js';
 import { placeFields, placeChange } from '../pages/shared.js';
 import { reasonLabel } from '../pages/report.js';
 import { openScan, actions as scanActions } from '../pages/scan.js';
+import * as idle from '../core/idle.js';
 
 initTheme();
 const root = document.getElementById('root');
@@ -798,8 +799,14 @@ async function start() {
   try { A.me = await api('GET', '/api/admin/me'); } catch (e) { root.textContent = e.message; return; }
   if (!A.me.admin) return loginView(A.me.configured);
   try { A.config = await api('GET', '/api/admin/config'); await loadAcad(); } catch (e) { /* loaded later */ }
-  route();
+  idle.ensure(); route();
 }
+// Same rule as the student side: 20 minutes without activity signs the admin out.
+idle.watch(async () => {
+  if (!A.me || !A.me.admin || !idle.expired()) return;
+  A.me = null; try { await api('POST', '/api/admin/logout'); } catch (e) { /* ignore */ }
+  toast('Signed out after 20 minutes without activity.', 'bad'); start();
+});
 start();
 
 /* ---------- sign-ups, analytics, transfers, scheduled posts, bulk upload, timetable scan ---------- */
