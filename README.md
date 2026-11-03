@@ -31,6 +31,9 @@ loaded only when you connect a database.
 
 Every student gets a **General** room, a room for their **department**, and a room for their **class** (department + level). Students only see rooms that belong to them, and the server enforces it. Messages appear live (Server-Sent Events, no extra service needed), with a 20-second fallback if live updates are blocked. Each room keeps its last 300 messages; messages are 600 characters at most, with a 1-per-second rate limit and duplicate-message blocking. Students can delete their own messages and report others. Chat can be switched off in **Site settings**.
 
+### Sharing quizzes
+Every quiz card has a share button, and the results screen has **Share my score**. It opens the phone's share sheet (WhatsApp, Telegram and so on), or copies the text and link if sharing is not available. The link opens the quiz directly. Someone who is not logged in is taken to log in or sign up first, then straight to the quiz. Paid quizzes still need to be unlocked.
+
 ### Replies, reactions and personal messages
 - **Tap a message** to react (👍 ❤️ 😂 😮 😢 🙏, one per person, tap again to remove), reply, copy, or report/delete. Replies show the quoted message; tapping the quote jumps to it.
 - **Personal messages**: tap anyone's picture in a room or on the leaderboard, or search a username in Chat, to open a private one-to-one chat. Students can block someone, or switch off "Let other students message me". New personal messages send a push notification (type "Personal messages", which students can turn off under Notifications), at most one per sender every 5 minutes.
