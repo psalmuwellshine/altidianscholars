@@ -118,6 +118,7 @@ function resultScreen() {
       ${nm && !r.guest ? html`<button class="btn primary" data-action="qz-mistakes" type="button">${icon('refresh', 17)} Practise my ${nm} mistake${nm > 1 ? 's' : ''}</button>` : ''}
       <button class="btn ${nm && !r.guest ? 'ghost' : 'primary'}" data-action="qz-again" type="button">${icon('refresh', 17)} Try again</button>
       <button class="btn gold" data-action="qz-review" type="button">Review answers</button>
+      ${r.guest ? '' : html`<button class="btn ghost" data-action="qz-share-score" type="button">${icon('share', 17)} Share my score</button>`}
       <a class="btn ghost" href="#/quizzes">All quizzes</a></div></div>
     <div id="review"></div>`;
 }
@@ -170,7 +171,21 @@ export const runner = {
 };
 runner.needsLogin.displayName = 'needsLogin';
 
+/* Sharing: a link that opens the quiz. Someone who is not logged in is sent to log in or sign up first, then straight to the quiz. */
+async function shareOut(title, text, url) {
+  try { if (navigator.share) { await navigator.share({ title, text, url }); return; } } catch (e) { return; }
+  const all = text + '\n' + url;
+  try { await navigator.clipboard.writeText(all); toast('Copied. Paste it in your group.'); } catch (e) { toast(url); }
+}
 export const actions = {
+  'quiz-share'(el) {
+    const d = el.dataset; const url = location.origin + '/#/quiz/' + d.id;
+    shareOut(d.title, `Try this quiz on Altidian: ${d.course}, ${d.title} (${d.n} questions). Instant answers, and it counts on the leaderboard.`, url);
+  },
+  'qz-share-score'() {
+    if (!run || !run.result) return; const r = run.result; const q = run.quiz;
+    shareOut(q.title, `I got ${r.correct}/${r.total} (${pct(r.correct, r.total)}%) in ${q.course}: ${q.title} on Altidian. Can you beat me?`, location.origin + '/#/quiz/' + q.id);
+  },
   'qz-scope': (el, ev, { renderView }) => { scopeState.v = el.dataset.v; F.course = ''; renderView(); },
   'qz-course': (el, ev, { renderView }) => { F.course = el.dataset.v; renderView(); },
   'qz-pick'(el) {
