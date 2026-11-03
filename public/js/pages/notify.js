@@ -4,7 +4,7 @@ import * as P from '../core/push.js';
 
 export const section = () => html`<section class="sec folds"><details class="fold" id="notify"><summary><span class="ico-box">${icon('bell', 20)}</span><span class="grow"><b>Notifications</b><br><span class="tiny muted">Alerts for new materials, exam reminders and announcements.</span></span></summary><div class="fold-body"><div class="card" id="notify-card" style="max-width:640px"><p class="muted small">Checking…</p></div></div></details></section>`;
 
-const PREFS = [['notices', 'Announcements and class updates'], ['materials', 'New resources and quizzes'], ['events', 'Events, timetable and exam reminders'], ['daily', 'Question of the day']];
+const PREFS = [['notices', 'Announcements and class updates'], ['materials', 'New resources and quizzes'], ['events', 'Events, timetable and exam reminders'], ['daily', 'Question of the day'], ['messages', 'Personal messages']];
 export async function hydrate() {
   const el = document.getElementById('notify-card'); if (!el) return;
   let s; try { s = await P.status(); } catch (e) { s = { supported: false }; }

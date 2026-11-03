@@ -20,7 +20,7 @@ export async function render({ S, user }) {
     ${!u && st.config.requireLogin ? html`<div class="alert info">Log in to appear on the leaderboard. <a href="#/login?next=%2Fboard">Log in</a></div>` : ''}
     ${me ? html`<div class="alert ok">You are #${me.rank} with ${me.points} points. Keep climbing!</div>` : ''}
     ${rows.length ? html`
-      <div class="podium">${order.map((r) => html`<div class="pod p${r.rank}">${avatar(r.name, r.avatar)}<b>${r.name}</b><span>${r.points} pts</span><div class="medal">${icon('medal', 18)} #${r.rank}</div></div>`)}</div>
+      <div class="podium">${order.map((r) => html`<div class="pod p${r.rank}">${r.uid ? html`<a class="av-link" href="#/chat/dm/${r.uid}" aria-label="Message ${r.name}">${avatar(r.name, r.avatar)}</a>` : avatar(r.name, r.avatar)}<b>${r.name}</b><span>${r.points} pts</span><div class="medal">${icon('medal', 18)} #${r.rank}</div></div>`)}</div>
       <div class="card flat">${leaderRows(rows)}</div>` : emptyState('trophy', 'No scores yet', 'Be the first on the board: take a quiz.')}`;
 }
 export const actions = {

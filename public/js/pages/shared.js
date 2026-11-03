@@ -51,7 +51,7 @@ export function quizCard(q, best, ctx) {
 }
 
 export function leaderRows(rows) {
-  return html`<ol class="lb">${rows.map((r) => html`<li class="${r.me ? 'me' : ''}"><span class="n">${r.rank}</span>${avatar(r.name, r.avatar, 'sm')}<span class="grow"><b>${r.name}</b>${r.me ? html` <span class="chip brand">You</span>` : ''}<br><span class="tiny muted">${r.done} quiz${r.done === 1 ? '' : 'zes'}</span></span><span class="pts">${r.points} pts</span></li>`)}</ol>`;
+  return html`<ol class="lb">${rows.map((r) => html`<li class="${r.me ? 'me' : ''}"><span class="n">${r.rank}</span>${r.uid ? html`<a class="av-link" href="#/chat/dm/${r.uid}" aria-label="Message ${r.name}">${avatar(r.name, r.avatar, 'sm')}</a>` : avatar(r.name, r.avatar, 'sm')}<span class="grow"><b>${r.name}</b>${r.me ? html` <span class="chip brand">You</span>` : ''}<br><span class="tiny muted">${r.done} quiz${r.done === 1 ? '' : 'zes'}</span></span><span class="pts">${r.points} pts</span></li>`)}</ol>`;
 }
 
 export const emptyState = (ic, title, text) => html`<div class="empty">${icon(ic, 36)}<h3>${title}</h3><p>${text}</p></div>`;
