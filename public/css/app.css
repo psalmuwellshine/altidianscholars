@@ -481,3 +481,5 @@ button.q { text-align: left; font: inherit; color: inherit; cursor: pointer; wid
 .cm-i:hover, .cm-i:focus-visible { background: var(--brand-soft); }
 @media (min-width: 900px) { .cmenu-back { align-items: center; } }
 @media (prefers-reduced-motion: reduce) { .m.flash .bubble { animation: none; box-shadow: 0 0 0 3px var(--gold); } }
+
+.qc-share { margin-left: auto; width: 34px; height: 34px; flex: none; }
