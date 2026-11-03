@@ -251,13 +251,13 @@ const views = {
         <span class="tiny muted">${d.online} online now</span><span style="flex:1"></span>
         <button class="btn ghost small" data-action="reload" type="button">${icon('refresh', 15)} Refresh</button>
         ${room.kind === 'custom' ? html`<button class="btn ghost small" data-action="chat-edit" data-id="${room.customId}" type="button">${icon('edit', 15)} Edit room</button><button class="btn ghost small" data-action="chat-rmroom" data-id="${room.customId}" data-name="${room.name}" type="button">${icon('trash', 15)} Delete room</button>` : ''}
-        ${room.count ? html`<button class="btn danger small" data-action="chat-clear" type="button">Clear room</button>` : ''}</div>
+        ${room.count && room.kind !== 'dmreports' ? html`<button class="btn danger small" data-action="chat-clear" type="button">Clear room</button>` : ''}</div>
       <div class="card" style="padding:0;overflow:hidden">${d.messages.length ? html`<div class="chat-admin">${d.messages.slice().reverse().map((m) => html`<div class="cm ${m.reports ? 'flag' : ''}">
         <div class="cm-top"><b>${m.name}</b>${m.admin ? html` <span class="chip">Admin</span>` : ''}<span class="tiny muted">${fmtDate(m.at, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>${m.reports ? html`<span class="chip bad">${icon('flag', 13)} ${plural(m.reports, 'report')}</span>` : ''}</div>
         <p>${m.text}</p>
-        <div class="actions"><button class="btn ghost small" data-action="chat-del" data-id="${m.id}" type="button">${icon('trash', 15)} Delete</button>${m.reports ? html`<button class="btn ghost small" data-action="chat-dismiss" data-id="${m.id}" type="button">Dismiss reports</button>` : ''}${m.admin ? '' : html`<button class="btn ghost small" data-action="chat-mute" data-id="${m.uid}" data-name="${m.name}" data-state="${mutedIds.has(m.uid) ? 1 : 0}" type="button">${mutedIds.has(m.uid) ? 'Unmute' : 'Mute'} ${m.name}</button>`}</div></div>`)}</div>` : html`<div style="padding:8px">${empty('chat', 'No messages yet', 'Messages show up here as students chat.')}</div>`}</div>
-      <div class="card" style="margin-top:16px"><h3 style="margin-bottom:8px">Post as admin</h3><div class="msg alert bad" hidden role="alert"></div>
-        <form data-submit="chat-post" novalidate class="row gap-s"><label class="field" style="flex:1;margin:0"><span class="sr">Message</span><input name="text" maxlength="600" placeholder="Message to ${room.name}" autocomplete="off" required></label><button class="btn primary" type="submit">${icon('send', 16)} Send</button></form></div>
+        <div class="actions"><button class="btn ghost small" data-action="chat-del" data-id="${m.id}" data-room="${m.room || ''}" type="button">${icon('trash', 15)} Delete</button>${m.reports ? html`<button class="btn ghost small" data-action="chat-dismiss" data-id="${m.id}" data-room="${m.room || ''}" type="button">Dismiss reports</button>` : ''}${m.admin ? '' : html`<button class="btn ghost small" data-action="chat-mute" data-id="${m.uid}" data-name="${m.name}" data-state="${mutedIds.has(m.uid) ? 1 : 0}" type="button">${mutedIds.has(m.uid) ? 'Unmute' : 'Mute'} ${m.name}</button>`}</div></div>`)}</div>` : html`<div style="padding:8px">${empty('chat', 'No messages yet', 'Messages show up here as students chat.')}</div>`}</div>
+      ${room.kind === 'dmreports' ? html`<p class="tiny muted" style="margin-top:12px">Personal chats are private. You only see a personal message here after a student reports it.</p>` : html`<div class="card" style="margin-top:16px"><h3 style="margin-bottom:8px">Post as admin</h3><div class="msg alert bad" hidden role="alert"></div>
+        <form data-submit="chat-post" novalidate class="row gap-s"><label class="field" style="flex:1;margin:0"><span class="sr">Message</span><input name="text" maxlength="600" placeholder="Message to ${room.name}" autocomplete="off" required></label><button class="btn primary" type="submit">${icon('send', 16)} Send</button></form></div>`}
       ${muted.length ? html`<div class="card" style="margin-top:16px"><h3 style="margin-bottom:8px">Muted students</h3><div class="row wrap-r gap-s">${muted.map((u) => html`<span class="chip">${u.username}<button type="button" class="chip-x" data-action="chat-mute" data-id="${u.id}" data-name="${u.username}" data-state="1" aria-label="Unmute ${u.username}">×</button></span>`)}</div></div>` : ''}`;
   },
 
@@ -303,6 +303,7 @@ const views = {
           ${tg('registrationOpen', c.registrationOpen, 'Allow new registrations', 'Turn off to stop new accounts being created.')}
           ${tg('requireLogin', c.requireLogin, 'Require login for quizzes', 'When off, guests can take quizzes, but scores are stored per device.')}
           ${tg('chatEnabled', c.chatEnabled, 'Student chat rooms', 'Turns the chat rooms on or off for all students.')}
+          ${tg('dmEnabled', c.dmEnabled !== false, 'Personal messages', 'Lets students chat one-to-one. Admins only see messages that a student reports.')}
           ${tg('contribEnabled', c.contribEnabled, 'Student uploads', 'Lets students share notes and past questions. Class reps or admins approve them first.')}
           <label class="field" style="margin-top:10px"><span>Points for each approved upload</span><input name="contribPoints" type="number" min="0" max="500" step="1" value="${c.contribPoints}" style="max-width:140px"></label>
           ${tg('leaderboardEnabled', c.leaderboardEnabled, 'Show the leaderboard', 'Hides rankings everywhere on the site.')}</div>
@@ -530,9 +531,9 @@ const actions = {
   'chat-room'(el) { A.chatRoom = el.value; reload(); },
   async 'chat-del'(el) {
     if (!(await sure('Delete this message?', 'It disappears for everyone straight away.', 'Delete'))) return;
-    await api('POST', '/api/admin/chat/delete', { room: A.chatRoom, id: el.dataset.id }); toast('Message deleted.'); reload();
+    await api('POST', '/api/admin/chat/delete', { room: el.dataset.room || A.chatRoom, id: el.dataset.id }); toast('Message deleted.'); reload();
   },
-  async 'chat-dismiss'(el) { await api('POST', '/api/admin/chat/dismiss', { room: A.chatRoom, id: el.dataset.id }); toast('Reports cleared.'); reload(); },
+  async 'chat-dismiss'(el) { await api('POST', '/api/admin/chat/dismiss', { room: el.dataset.room || A.chatRoom, id: el.dataset.id }); toast('Reports cleared.'); reload(); },
   async 'chat-mute'(el) {
     const on = el.dataset.state === '1';
     if (!on && !(await sure('Mute ' + el.dataset.name + '?', 'They can still read the rooms but cannot post until you unmute them.', 'Mute'))) return;
@@ -720,7 +721,7 @@ const submits = {
   async 'settings-save'(form) {
     await busy(form, async () => {
       const body = { siteName: val(form, 'siteName'), tagline: val(form, 'tagline'), motto: val(form, 'motto'), heroTitle: val(form, 'heroTitle'), heroText: val(form, 'heroText'), footerText: val(form, 'footerText'),
-        registrationOpen: chk(form, 'registrationOpen'), requireLogin: chk(form, 'requireLogin'), leaderboardEnabled: chk(form, 'leaderboardEnabled'), chatEnabled: chk(form, 'chatEnabled'), contribEnabled: chk(form, 'contribEnabled'), contribPoints: val(form, 'contribPoints'), moveOn: chk(form, 'moveOn'), moveEnds: val(form, 'moveEnds'), moveTitle: val(form, 'moveTitle'), moveText: val(form, 'moveText'), payBank: val(form, 'payBank'), payAccountNumber: val(form, 'payAccountNumber'), payAccountName: val(form, 'payAccountName'), payNote: val(form, 'payNote'), passPrice: val(form, 'passPrice'), passEnds: val(form, 'passEnds'),
+        registrationOpen: chk(form, 'registrationOpen'), requireLogin: chk(form, 'requireLogin'), leaderboardEnabled: chk(form, 'leaderboardEnabled'), chatEnabled: chk(form, 'chatEnabled'), dmEnabled: chk(form, 'dmEnabled'), contribEnabled: chk(form, 'contribEnabled'), contribPoints: val(form, 'contribPoints'), moveOn: chk(form, 'moveOn'), moveEnds: val(form, 'moveEnds'), moveTitle: val(form, 'moveTitle'), moveText: val(form, 'moveText'), payBank: val(form, 'payBank'), payAccountNumber: val(form, 'payAccountNumber'), payAccountName: val(form, 'payAccountName'), payNote: val(form, 'payNote'), passPrice: val(form, 'passPrice'), passEnds: val(form, 'passEnds'),
         links: { whatsapp: val(form, 'whatsapp'), telegram: val(form, 'telegram'), instagram: val(form, 'instagram'), website: val(form, 'website'), email: val(form, 'email') } };
       A.config = await api('PUT', '/api/admin/config', body); toast('Settings saved. The site is updated.');
     });
