@@ -29,7 +29,12 @@ loaded only when you connect a database.
 
 ## Chat rooms
 
-Every student gets a **General** room, a room for their **department**, and a room for their **class** (department + level). Students only see rooms that belong to them, and the server enforces it. Messages appear live (Server-Sent Events, no extra service needed), with a 20-second fallback if live updates are blocked. Each room keeps its last 300 messages; messages are 600 characters at most, with a 1-per-second rate limit and duplicate-message blocking. Students can delete their own messages and report others. Chat can be switched off in **Site settings**. Students need their department and level set in their profile to see their department and class rooms.
+Every student gets a **General** room, a room for their **department**, and a room for their **class** (department + level). Students only see rooms that belong to them, and the server enforces it. Messages appear live (Server-Sent Events, no extra service needed), with a 20-second fallback if live updates are blocked. Each room keeps its last 300 messages; messages are 600 characters at most, with a 1-per-second rate limit and duplicate-message blocking. Students can delete their own messages and report others. Chat can be switched off in **Site settings**.
+
+### Replies, reactions and personal messages
+- **Tap a message** to react (👍 ❤️ 😂 😮 😢 🙏, one per person, tap again to remove), reply, copy, or report/delete. Replies show the quoted message; tapping the quote jumps to it.
+- **Personal messages**: tap anyone's picture in a room or on the leaderboard, or search a username in Chat, to open a private one-to-one chat. Students can block someone, or switch off "Let other students message me". New personal messages send a push notification (type "Personal messages", which students can turn off under Notifications), at most one per sender every 5 minutes.
+- **Privacy and moderation**: admins cannot read personal chats. A message only appears for admins, under **Reported personal messages** in Admin -> Chat, after a student reports it. Admins can delete it, dismiss the report, or mute the sender. The whole feature can be switched off with **Personal messages** in Site settings. Students need their department and level set in their profile to see their department and class rooms.
 
 ## Notifications, offline reading, timetable, uploads and class reps
 

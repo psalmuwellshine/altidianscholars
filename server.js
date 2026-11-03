@@ -82,7 +82,7 @@ async function main() {
   require('./routes/public')({ route, store, send, userOf, fileTypes: FILE_TYPES, stats });
   const push = require('./lib/push')(store);
   require('./routes/admin')({ route, store, send, push });
-  require('./routes/chat')({ route, store, send, userOf });
+  require('./routes/chat')({ route, store, send, userOf, push });
   require('./routes/community')({ route, store, send, userOf, push });
   require('./routes/extras')({ route, store, send, userOf, push, stats });
   require('./routes/transfers')({ route, store, send, userOf, push });
