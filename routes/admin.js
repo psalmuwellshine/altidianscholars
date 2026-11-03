@@ -506,6 +506,7 @@ module.exports = function registerAdmin({ route, store, send, push }) {
       requireLogin: bool(b.requireLogin),
       leaderboardEnabled: bool(b.leaderboardEnabled),
       chatEnabled: bool(b.chatEnabled),
+      dmEnabled: b.dmEnabled === undefined ? true : bool(b.dmEnabled),
       contribEnabled: bool(b.contribEnabled),
       contribPoints: (() => { if (b.contribPoints === undefined || b.contribPoints === '') return cur.contribPoints; const n = Number(b.contribPoints); if (!Number.isInteger(n) || n < 0 || n > 500) throw new HttpError(400, 'Points for an approved upload must be a whole number from 0 to 500.'); return n; })(),
       payBank: clean(b.payBank, 60), payAccountName: clean(b.payAccountName, 80), payNote: clean(b.payNote, 300),

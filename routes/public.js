@@ -92,7 +92,7 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
       timetable: user ? timetable.filter((t) => (t.uid ? t.uid === user.id : Cl.classMatch(t, user))).slice(0, 400).map((t) => ({ id: t.id, kind: t.kind, title: t.title, course: t.course || '', day: t.day || 0, date: t.date || '', start: t.start || '', end: t.end || '', venue: t.venue || '', mine: !!t.uid, by: t.byName || '' })) : [],
       classNotes: user ? classnotes.filter((n) => Cl.classMatch(n, user) && n.at > Date.now() - 30 * 86400000).sort((a, b) => b.at - a.at).slice(0, 8).map((n) => ({ id: n.id, text: n.text, by: n.byName, at: n.at, kind: n.kind === 'summary' ? 'summary' : 'update', course: n.course || '' })) : [],
       board: config.leaderboardEnabled
-        ? board.slice(0, 200).map((b, i) => ({ rank: i + 1, name: b.name, points: b.points, done: b.done, isUser: b.isUser, me: b.id === meId, avatar: b.avatar, dept: b.dept, level: b.level }))
+        ? board.slice(0, 200).map((b, i) => ({ rank: i + 1, name: b.name, points: b.points, done: b.done, isUser: b.isUser, me: b.id === meId, ...(user && b.isUser && b.id !== meId && config.chatEnabled && config.dmEnabled !== false ? { uid: b.id } : {}), avatar: b.avatar, dept: b.dept, level: b.level }))
         : [],
       stats: { materials: visibleMaterials.length, quizzes: visibleQuizzes.length, students: users.filter((u) => !u.disabled).length },
       user: user ? publicUser(user) : null,
