@@ -443,3 +443,5 @@ button.q { text-align: left; font: inherit; color: inherit; cursor: pointer; wid
 .imp-group { margin-top: 14px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); }
 .imp-dept { display: grid; grid-template-columns: minmax(0, 1fr) 34px; gap: 6px; align-items: center; margin-top: 8px; }
 @media (max-width: 720px) { .imp-row { grid-template-columns: 1fr 64px 78px 34px; } .imp-row .icon-btn { grid-column: 4; } }
+
+.field select.bad-field { border-color: var(--bad); box-shadow: 0 0 0 3px var(--bad-bg); }
