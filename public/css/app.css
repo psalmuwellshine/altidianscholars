@@ -445,3 +445,39 @@ button.q { text-align: left; font: inherit; color: inherit; cursor: pointer; wid
 @media (max-width: 720px) { .imp-row { grid-template-columns: 1fr 64px 78px 34px; } .imp-row .icon-btn { grid-column: 4; } }
 
 .field select.bad-field { border-color: var(--bad); box-shadow: 0 0 0 3px var(--bad-bg); }
+
+/* chat: replies, reactions, personal messages */
+.list-h { font: 800 12px var(--f-body); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 14px 16px 6px; }
+.av-link { display: inline-flex; border-radius: 999px; text-decoration: none; flex: none; }
+.av-link:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.chat-list .dm-find { flex: none; display: block; min-width: 0; margin: 0 12px 6px; } .dm-find input { width: 100%; min-height: 42px; }
+.dm-allow { display: flex; align-items: center; gap: 8px; padding: 12px 16px; color: var(--muted); }
+.chat-head .avatar.sm { width: 34px; height: 34px; flex: none; }
+.room-row .avatar { flex: none; }
+.bubble[data-action="chat-menu"] { cursor: pointer; }
+.quote { display: block; width: 100%; text-align: left; margin: 0 0 6px; padding: 5px 9px; border: 0; border-left: 3px solid var(--gold); border-radius: 8px; background: rgba(0,0,0,.08); color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
+.quote b { display: block; font-weight: 800; }
+.quote span { display: block; opacity: .85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46ch; }
+.rx { display: flex; flex-wrap: wrap; gap: 4px; margin: 3px 2px 0; }
+.mine .rx { justify-content: flex-end; }
+.rx-c { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; min-height: 28px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }
+.rx-c.on { border-color: var(--brand); background: var(--brand-soft); }
+.rx-c span { font-weight: 800; font-size: 12px; }
+.m.flash .bubble { animation: flash 1.5s ease; }
+@keyframes flash { 0%, 60% { box-shadow: 0 0 0 4px var(--gold); } 100% { box-shadow: 0 0 0 0 transparent; } }
+.replybar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-top: 1px solid var(--line); border-left: 4px solid var(--gold); background: var(--surface); }
+.replybar[hidden] { display: none; }
+.replybar .rb-t { flex: 1; min-width: 0; font-size: 13px; }
+.replybar .rb-t b, .replybar .rb-t span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.replybar .icon-btn { width: 34px; height: 34px; }
+.cmenu-back { position: fixed; inset: 0; z-index: 90; background: rgba(0,0,0,.4); display: flex; align-items: flex-end; justify-content: center; padding: 12px; }
+.cmenu { width: min(100%, 360px); background: var(--surface); color: var(--ink); border-radius: 18px; border: 1px solid var(--line); box-shadow: var(--shadow); overflow: hidden; }
+.cm-rx { display: flex; justify-content: space-around; padding: 10px 6px; border-bottom: 1px solid var(--line); }
+.cm-rx button { font-size: 26px; width: 46px; height: 46px; border-radius: 99px; border: 0; background: none; cursor: pointer; }
+.cm-rx button.on { background: var(--brand-soft); }
+.cm-i { display: block; width: 100%; text-align: left; padding: 14px 18px; border: 0; border-top: 1px solid var(--line); background: none; color: var(--ink); font: inherit; font-weight: 700; cursor: pointer; }
+.cm-rx + .cm-i, .cmenu > .cm-i:first-child { border-top: 0; }
+.cm-i.bad { color: var(--bad); }
+.cm-i:hover, .cm-i:focus-visible { background: var(--brand-soft); }
+@media (min-width: 900px) { .cmenu-back { align-items: center; } }
+@media (prefers-reduced-motion: reduce) { .m.flash .bubble { animation: none; box-shadow: 0 0 0 3px var(--gold); } }
