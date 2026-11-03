@@ -36,7 +36,7 @@ export function welcome(user, c) {
     dialog(html`<div class="welcome"><div class="welcome-ico">${icon('star', 30)}</div>
       <h3>Welcome to Altidian</h3><p class="muted">Exam Warriors has a new home. Here is how to get the most out of it:</p>
       <ol class="welcome-steps">
-        <li><b>Set your department and level</b><span>So you see the right courses first.</span></li>
+        ${user.departmentId && user.level ? '' : html`<li><b>Set your department and level</b><span>So you see the right courses first.</span></li>`}
         <li><b>Take a quiz</b><span>Instant answers, and your score counts on the leaderboard.</span></li>
         <li><b>Turn on notifications</b><span>Hear about new resources and exam dates as they land.</span></li>
       </ol>

@@ -6,7 +6,7 @@ import { emptyState, placeFields, placeChange, hasPlace, deptName, facultyName, 
 
 let nextPath = '/';
 const safeNext = (n) => (n && n.startsWith('/') && !n.startsWith('//') ? n : '/');
-const showBox = (id, text, kind = 'bad') => { const b = document.getElementById(id); if (!b) return; b.className = 'alert ' + kind; b.textContent = text; b.hidden = false; };
+const showBox = (id, text, kind = 'bad') => { const b = document.getElementById(id); if (!b) return; b.className = 'alert ' + kind; b.textContent = text; b.hidden = false; b.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
 
 /* ---------- login / register / forgot ---------- */
 export const auth = {
@@ -27,7 +27,9 @@ async function authBody({ S, user, config, go }, { mode }, query) {
           
           ${placeFields(S, {})}
           ${pw('reg-pass', 'Password')}
-          <label class="field"><span>Recovery phrase</span><input name="phrase" required minlength="4" maxlength="60" autocomplete="off"><small>A secret word or phrase only you know. It is the only way to reset your password if you forget it, so remember it.</small></label>
+          <label class="check small" style="margin:-6px 0 14px"><input type="checkbox" data-change="show-pw" data-for="reg-pass"> Show password</label>
+          <label class="field"><span>Recovery phrase</span><input name="phrase" type="password" required minlength="4" maxlength="60" autocomplete="off"><small>A secret word or phrase only you know. It is the only way to reset your password if you forget it, so remember it.</small></label>
+          <label class="check small" style="margin:-6px 0 14px"><input type="checkbox" data-change="show-pw" data-for="phrase"> Show recovery phrase</label>
           <button class="btn primary block" type="submit">Create my account</button></form>
         <p class="muted small" style="text-align:center;margin-top:18px">Already have an account? <a href="#/login${q}">Log in</a></p></div>`;
     }
@@ -149,7 +151,7 @@ export const actions = {
   async 'avatar-remove'(el, ev, { load, renderView }) {
     try { await api('DELETE', '/api/user/avatar'); await load(); toast('Picture removed.'); renderView(); } catch (e) { toast(e.message, 'bad'); }
   },
-  'show-pw'(el) { const f = el.closest('form').querySelector('input[type=password],input[data-pw]'); if (f) { f.type = el.checked ? 'text' : 'password'; f.dataset.pw = '1'; } },
+  'show-pw'(el) { const f = el.dataset.for ? el.closest('form').elements[el.dataset.for] : el.closest('form').querySelector('input[type=password],input[data-pw]'); if (f) { f.type = el.checked ? 'text' : 'password'; f.dataset.pw = '1'; } },
   'do-login'(form, ev, { S, load, go }) {
     return sendForm(form, async () => {
       const f = new FormData(form);
@@ -164,7 +166,9 @@ export const actions = {
       const f = new FormData(form);
       const username = String(f.get('username')).trim(); const password = String(f.get('reg-pass')); const phrase = String(f.get('phrase')).trim();
       if (!username || !password || !phrase) throw new Error('Fill in every field.');
-      if (!f.get('facultyId') || !f.get('departmentId') || !f.get('level')) throw new Error('Choose your faculty, department and level.');
+      form.querySelectorAll('.bad-field').forEach((x) => x.classList.remove('bad-field'));
+      const missing = ['facultyId', 'departmentId', 'level'].filter((n) => !f.get(n));
+      if (missing.length) { missing.forEach((n) => { const s = form.querySelector(`[name=${n}]`); if (s) s.classList.add('bad-field'); }); throw new Error('Choose your ' + missing.map((n) => ({ facultyId: 'faculty', departmentId: 'department', level: 'level' }[n])).join(', ').replace(/, ([^,]*)$/, ' and $1') + '.'); }
       if (password.length < 6) throw new Error('Password must be at least 6 characters.');
       if (phrase.length < 4) throw new Error('Recovery phrase must be at least 4 characters.');
       await api('POST', '/api/register', { username, password, recoveryPhrase: phrase, facultyId: f.get('facultyId'), departmentId: f.get('departmentId'), level: Number(f.get('level')), deviceId: S.device });

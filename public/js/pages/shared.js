@@ -68,7 +68,7 @@ export function placeFields(S, sel = {}) {
   const A = acad(S);
   const fac = sel.facultyId || '';
   const deps = A.departments.filter((d) => d.facultyId === fac);
-  const dep = A.departments.find((d) => d.id === sel.departmentId && d.facultyId === fac);
+  const dep = A.departments.find((d) => d.id === sel.departmentId && d.facultyId === fac) || (deps.length === 1 ? deps[0] : undefined);
   const levels = dep ? Array.from({ length: Math.min(6, (dep.maxLevel || 600) / 100) }, (_, i) => (i + 1) * 100) : [];
   return html`<div data-place><label class="field"><span>Faculty</span><select name="facultyId" data-change="place-fac" required><option value="">Choose your faculty</option>${A.faculties.map((f) => html`<option value="${f.id}" ${f.id === fac ? raw('selected') : ''}>${f.name}</option>`)}</select></label>
     <div class="grid2"><label class="field"><span>Department / programme</span><select name="departmentId" data-change="place-dep" required ${fac ? '' : raw('disabled')}><option value="">${fac ? 'Choose your department' : 'Pick a faculty first'}</option>${deps.map((d) => html`<option value="${d.id}" ${dep && d.id === dep.id ? raw('selected') : ''}>${d.name}</option>`)}</select></label>
@@ -78,7 +78,8 @@ export function placeChange(S, el) {
   const w = el.closest('[data-place]'); const g = (n) => w.querySelector(`[name=${n}]`).value;
   const sel = { facultyId: g('facultyId'), departmentId: el.name === 'facultyId' ? '' : g('departmentId'), level: el.name === 'level' ? g('level') : '' };
   w.outerHTML = placeFields(S, sel).s;
-  const nxt = document.querySelector(el.name === 'facultyId' ? '[name=departmentId]' : '[name=level]'); if (nxt) nxt.focus();
+  const depEl = document.querySelector('[name=departmentId]');
+  const nxt = el.name === 'facultyId' && !(depEl && depEl.value) ? depEl : document.querySelector('[name=level]'); if (nxt) nxt.focus();
 }
 
 /* ---------- what a student should see ---------- */
