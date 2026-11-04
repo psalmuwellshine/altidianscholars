@@ -151,6 +151,22 @@ input[type=checkbox], input[type=radio] { width: 20px; height: 20px; min-height:
 .opt.right { border-color: var(--good); background: var(--good-bg); } .opt.right .l { background: var(--good); color: #fff; }
 .opt.wrong { border-color: var(--bad); background: var(--bad-bg); } .opt.wrong .l { background: var(--bad); color: #fff; }
 .opt:disabled { cursor: default; }
+/* CBT question navigator (exam mode) */
+.qnav-wrap { margin-top: 22px; padding: 14px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); }
+.qnav-title { font: 800 12.5px var(--f-body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.qnav { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.qn { position: relative; min-width: 42px; height: 40px; padding: 0 8px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); font: 800 14px var(--f-display); cursor: pointer; }
+.qn:hover { border-color: var(--brand); }
+.qn.ans { background: var(--gold-soft); border-color: var(--gold); color: var(--gold-ink); }
+.qn.cur { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
+.qn.flag::after { content: ''; position: absolute; top: -5px; right: -5px; width: 13px; height: 13px; border-radius: 50%; background: var(--bad); border: 2px solid var(--surface); }
+.qnav-key { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--muted); font-weight: 600; }
+.qnav-key span { display: inline-flex; align-items: center; gap: 6px; }
+.qnav-key .k { width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid var(--line); background: var(--surface); position: relative; }
+.qnav-key .k.ans { background: var(--gold-soft); border-color: var(--gold); }
+.qnav-key .k.flag { border-radius: 50%; background: var(--bad); border-color: var(--bad); }
+.btn.flagged { border-color: var(--bad); color: var(--bad); background: var(--bad-bg); }
+
 .expl { margin-top: 14px; padding: 12px 16px; border-radius: 12px; background: var(--info-bg); color: var(--ink); font-size: 15px; }
 .result { text-align: center; }
 .ring { --p: 0; position: relative; width: 168px; height: 168px; margin: 0 auto 14px; border-radius: 50%; background: conic-gradient(var(--brand) calc(var(--p) * 1%), var(--surface-2) 0); display: grid; place-items: center; }
