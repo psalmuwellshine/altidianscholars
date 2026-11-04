@@ -380,7 +380,7 @@ body.has-tabs main:has(.chat) { padding-bottom: calc(var(--tab-h) + 12px + env(s
 
 /* quiz extras: timed exam, practise mistakes, reports, CGPA */
 .qc-go { display: grid; gap: 8px; }
-.qc-extra { flex-wrap: wrap; } .qc-extra .btn { justify-content: center; white-space: nowrap; }
+.qc-extra { flex-wrap: wrap; } .qc-extra .btn { justify-content: center; white-space: nowrap; flex: 1 1 auto; min-width: max-content; }
 .timer { font-variant-numeric: tabular-nums; font-size: 1.05rem; padding: 5px 12px; border-radius: 999px; background: var(--surface-2, var(--surface)); border: 1px solid var(--line); }
 .timer b.low, #timer.low { color: #c0392b; }
 .opt.sel { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 12%, var(--surface)); }
