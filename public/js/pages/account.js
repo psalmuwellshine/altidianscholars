@@ -97,7 +97,7 @@ export const profile = {
         <a class="card flat q" href="#/groups">${icon('users', 22)}<b>Study groups</b><span>Plan with friends</span></a>
         <a class="card flat q" href="#/receipts">${icon('check', 22)}<b>My purchases</b><span>Pass and receipts</span></a>
         <a class="card flat q" href="#/cgpa">${icon('trophy', 22)}<b>CGPA calculator</b><span>Work out your GPA and class</span></a>
-        <button class="card flat q" data-action="report-open" data-type="site" type="button">${icon('flag', 22)}<b>Report a problem</b><span>Tell us if something is wrong</span></button>
+        <button class="card flat q" data-action="report-open" data-type="site" type="button">${icon('warning', 22)}<b>Report a problem</b><span>Tell us if something is wrong</span></button>
         ${user().rep ? html`<a class="card flat q gold" href="#/rep">${icon('shield', 22)}<b>Class rep panel</b><span>Review notes and post for your class</span></a>` : ''}</div></section>
       ${notifyMod.section()}
       ${more.transferSection()}

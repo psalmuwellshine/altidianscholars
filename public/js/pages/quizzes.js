@@ -36,7 +36,7 @@ function start(quiz, mode, missed) {
   stopTimer();
   const all = quiz.questions.map((_, i) => i);
   const list = mode === 'practice' ? missed.slice() : all;
-  run = { quiz, mode, list, i: 0, answers: all.map(() => null), picked: null, result: null, endAt: 0, tick: null };
+  run = { quiz, mode, list, i: 0, answers: all.map(() => null), flags: new Set(), picked: null, result: null, endAt: 0, tick: null };
   if (mode === 'cards') { run.queue = list.slice(); run.again = new Set(); run.show = false; run.total = list.length; }
 }
 // Time choices for a timed exam: 3, 2 or 1 questions a minute.
@@ -68,6 +68,27 @@ function cardScreen() {
     ${run.show ? html`<div class="row gap" style="margin-top:14px"><button class="btn ghost grow" data-action="qz-card-again" type="button">${icon('refresh', 16)} Again</button><button class="btn primary grow" data-action="qz-card-got" type="button">${icon('check', 16)} Got it</button></div>`
       : html`<div class="row between" style="margin-top:14px"><span>${markBtn('q', quiz.id, qi)}</span><button class="btn primary" data-action="qz-card-show" type="button">Show answer</button></div>`}`;
 }
+// CBT-style question navigator: jump to any question, see what is answered or flagged.
+function navigator() {
+  const n = run.list.length;
+  const btns = run.list.map((qi, pos) => {
+    const cls = ['qn', pos === run.i ? 'cur' : '', run.answers[qi] !== null ? 'ans' : '', run.flags.has(qi) ? 'flag' : ''].filter(Boolean).join(' ');
+    const label = 'Question ' + (pos + 1) + (run.answers[qi] !== null ? ', answered' : ', unanswered') + (run.flags.has(qi) ? ', flagged' : '');
+    return html`<button class="${cls}" data-action="qz-goto" data-n="${pos}" type="button" aria-label="${label}" ${pos === run.i ? raw0('aria-current="true"') : ''}>${pos + 1}</button>`;
+  });
+  const done = run.list.filter((qi) => run.answers[qi] !== null).length; const cq = run.list[run.i];
+  return html`<div class="qnav-wrap"><div class="row between"><span class="qnav-title">Question navigator</span><button class="btn ghost small ${run.flags.has(cq) ? 'flagged' : ''}" data-action="qz-flag" type="button" aria-pressed="${run.flags.has(cq)}">${icon('flag', 15)} ${run.flags.has(cq) ? 'Flagged' : 'Flag this'}</button></div>
+    <div class="qnav" role="group" aria-label="Question navigator">${btns}</div>
+    <div class="qnav-key tiny"><span><i class="k ans"></i>Answered</span><span><i class="k"></i>Unanswered</span><span><i class="k flag"></i>Flagged</span><span style="margin-left:auto"><b>${done}</b> of ${n} answered</span></div></div>`;
+}
+function confirmSubmit() {
+  const blank = run.list.filter((i) => run.answers[i] === null).length;
+  const fl = run.list.filter((i) => run.flags.has(i)).length;
+  const bits = [];
+  if (blank) bits.push(blank + ' question' + (blank > 1 ? 's are' : ' is') + ' still unanswered');
+  if (fl) bits.push(fl + ' flagged for review');
+  return !bits.length || confirm(bits.join(' and ') + '. Submit anyway?');
+}
 function screen() {
   if (run.mode === 'cards') return cardScreen();
   if (run.mode === 'exam' && !run.endAt && !run.result) return chooser();
@@ -92,7 +113,8 @@ function screen() {
     <div class="row between" style="margin-top:18px">
       <span>${markBtn('q', quiz.id, qi)} ${reportButton('question', quiz.id, qi)}</span>
       <span class="row gap-s">${exam && run.i > 0 ? html`<button class="btn ghost" data-action="qz-prev" type="button">Back</button>` : ''}
-      ${(exam || locked) ? html`<button class="btn primary" data-action="qz-next" type="button">${last ? (exam ? 'Submit exam' : 'Finish') : 'Next question'} ${icon('arrow', 17)}</button>` : ''}</span></div>`;
+      ${(exam || locked) ? html`<button class="btn primary" data-action="qz-next" type="button">${last ? (exam ? 'Submit exam' : 'Finish') : 'Next question'} ${icon('arrow', 17)}</button>` : ''}</span></div>
+    ${exam ? html`${navigator()}<div style="margin-top:14px;text-align:center"><button class="btn gold" data-action="qz-submit" type="button">Submit exam</button></div>` : ''}`;
 }
 
 function resultScreen() {
@@ -201,16 +223,20 @@ export const actions = {
   'qz-card-got'() { run.queue.shift(); run.show = false; draw(); },
   'qz-card-again'() { const i = run.queue.shift(); run.again.add(i); run.queue.splice(Math.min(3, run.queue.length), 0, i); run.show = false; draw(); },
   'qz-cards-again'() { start(run.quiz, 'cards'); draw(); },
+  'qz-goto'(el) {
+    if (!run || run.result || run.mode !== 'exam') return;
+    const n = Number(el.dataset.n); if (!(n >= 0 && n < run.list.length) || n === run.i) return;
+    run.i = n; run.picked = null; draw(); window.scrollTo(0, 0);
+  },
+  'qz-flag'() { if (!run || run.mode !== 'exam' || run.result) return; const qi = run.list[run.i]; run.flags.has(qi) ? run.flags.delete(qi) : run.flags.add(qi); draw(); },
+  async 'qz-submit'(el, ev, ctx) { if (!run || run.mode !== 'exam' || run.result) return; ctxRef = ctx; if (!confirmSubmit()) return; el.disabled = true; await submit(); el.disabled = false; },
   'qz-prev'() { if (!run || run.i === 0) return; run.i--; run.picked = null; draw(); window.scrollTo(0, 0); },
   async 'qz-next'(el, ev, ctx) {
     if (!run) return; ctxRef = ctx;
     const exam = run.mode === 'exam';
     if (!exam && run.picked === null) return;
     if (run.i + 1 < run.list.length) { run.i++; run.picked = null; draw(); window.scrollTo(0, 0); return; }
-    if (exam) {
-      const blank = run.list.filter((i) => run.answers[i] === null).length;
-      if (blank && !confirm(blank + ' question' + (blank > 1 ? 's are' : ' is') + ' still unanswered. Submit anyway?')) return;
-    }
+    if (exam && !confirmSubmit()) return;
     el.disabled = true; await submit(); el.disabled = false;
   },
   'qz-again'() { start(run.quiz, run.mode === 'practice' ? 'full' : run.mode); draw(); window.scrollTo(0, 0); },

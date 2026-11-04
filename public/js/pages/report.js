@@ -8,7 +8,7 @@ const REASONS = {
 };
 export const reasonLabel = (r) => ({ 'wrong-answer': 'Wrong answer', typo: 'Typo', unclear: 'Unclear', 'broken-file': 'Broken file', other: 'Other' }[r] || r);
 
-export const reportButton = (type, refId, qIndex) => html`<button class="btn ghost small rep-btn" data-action="report-open" data-type="${type}" data-ref="${refId || ''}" data-q="${qIndex === undefined ? '' : qIndex}" type="button" title="Report a problem">${icon('flag', 14)} Report</button>`;
+export const reportButton = (type, refId, qIndex) => html`<button class="btn ghost small rep-btn" data-action="report-open" data-type="${type}" data-ref="${refId || ''}" data-q="${qIndex === undefined ? '' : qIndex}" type="button" title="Report a problem">${icon('warning', 14)} Report</button>`;
 
 export const actions = {
   'report-open'(el, ev, { user }) {
