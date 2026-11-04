@@ -32,11 +32,18 @@ window.addEventListener('hashchange', () => { if (run && !location.hash.startsWi
 const fmt = (s) => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
 const left = () => Math.max(0, Math.round((run.endAt - Date.now()) / 1000));
 
+// Fresh random order every attempt. Fisher-Yates, so every order is equally likely.
+const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+// Options that point at other options ("All of the above", "Both A and B") only make sense in their written order.
+const ORDER_BOUND = /\b(all|none|both|neither)\b[^.]{0,20}\b(of\s+)?(the\s+)?(above|these|those|options?)\b|\b(both|neither)\s+\(?[a-e]\)?\s+(and|nor)\s+\(?[a-e]\)?\b|\b(option|choice)s?\s+\(?[a-e]\)?\b|\b(a|b|c|d)\s+(and|&)\s+(a|b|c|d)\b/i;
+const optionOrder = (q) => { const idx = q.o.map((_, i) => i); return q.o.some((o) => ORDER_BOUND.test(String(o))) ? idx : shuffle(idx); };
 function start(quiz, mode, missed) {
   stopTimer();
   const all = quiz.questions.map((_, i) => i);
-  const list = mode === 'practice' ? missed.slice() : all;
-  run = { quiz, mode, list, i: 0, answers: all.map(() => null), flags: new Set(), picked: null, result: null, endAt: 0, tick: null };
+  const list = shuffle(mode === 'practice' ? missed.slice() : all);
+  // perm[qi][shownPosition] = original option index. Answers are always stored as the ORIGINAL index, so scoring and mistakes stay correct.
+  const perm = {}; list.forEach((qi) => { perm[qi] = optionOrder(quiz.questions[qi]); });
+  run = { quiz, mode, list, perm, i: 0, answers: all.map(() => null), flags: new Set(), picked: null, result: null, endAt: 0, tick: null };
   if (mode === 'cards') { run.queue = list.slice(); run.again = new Set(); run.show = false; run.total = list.length; }
 }
 // Time choices for a timed exam: 3, 2 or 1 questions a minute.
@@ -103,11 +110,11 @@ function screen() {
     ${exam ? html`<p class="small muted" style="margin-top:10px">Exam mode: answers and explanations show only at the end. Change an answer any time before you submit.</p>` : ''}
     <div class="bar" style="margin-top:12px" role="progressbar" aria-valuemin="0" aria-valuemax="${n}" aria-valuenow="${run.i + (locked ? 1 : 0)}"><i style="width:${((run.i + (locked ? 1 : 0)) / n) * 100}%"></i></div>
     <h2 class="q-text">${q.q}</h2>
-    <div class="opts">${q.o.map((o, i) => {
+    <div class="opts">${run.perm[qi].map((oi, i) => {
       let cls = '';
-      if (locked) cls = i === q.a ? 'right' : (i === chosen ? 'wrong' : '');
-      else if (exam && i === chosen) cls = 'sel';
-      return html`<button class="opt ${cls}" data-action="qz-pick" data-i="${i}" type="button" ${locked ? raw0('disabled') : ''}><span class="l">${locked && i === q.a ? icon('check', 18) : locked && i === chosen ? icon('x', 18) : L[i]}</span><span>${o}</span></button>`;
+      if (locked) cls = oi === q.a ? 'right' : (oi === chosen ? 'wrong' : '');
+      else if (exam && oi === chosen) cls = 'sel';
+      return html`<button class="opt ${cls}" data-action="qz-pick" data-i="${i}" type="button" ${locked ? raw0('disabled') : ''}><span class="l">${locked && oi === q.a ? icon('check', 18) : locked && oi === chosen ? icon('x', 18) : L[i]}</span><span>${q.o[oi]}</span></button>`;
     })}</div>
     ${locked && q.e ? html`<div class="expl"><b>Why: </b>${q.e}</div>` : ''}
     <div class="row between" style="margin-top:18px">
@@ -212,7 +219,7 @@ export const actions = {
   'qz-course': (el, ev, { renderView }) => { F.course = el.dataset.v; renderView(); },
   'qz-pick'(el) {
     if (!run || run.result) return;
-    const v = Number(el.dataset.i); const qi = run.list[run.i];
+    const qi = run.list[run.i]; const v = run.perm[qi][Number(el.dataset.i)];
     if (run.mode === 'exam') { run.answers[qi] = v; run.picked = v; draw(); return; }
     if (run.picked !== null) return;
     run.picked = v; run.answers[qi] = v; draw();
