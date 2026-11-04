@@ -1,7 +1,7 @@
 /* Altidian service worker: installs the app, keeps it opening on a poor connection,
    serves study files a student saved for offline reading, and shows push notifications.
    Pages are always fetched fresh when online. Account and quiz data (/api) is never saved. */
-const CACHE = 'altidian-shell-v14';
+const CACHE = 'altidian-shell-v15';
 const OFFLINE = 'altidian-offline-v1'; // files saved by students; managed by the page, never wiped here
 const SHELL = ['/', '/css/app.css', '/js/app.js', '/logo.png', '/icon-192.png'];
 
