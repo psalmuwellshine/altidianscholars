@@ -11,6 +11,7 @@ import * as pay from './pages/pay.js';
 import * as chat from './pages/chat.js';
 import * as timetable from './pages/timetable.js';
 import * as share from './pages/share.js';
+import * as pushask from './pages/pushask.js';
 import * as saved from './pages/saved.js';
 import * as rep from './pages/rep.js';
 import * as notify from './pages/notify.js';
@@ -73,7 +74,7 @@ const PAGES = [
 ];
 const visiblePages = () => PAGES.filter((p) => p.id !== 'chat' || (S.state && S.state.config.chatEnabled));
 const ctxApi = { S, load, user, config, go, renderView: () => route() };
-const modules = [home, library, quizzes, board, events, account, viewer, pay, chat, timetable, share, saved, rep, notify, cgpa, report, more, scan];
+const modules = [home, library, quizzes, board, events, account, viewer, pay, chat, timetable, share, pushask, saved, rep, notify, cgpa, report, more, scan];
 const actions = Object.assign({}, ...modules.map((m) => m.actions || {}));
 
 /* ---------- chrome (header, notice, tabs, footer) ---------- */
@@ -172,6 +173,7 @@ async function route() {
     if (my !== token) return;
     mount(view, html`<div class="page">${out}</div>`);
     if (page.after) page.after(ctxApi, view, params);
+    pushask.maybe(ctxApi, path);
   } catch (e) {
     if (my !== token) return;
     if (e instanceof ApiError && e.status === 401) { await load(); go('/login?next=' + encodeURIComponent(full)); return; }
