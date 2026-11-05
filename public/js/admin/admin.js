@@ -49,13 +49,27 @@ function loginView(configured) {
 
 /* ---------- shell ---------- */
 function shell(sec) {
-  return html`<div class="adm"><aside class="side"><a class="brand" href="#/overview"><img src="/logo.png" alt=""><span>Altidian<small>Admin panel</small></span></a>
-    <nav aria-label="Admin sections">${SECTIONS.map((s) => html`<a href="#/${s.id}" class="${s.id === sec ? 'on' : ''}">${icon(s.icon, 18)} ${s.label}</a>`)}</nav>
+  const cur = SECTIONS.find((x) => x.id === sec);
+  return html`<div class="adm"><header class="topbar"><button class="icon-btn" type="button" data-action="nav-toggle" id="nav-btn" aria-label="Open menu" aria-expanded="false" aria-controls="adm-side">${icon('menu', 22)}</button>
+      <a class="brand" href="#/overview"><img src="/logo.png" alt=""><span>Altidian<small>Admin panel</small></span></a>
+      <span class="topbar-title">${cur ? cur.label : ''}</span></header>
+    <div class="side-back" data-action="nav-close" aria-hidden="true"></div>
+    <aside class="side" id="adm-side" aria-label="Admin menu"><div class="side-head"><a class="brand" href="#/overview"><img src="/logo.png" alt=""><span>Altidian<small>Admin panel</small></span></a><button class="icon-btn" type="button" data-action="nav-close" aria-label="Close menu">${icon('x', 20)}</button></div>
+    <nav aria-label="Admin sections">${SECTIONS.map((s) => html`<a href="#/${s.id}" class="${s.id === sec ? 'on' : ''}" data-action="nav-close">${icon(s.icon, 18)} ${s.label}</a>`)}</nav>
     <div class="foot"><a class="btn ghost small" href="/" target="_blank" rel="noopener">${icon('eye', 16)} View site</a>
       <button class="btn ghost small" data-action="theme" type="button">${icon('moon', 16)} Light / dark</button>
       <button class="btn ghost small" data-action="logout" type="button">${icon('logout', 16)} Sign out</button></div></aside>
     <main class="content" id="content"><div class="skeleton"></div></main></div>`;
 }
+// The menu stays hidden until the button is tapped. It closes after you pick a section, tap outside it, or press Escape.
+function setMenu(open) {
+  const adm = document.querySelector('.adm'); const btn = document.getElementById('nav-btn'); if (!adm) return;
+  adm.classList.toggle('open', open);
+  if (btn) { btn.setAttribute('aria-expanded', open ? 'true' : 'false'); btn.setAttribute('aria-label', open ? 'Close menu' : 'Open menu'); }
+  document.body.classList.toggle('menu-open', open);
+  if (open) document.querySelector('#adm-side nav a.on, #adm-side nav a')?.focus(); else if (btn && document.activeElement && document.activeElement.closest && document.activeElement.closest('#adm-side')) btn.focus();
+}
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.querySelector('.adm.open')) setMenu(false); });
 const head = (title, sub, actions) => html`<div class="bar-top"><div><h1 style="font-size:clamp(26px,4vw,36px)">${title}</h1>${sub ? html`<p class="muted">${sub}</p>` : ''}</div><div class="row gap-s wrap-r">${actions || ''}</div></div>`;
 const empty = (ic, t, s) => html`<div class="empty">${icon(ic, 34)}<h3>${t}</h3><p>${s}</p></div>`;
 
@@ -481,6 +495,8 @@ const linkHint = (el) => {
   h.style.color = 'var(--good)';
 };
 const actions = {
+  'nav-toggle'() { setMenu(!document.querySelector('.adm.open')); },
+  'nav-close'() { setMenu(false); },
   'mat-link': linkHint,
   theme: toggleTheme, reload,
   async logout() { try { await api('POST', '/api/admin/logout'); } catch (e) { /* ignore */ } start(); },
