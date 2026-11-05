@@ -27,12 +27,17 @@ Environment variables: `ADMIN_PASSWORD` (required), `MONGODB_URI` (for permanent
 No build step. The server uses only Node's built-in modules. The `mongodb` package is
 loaded only when you connect a database.
 
+The admin menu is hidden until you tap the menu button (three lines, top left). It slides in over the page and closes when you pick a section, tap outside it, or press Escape. The top bar always shows which section you are in.
+
 ## Chat rooms
 
 Every student gets a **General** room, a room for their **department**, and a room for their **class** (department + level). Students only see rooms that belong to them, and the server enforces it. Messages appear live (Server-Sent Events, no extra service needed), with a 20-second fallback if live updates are blocked. Each room keeps its last 300 messages; messages are 600 characters at most, with a 1-per-second rate limit and duplicate-message blocking. Students can delete their own messages and report others. Chat can be switched off in **Site settings**.
 
 ### Sharing quizzes
 Every quiz card has a share button, and the results screen has **Share my score**. It opens the phone's share sheet (WhatsApp, Telegram and so on), or copies the text and link if sharing is not available. The link opens the quiz directly. Someone who is not logged in is taken to log in or sign up first, then straight to the quiz. Paid quizzes still need to be unlocked.
+
+### Notification reminder at login
+A student who logs in without notifications on sees a short reminder with four reasons to turn them on and a one-tap button, once per login (not during a quiz). "Not now" closes it until their next login. If notifications are blocked in the browser, it explains how to allow them. On iPhone it explains adding Altidian to the Home Screen first. Students whose browser cannot do notifications are not asked.
 
 ### Replies, reactions and personal messages
 - **Tap a message** to react (👍 ❤️ 😂 😮 😢 🙏, one per person, tap again to remove), reply, copy, or report/delete. Replies show the quoted message; tapping the quote jumps to it.
