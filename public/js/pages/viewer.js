@@ -1,9 +1,10 @@
-/* View-only reader for paid files (PDFs and images).
+/* In-app reader for PDFs and pictures (paid files are view-only; free ones also get a Download button).
    The file is drawn onto canvases inside the page, so there is no Download or Save button,
    no right-click menu on the pages, and nothing to drag out. It stops casual saving; it cannot stop
    screenshots or screen recording, which no website can. */
 import { html, icon, toast, esc } from '../core/ui.js';
 import { embedOf } from '../core/video.js';
+import { list as savedList } from '../core/offline.js';
 
 const PDFJS = '/vendor/pdfjs/';
 let pdfjsPromise = null;
@@ -18,7 +19,16 @@ const loadPdfjs = () => pdfjsPromise || (pdfjsPromise = import(PDFJS + 'pdf.min.
 }, true));
 
 let current = null;
-function closeViewer() {
+
+// Can this file be shown inside Altidian? Paid files always are; free ones when they are a PDF or a picture.
+// Word and PowerPoint files cannot be drawn by any browser, so they still open in the phone's own app.
+export const canView = (m) => !!(m && m.fileId && (m.paid || /\.(pdf|png|jpe?g|gif|webp)$/i.test(m.fileName || '')));
+// The button for a file: "View" (in-app) when possible, otherwise a normal open link.
+export const fileBtn = (m, label = 'Open file', size = 16) => canView(m)
+  ? html`<button class="btn primary small" data-action="view-file" data-id="${m.id}" type="button">${icon('eye', size)} View</button>`
+  : html`<a class="btn primary small" href="/files/${m.fileId}" target="_blank" rel="noopener">${icon('download', size)} ${label}</a>`;
+
+function teardown() {
   if (!current) return;
   const { root, task, onKey, io } = current; current = null;
   if (io) io.disconnect();
@@ -27,6 +37,26 @@ function closeViewer() {
   root.remove();
   document.body.classList.remove('viewing');
 }
+// The viewer takes one step in the browser history, so the phone's Back button closes it and
+// returns to the page you were on, instead of leaving or closing the app.
+function closeViewer() {
+  if (!current) return;
+  if (current.pushed && history.state && history.state.altv) {
+    const r = current.root; history.back();
+    setTimeout(() => { if (current && current.root === r) teardown(); }, 400); // if Back did not fire, close anyway
+    return;
+  }
+  teardown();
+}
+function claimHistory() {
+  const reuse = !!(current && current.pushed);
+  teardown();
+  return reuse;
+}
+function pushed(reuse) {
+  try { reuse ? history.replaceState({ altv: 1 }, '') : history.pushState({ altv: 1 }, ''); if (current) current.pushed = true; } catch (e) { /* not available */ }
+}
+window.addEventListener('popstate', () => { if (current) teardown(); });
 
 const sizeCanvas = (canvas, cssW, cssH, scale) => {
   canvas.width = Math.floor(cssW * scale); canvas.height = Math.floor(cssH * scale);
@@ -77,14 +107,15 @@ async function showImage(buf, type, body) {
 }
 
 async function openViewer(m) {
-  closeViewer();
+  const reuse = claimHistory();
   const root = document.createElement('div'); root.className = 'viewer'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-label', m.title);
   root.innerHTML = '<div class="v-bar"><div class="grow"><b class="v-title"></b><span class="v-count tiny"></span></div><button class="btn ghost small v-close" type="button">Close</button></div><div class="v-body"><p class="v-msg">Opening…</p></div>';
   root.querySelector('.v-title').textContent = m.title;
   document.body.appendChild(root); document.body.classList.add('viewing');
   const onKey = (ev) => { if (ev.key === 'Escape') closeViewer(); };
   document.addEventListener('keydown', onKey);
-  current = { root, onKey };
+  current = { root, onKey }; pushed(reuse);
+  if (!m.paid && m.fileId) { const dl = document.createElement('a'); dl.className = 'btn ghost small v-dl'; dl.href = '/files/' + encodeURIComponent(m.fileId); dl.setAttribute('download', m.fileName || 'file'); dl.textContent = 'Download'; root.querySelector('.v-close').before(dl); }
   const close = root.querySelector('.v-close'); close.addEventListener('click', closeViewer); close.focus();
   const body = root.querySelector('.v-body');
   try {
@@ -104,7 +135,7 @@ async function openViewer(m) {
 
 // Plays a YouTube or Google Drive video inside the page.
 function openVideo(m, emb) {
-  closeViewer();
+  const reuse = claimHistory();
   const root = document.createElement('div'); root.className = 'viewer'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-label', m.title);
   root.innerHTML = '<div class="v-bar"><div class="grow"><b class="v-title"></b><span class="v-count tiny"></span></div><button class="btn ghost small v-close" type="button">Close</button></div><div class="v-body v-video"></div>';
   root.querySelector('.v-title').textContent = m.title; root.querySelector('.v-count').textContent = emb.label;
@@ -116,7 +147,7 @@ function openVideo(m, emb) {
   document.body.appendChild(root); document.body.classList.add('viewing');
   const onKey = (ev) => { if (ev.key === 'Escape') closeViewer(); };
   document.addEventListener('keydown', onKey);
-  current = { root, onKey };
+  current = { root, onKey }; pushed(reuse);
   const close = root.querySelector('.v-close'); close.addEventListener('click', closeViewer); close.focus();
 }
 
@@ -126,7 +157,7 @@ export const actions = {
     if (emb) openVideo(m, emb);
   },
   'view-file'(el, ev, { S }) {
-    const m = S.state.materials.find((x) => x.id === el.dataset.id);
+    const m = S.state.materials.find((x) => x.id === el.dataset.id) || savedList().find((x) => x.id === el.dataset.id);
     if (m && m.fileId && !m.locked) openViewer(m);
   },
 };

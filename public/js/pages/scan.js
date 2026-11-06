@@ -40,11 +40,11 @@ const rowHtml = (r, i) => html`<div class="scan-row ${missing(r) ? 'bad' : ''}" 
 export function openScan(opts) {
   const state = { rows: [] };
   const { box, close } = dialog(html`<h3>Add a timetable from a photo or text</h3>
-    <p class="muted small">Take a photo of the timetable, or paste its text. We read it and fill the entries in for you. Check them, fix anything wrong, then save.</p>
+    <p class="muted small">Choose a picture of the timetable from your gallery (or take one), or paste its text. We read it and fill the entries in for you. Check them, fix anything wrong, then save.</p>
     <div class="msg alert bad" hidden role="alert"></div>
     <div id="scan-1">
       ${opts.scopeHtml || ''}
-      <label class="field"><span>Photo or scan</span><input type="file" name="photo" accept="image/*" capture="environment"><small id="scan-status" class="muted"></small></label>
+      <label class="field"><span>Photo or scan</span><input type="file" name="photo" accept="image/*"><small id="scan-status" class="muted"></small></label>
       <label class="field"><span>Text of the timetable</span><textarea name="text" rows="7" class="code" placeholder="Monday&#10;8:00-10:00 MBH222 Metabolism LT1&#10;Tuesday&#10;2pm-4pm ANA204 Gross anatomy Lab 2"></textarea></label>
       <label class="field"><span>These are mostly</span><select name="defkind">${KINDS.map(([k, l]) => html`<option value="${k}">${l === 'Weekly class' ? 'Weekly classes' : l + 's'}</option>`)}</select></label>
       <div class="row end gap"><button class="btn ghost" data-close type="button">Cancel</button><button class="btn primary" data-action="scan-read" type="button">${icon('search', 16)} Read it</button></div>

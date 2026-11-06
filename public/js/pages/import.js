@@ -31,10 +31,10 @@ const courseRow = (c) => html`<div class="imp-row ${c.flags.includes('prefix-unk
 export function openCourseImport({ acad, done }) {
   const deps = acad.departments;
   const { box, close } = dialog(html`<h3>Add courses from a registration form</h3>
-    <p class="muted small">Take a clear, flat photo of the course registration form, or paste its text. Courses are added to the department you choose.</p>
+    <p class="muted small">Choose a clear picture of the course registration form from your gallery (or take one), or paste its text. Courses are added to the department you choose.</p>
     <div class="msg alert bad" hidden role="alert"></div>
     <div id="imp-1">
-      <label class="field"><span>Photo of the form</span><input type="file" name="photo" accept="image/*" capture="environment"><small id="imp-status" class="muted"></small></label>
+      <label class="field"><span>Photo of the form</span><input type="file" name="photo" accept="image/*"><small id="imp-status" class="muted"></small></label>
       <label class="field"><span>Or paste the text</span><textarea name="text" rows="6" class="code" placeholder="First semester&#10;CHM 101 General Chemistry I 2 C&#10;MTH 101 Elementary Mathematics I 2 C"></textarea></label>
       <div class="row end gap"><button class="btn ghost" data-close type="button">Cancel</button><button class="btn primary" data-action="imp-c-read" type="button">${icon('search', 16)} Read it</button></div>
     </div>
@@ -64,10 +64,10 @@ const groupHtml = (g, facs) => {
 };
 export function openDeptImport({ acad, done }) {
   const { box, close } = dialog(html`<h3>Add departments from a list</h3>
-    <p class="muted small">Take a photo of the list, or paste it. Faculty names start each group, and the departments follow in order. Faculties that already exist are reused.</p>
+    <p class="muted small">Choose a picture of the list from your gallery (or take one), or paste it. Faculty names start each group, and the departments follow in order. Faculties that already exist are reused.</p>
     <div class="msg alert bad" hidden role="alert"></div>
     <div id="imp-1">
-      <label class="field"><span>Photo of the list</span><input type="file" name="photo" accept="image/*" capture="environment"><small id="imp-status" class="muted"></small></label>
+      <label class="field"><span>Photo of the list</span><input type="file" name="photo" accept="image/*"><small id="imp-status" class="muted"></small></label>
       <label class="field"><span>Or paste the list</span><textarea name="text" rows="8" class="code" placeholder="Faculty of Basic Medical Sciences&#10;1. Anatomy&#10;2. Physiology&#10;Faculty of Science&#10;1. Microbiology"></textarea></label>
       <div class="grid2"><label class="field"><span>Departments with no faculty heading go under</span><select name="deffac"><option value="">Choose…</option>${acad.faculties.map((f) => html`<option value="${f.id}">${f.name}</option>`)}</select></label>
         <label class="field"><span>Highest level for new departments</span><select name="maxlevel">${[400, 500, 600, 300, 200, 100].map((l) => html`<option value="${l}">${l} level</option>`)}</select></label></div>
