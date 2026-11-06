@@ -36,6 +36,9 @@ Every student gets a **General** room, a room for their **department**, and a ro
 ### Sharing quizzes
 Every quiz card has a share button, and the results screen has **Share my score**. It opens the phone's share sheet (WhatsApp, Telegram and so on), or copies the text and link if sharing is not available. The link opens the quiz directly. Someone who is not logged in is taken to log in or sign up first, then straight to the quiz. Paid quizzes still need to be unlocked.
 
+### Opening files (v19)
+PDFs and pictures now open inside Altidian for free files too (Word and PowerPoint files still open in the phone's own app). The viewer has a Download button for free files; paid files stay view-only. Opening the viewer adds one step to the browser history, so the phone's Back button closes it and returns to the page you were on.
+
 ### Notification reminder at login
 A student who logs in without notifications on sees a short reminder with four reasons to turn them on and a one-tap button, once per login (not during a quiz). "Not now" closes it until their next login. If notifications are blocked in the browser, it explains how to allow them. On iPhone it explains adding Altidian to the Home Screen first. Students whose browser cannot do notifications are not asked.
 
