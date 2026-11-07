@@ -1,6 +1,9 @@
 // Student extras: bookmarks, question of the day, weak topics, study groups, receipts and department transfers.
 import { html, raw, icon, api, toast, dialog, confirmBox, ago, fmtDate, pct, plural } from '../core/ui.js';
-import { resourceCard, emptyState } from './shared.js';
+import { resourceCard, emptyState, scopeOptions, currentScope } from './shared.js';
+import { canSave, isSaved } from '../core/offline.js';
+import { reportButton } from './report.js';
+import { embedOf } from '../core/video.js';
 
 const nairaOf = (n) => '₦' + Number(n || 0).toLocaleString('en-NG');
 
@@ -143,6 +146,31 @@ export async function hydrateTransfer(S) {
 }
 
 export const actions = {
+  'scope-menu'(el, ev, { user }) {
+    const u = user(); const cur = currentScope(u);
+    dialog(html`<div class="sheet"><h3>Show me</h3><div class="more-list">${scopeOptions(u, cur, el.dataset.act).map((o) => html`<button class="btn ghost" data-close data-action="${o.act}" data-v="${o.k}" type="button">${o.label}</button>`)}</div><button class="btn ghost block" data-close type="button">Close</button></div>`);
+  },
+  'more-res'(el, ev, { S }) {
+    const m = S.state.materials.find((x) => x.id === el.dataset.id); if (!m) return;
+    const long = (m.note || '').length > 140;
+    const { box } = dialog(html`<div class="sheet"><h3>${m.title}</h3><p class="tiny muted">${m.course}</p><div class="more-list">
+      ${m.locked ? html`<button class="btn gold" data-action="unlock" data-id="${m.id}" data-close type="button">${icon('lock', 16)} Unlock</button>` : html`
+      ${(long || (m.note && (m.fileId || m.link))) ? html`<button class="btn ghost" data-action="read" data-id="${m.id}" data-close type="button">${icon('file', 16)} Read notes</button>` : ''}
+      ${canSave(m) ? html`<button class="btn ghost save-off ${isSaved(m.id) ? 'on' : ''}" data-action="save-offline" data-id="${m.id}" type="button">${isSaved(m.id) ? 'Saved ✓ (tap to remove)' : 'Save offline'}</button>` : ''}
+      ${markBtn('m', m.id)}`}
+      ${raw(reportButton('material', m.id).s.replace('data-action', 'data-close data-action'))}
+    </div><button class="btn ghost block" data-close type="button">Close</button></div>`);
+    box.querySelectorAll('.rep-btn,.mark-btn').forEach((b) => b.classList.remove('small'));
+  },
+  'more-quiz'(el) {
+    const d = el.dataset; const n = Number(d.missed || 0);
+    dialog(html`<div class="sheet"><h3>${d.title}</h3><p class="tiny muted">${d.course} · ${d.n} questions</p><div class="more-list">
+      <a class="btn ghost" data-close href="#/quiz/${d.id}?mode=exam">${icon('clock', 16)} Timed exam</a>
+      <a class="btn ghost" data-close href="#/quiz/${d.id}?mode=cards">${icon('refresh', 16)} Flashcards</a>
+      ${n ? html`<a class="btn gold" data-close href="#/quiz/${d.id}?mode=practice">${icon('refresh', 16)} Practise ${n} mistake${n > 1 ? 's' : ''}</a>` : ''}
+      <button class="btn ghost" data-action="quiz-share" data-id="${d.id}" data-title="${d.title}" data-course="${d.course}" data-n="${d.n}" type="button">${icon('share', 16)} Share this quiz</button>
+    </div><button class="btn ghost block" data-close type="button">Close</button></div>`);
+  },
   async 'mark-toggle'(el) {
     const { t, id, i } = el.dataset; await prime(); const on = isMarked(t, id, i);
     try {

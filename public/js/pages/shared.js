@@ -19,9 +19,8 @@ export function resourceCard(m) {
       ${m.fileId ? fileBtn(m) : ''}
       ${m.link && embedOf(m.link) ? html`<button class="btn primary small" data-action="play-video" data-id="${m.id}" type="button">${icon('video', 16)} Watch</button>` : ''}
       ${m.link && !embedOf(m.link) ? html`<a class="btn ${m.fileId ? 'ghost' : 'primary'} small" href="${m.link}" target="_blank" rel="noopener noreferrer">${icon(m.kind === 'video' ? 'video' : 'link', 16)} ${m.kind === 'video' ? 'Watch' : 'Open link'}</a>` : ''}
-      ${long || (m.note && !m.fileId && !m.link) ? html`<button class="btn ghost small" data-action="read" data-id="${m.id}" type="button">Read notes</button>` : ''}
-      ${canSave(m) ? html`<button class="btn ghost small save-off ${isSaved(m.id) ? 'on' : ''}" data-action="save-offline" data-id="${m.id}" type="button">${isSaved(m.id) ? 'Saved ✓' : 'Save offline'}</button>` : ''}
-      ${markBtn('m', m.id)}${reportButton('material', m.id)}
+      ${!m.fileId && !m.link && m.note ? html`<button class="btn primary small" data-action="read" data-id="${m.id}" type="button">Read notes</button>` : ''}
+      <button class="icon-btn small-ic more-btn" data-action="more-res" data-id="${m.id}" type="button" aria-label="More options" title="More">${icon('more', 18)}</button>
     </div>`}
   </article>`;
 }
@@ -42,12 +41,12 @@ export function eventTile(e) {
 export function quizCard(q, best, ctx) {
   const done = best ? pct(best.correct, best.total) : null;
   return html`<article class="card quiz-card">
-    <div class="row gap-s wrap-r"><span class="chip">${q.course}</span><span class="chip grey">${q.count || q.questions.length} questions</span>${q.paid ? html`<span class="chip ${q.locked ? 'bad' : 'good'}">${icon(q.locked ? 'lock' : 'check', 13)} ${q.locked ? naira(q.price) : 'Unlocked'}</span>` : ''}${best ? html`<span class="chip good">${icon('check', 13)} Done</span>` : ''}<button class="icon-btn small-ic qc-share" type="button" data-action="quiz-share" data-id="${q.id}" data-title="${q.title}" data-course="${q.course}" data-n="${q.count || q.questions.length}" aria-label="Share this quiz" title="Share this quiz">${icon('share', 16)}</button></div>
+    <div class="row gap-s wrap-r"><span class="chip">${q.course}</span><span class="chip grey">${q.count || q.questions.length} questions</span>${q.paid ? html`<span class="chip ${q.locked ? 'bad' : 'good'}">${icon(q.locked ? 'lock' : 'check', 13)} ${q.locked ? naira(q.price) : 'Unlocked'}</span>` : ''}${best ? html`<span class="chip good">${icon('check', 13)} Done</span>` : ''}</div>
     <h3>${q.title}</h3>
     ${best ? html`<div><div class="row between small"><span class="muted">Best score</span><b>${best.correct}/${best.total}</b></div><div class="bar" style="margin-top:6px"><i style="width:${done}%"></i></div></div>` : html`<p class="muted small">Not tried yet. Every correct answer earns 10 points.</p>`}
     ${q.locked ? html`<button class="btn gold block" style="margin-top:auto" data-action="unlock" data-id="${q.id}" type="button">${icon('lock', 17)} Unlock</button>` : html`<div class="qc-go" style="margin-top:auto">
-      <a class="btn ${best ? 'ghost' : 'primary'} block" href="#/quiz/${q.id}">${best ? 'Try again' : 'Start quiz'} ${icon('arrow', 17)}</a>
-      <div class="row gap-s qc-extra"><a class="btn ghost small grow" href="#/quiz/${q.id}?mode=exam">${icon('clock', 15)} Timed exam</a><a class="btn ghost small grow" href="#/quiz/${q.id}?mode=cards">${icon('refresh', 15)} Flashcards</a>${ctx && ctx.missed && ctx.missed.length ? html`<a class="btn gold small grow" href="#/quiz/${q.id}?mode=practice">${icon('refresh', 15)} Practise ${ctx.missed.length} mistake${ctx.missed.length > 1 ? 's' : ''}</a>` : ''}</div></div>`}
+      <div class="row gap-s qc-main"><a class="btn ${best ? 'ghost' : 'primary'} grow" href="#/quiz/${q.id}">${best ? 'Try again' : 'Start quiz'} ${icon('arrow', 17)}</a><button class="icon-btn more-btn" data-action="more-quiz" data-id="${q.id}" data-title="${q.title}" data-course="${q.course}" data-n="${q.count || q.questions.length}" data-missed="${ctx && ctx.missed ? ctx.missed.length : 0}" type="button" aria-label="More ways to practise" title="More">${icon('more', 18)}</button></div>
+    </div>`}
   </article>`;
 }
 
@@ -85,18 +84,22 @@ export function placeChange(S, el) {
 
 /* ---------- what a student should see ---------- */
 // 'mine' = my level and department, 'dept' = my department at any level, 'all' = everything.
-export const scopeState = { v: null };
+const SK = 'alt-scope';
+const lsGet = () => { try { return localStorage.getItem(SK); } catch (e) { return null; } };
+export const scopeState = { get v() { const x = lsGet(); return ['all', 'dept', 'others'].includes(x) ? x : null; }, set v(x) { try { if (x && x !== 'mine') localStorage.setItem(SK, x); else localStorage.removeItem(SK); } catch (e) { /* private mode */ } } };
 export function courseIndex(S) { return new Map(acad(S).courses.map((c) => [c.code, c])); }
 export function inScope(S, user, scope, code) {
   if (scope === 'all' || !hasPlace(user)) return true;
   const c = courseIndex(S).get(code); if (!c) return false;
   const deptOk = !c.departmentIds || !c.departmentIds.length || c.departmentIds.includes(user.departmentId);
+  if (scope === 'others') return !deptOk && c.level === user.level;
   return scope === 'dept' ? deptOk : deptOk && c.level === user.level;
 }
 export const currentScope = (user) => (hasPlace(user) ? (scopeState.v || 'mine') : 'all');
+const scopeLabel = (k, u) => ({ mine: 'My courses · ' + u.level + 'L', dept: 'My department', others: 'Others · ' + u.level + 'L', all: 'All courses' })[k];
 export function scopeBar(S, user, action) {
   if (!hasPlace(user)) return html``;
   const cur = currentScope(user);
-  const tabs = [['mine', 'My courses · ' + user.level + ' level'], ['dept', 'My department'], ['all', 'Everything']];
-  return html`<div class="filters" role="group" aria-label="Which courses to show">${tabs.map(([k, l]) => html`<button class="pill ${cur === k ? 'on' : ''}" data-action="${action}" data-v="${k}" type="button">${l}</button>`)}</div>`;
+  return html`<div class="filters" role="group" aria-label="Which courses to show"><button class="pill on" data-action="${action}" data-v="${cur}" type="button">${scopeLabel(cur, user)}</button><button class="pill" data-action="scope-menu" data-act="${action}" type="button" aria-label="Show other courses" title="More">${icon('more', 18)}</button></div>`;
 }
+export const scopeOptions = (user, cur, act) => ['mine', 'dept', 'others', 'all'].filter((k) => k !== cur).map((k) => ({ k, label: scopeLabel(k, user), act }));

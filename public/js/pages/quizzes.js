@@ -1,4 +1,4 @@
-import { html, mount, icon, api, toast, pct, esc } from '../core/ui.js';
+import { html, mount, icon, api, toast, pct, esc, dialog } from '../core/ui.js';
 import { reportButton } from './report.js';
 import { markBtn, weakCard } from './more.js';
 import { quizCard, emptyState, scopeBar, inScope, currentScope, scopeState } from './shared.js';
@@ -201,15 +201,28 @@ export const runner = {
 runner.needsLogin.displayName = 'needsLogin';
 
 /* Sharing: a link that opens the quiz. Someone who is not logged in is sent to log in or sign up first, then straight to the quiz. */
+async function copyText(t) {
+  try { await navigator.clipboard.writeText(t); return true; } catch (e) { /* fall through */ }
+  try { const ta = document.createElement('textarea'); ta.value = t; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); return ok; } catch (e) { return false; }
+}
+// Opens the phone's share sheet when there is one; otherwise a dialog that stays until closed.
 async function shareOut(title, text, url) {
-  try { if (navigator.share) { await navigator.share({ title, text, url }); return; } } catch (e) { return; }
-  const all = text + '\n' + url;
-  try { await navigator.clipboard.writeText(all); toast('Copied. Paste it in your group.'); } catch (e) { toast(url); }
+  try { if (navigator.share) { await navigator.share({ title, text, url }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+  const all = text + '\n' + url; const enc = encodeURIComponent(all);
+  const { box } = dialog(html`<div class="sheet"><h3>Share</h3><p class="tiny muted">Send this to your class group.</p>
+    <textarea class="share-text" readonly rows="7">${all}</textarea>
+    <div class="more-list"><button class="btn primary" data-sh="copy" type="button">${icon('file', 16)} Copy message</button>
+      <a class="btn ghost" href="https://wa.me/?text=${enc}" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+      <a class="btn ghost" href="https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}" target="_blank" rel="noopener noreferrer">Telegram</a></div>
+    <button class="btn ghost block" data-close type="button">Done</button></div>`);
+  const ta = box.querySelector('textarea'); const cb = box.querySelector('[data-sh=copy]');
+  cb.addEventListener('click', async () => { ta.select(); cb.textContent = (await copyText(all)) ? 'Copied ✓' : 'Press and hold the text to copy'; });
 }
 export const actions = {
   'quiz-share'(el) {
     const d = el.dataset; const url = location.origin + '/#/quiz/' + d.id;
-    shareOut(d.title, `Try this quiz on Altidian: ${d.course}, ${d.title} (${d.n} questions). Instant answers, and it counts on the leaderboard.`, url);
+    const sh = document.querySelector('.sheet .btn.block');
+    shareOut(d.title, `Try this quiz on Altidian: ${d.course}, ${d.title} (${d.n} questions). Instant answers, and it counts on the leaderboard.`, url).then(() => { if (sh && sh.isConnected) sh.click(); }); // close the ⋯ menu once shared
   },
   'qz-share-score'() {
     if (!run || !run.result) return; const r = run.result; const q = run.quiz;
