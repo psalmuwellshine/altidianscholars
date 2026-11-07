@@ -36,6 +36,12 @@ Every student gets a **General** room, a room for their **department**, and a ro
 ### Sharing quizzes
 Every quiz card has a share button, and the results screen has **Share my score**. It opens the phone's share sheet (WhatsApp, Telegram and so on), or copies the text and link if sharing is not available. The link opens the quiz directly. Someone who is not logged in is taken to log in or sign up first, then straight to the quiz. Paid quizzes still need to be unlocked.
 
+### Focused for your department (v20)
+- Students see their own department and level by default. A single "Show all" link switches to everything, and the choice is remembered on that phone.
+- Cards now show one main button. Everything else (read notes, save offline, bookmark, report; timed exam, flashcards, practise mistakes, share) lives behind the "⋯" button.
+- The app opens with the full Altidian logo (shield, name and tagline) for about a second.
+- Events and notices were already filtered to the student's class on the server.
+
 ### Opening files (v19)
 PDFs and pictures now open inside Altidian for free files too (Word and PowerPoint files still open in the phone's own app). The viewer has a Download button for free files; paid files stay view-only. Opening the viewer adds one step to the browser history, so the phone's Back button closes it and returns to the page you were on.
 
