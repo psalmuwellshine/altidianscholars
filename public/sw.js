@@ -1,9 +1,9 @@
 /* Altidian service worker: installs the app, keeps it opening on a poor connection,
    serves study files a student saved for offline reading, and shows push notifications.
    Pages are always fetched fresh when online. Account and quiz data (/api) is never saved. */
-const CACHE = 'altidian-shell-v19';
+const CACHE = 'altidian-shell-v20';
 const OFFLINE = 'altidian-offline-v1'; // files saved by students; managed by the page, never wiped here
-const SHELL = ['/', '/css/app.css', '/js/app.js', '/logo.png', '/icon-192.png'];
+const SHELL = ['/', '/css/app.css', '/js/app.js', '/logo.png', '/logo-full.png', '/js/splash.js', '/icon-192.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
