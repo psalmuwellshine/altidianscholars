@@ -10,9 +10,22 @@ export const rateLabel = () => (rate === 1 ? '1×' : rate + '×');
 export function nextRate() { rate = RATES[(RATES.indexOf(rate) + 1) % RATES.length]; try { localStorage.setItem('alt-voice-rate', String(rate)); } catch (e) { /* ignore */ } return rate; }
 
 let voice = null;
+let savedUri = null;
+try { savedUri = localStorage.getItem('alt-voice'); } catch (e) { /* private mode */ }
+const allVoices = () => (synth && synth.getVoices ? synth.getVoices() : []);
+const vscore = (v) => (/en[-_]NG/i.test(v.lang) ? 5 : /en[-_]GB/i.test(v.lang) ? 4 : /en[-_]US/i.test(v.lang) ? 3 : 1) + (/natural|enhanced|premium|google|neural/i.test(v.name) ? 2 : 0) + (v.localService ? 0.5 : 0);
+/* English voices installed on this phone, best guesses first. */
+export function listVoices() { return allVoices().filter((v) => /^en[-_]/i.test(v.lang)).sort((a, b) => vscore(b) - vscore(a)); }
+export const voiceId = () => savedUri;
+export function chooseVoice(uri) {
+  savedUri = uri || null;
+  try { if (uri) localStorage.setItem('alt-voice', uri); else localStorage.removeItem('alt-voice'); } catch (e) { /* ignore */ }
+  voice = pickVoice();
+}
 function pickVoice() {
   if (!synth) return null;
-  const vs = synth.getVoices ? synth.getVoices() : []; if (!vs.length) return null;
+  const vs = allVoices(); if (!vs.length) return null;
+  if (savedUri) { const m = vs.find((v) => v.voiceURI === savedUri); if (m) return m; }
   const en = vs.filter((v) => /^en[-_]/i.test(v.lang));
   const score = (v) => (/en[-_]NG/i.test(v.lang) ? 5 : /en[-_]GB/i.test(v.lang) ? 4 : /en[-_]US/i.test(v.lang) ? 3 : 1) + (/natural|enhanced|premium|google|neural/i.test(v.name) ? 2 : 0) + (v.localService ? 0.5 : 0);
   return en.sort((a, b) => score(b) - score(a))[0] || null;
@@ -50,7 +63,8 @@ function say() {
   if (!synth || st.state !== 'playing') return;
   if (st.i >= st.parts.length) { const cb = st.onend; reset(); if (cb) cb(); return; }
   const tok = st.tok; const u = new SpeechSynthesisUtterance(st.parts[st.i]);
-  try { if (voice) { u.voice = voice; u.lang = voice.lang; } else u.lang = 'en-GB'; } catch (e) { u.lang = 'en-GB'; }
+  u.lang = voice ? voice.lang : 'en-GB';
+  try { if (voice) u.voice = voice; } catch (e) { /* keep the language only */ }
   u.rate = rate; u.pitch = 1;
   u.onend = () => { if (tok !== st.tok || st.state !== 'playing') return; st.i += 1; say(); };
   u.onerror = (e) => { if (tok !== st.tok) return; if (e && (e.error === 'canceled' || e.error === 'interrupted')) return; reset(); };
