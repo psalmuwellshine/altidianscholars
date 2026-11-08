@@ -36,6 +36,12 @@ Every student gets a **General** room, a room for their **department**, and a ro
 ### Sharing quizzes
 Every quiz card has a share button, and the results screen has **Share my score**. It opens the phone's share sheet (WhatsApp, Telegram and so on), or copies the text and link if sharing is not available. The link opens the quiz directly. Someone who is not logged in is taken to log in or sign up first, then straight to the quiz. Paid quizzes still need to be unlocked.
 
+### Read aloud (v21)
+- Flashcards: Listen (reads the question, or the answer and explanation once flipped), Auto-play (hands-free: question, pause, answer, next card) and a speed button.
+- Quizzes: a speaker icon reads the question and options, and after you answer it reads the answer and why.
+- Notes ("Read notes"): Listen / Pause / Resume and a speed button.
+- Uses the phone's own text-to-speech (nothing is downloaded from the server). The buttons only appear when the phone supports it. If no voice is installed, a message explains how to add one.
+
 ### Focused for your department (v20)
 - Students see their own department and level by default. A single "Show all" link switches to everything, and the choice is remembered on that phone.
 - Cards now show one main button. Everything else (read notes, save offline, bookmark, report; timed exam, flashcards, practise mistakes, share) lives behind the "⋯" button.
