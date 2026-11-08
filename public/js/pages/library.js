@@ -1,10 +1,20 @@
 import { fileBtn } from './viewer.js';
-import { canSpeak, speak, pause as pauseSpeech, resume as resumeSpeech, speechState, nextRate, rateLabel, noVoiceHelp } from '../core/speech.js';
+import { listVoices, voiceId, chooseVoice, stop as stopSp, canSpeak, speak, pause as pauseSpeech, resume as resumeSpeech, speechState, nextRate, rateLabel, noVoiceHelp } from '../core/speech.js';
 import { html, icon, dialog, kindLabel, debounce, mount, toast } from '../core/ui.js';
 import { stop as stopSpeech } from '../core/speech.js';
 import { resourceCard, emptyState, scopeBar, inScope, currentScope, scopeState, courseIndex } from './shared.js';
 
 const F = { q: '', course: '', kind: '' };
+function voiceDialog() {
+  stopSp();
+  const vs = listVoices(); const cur = voiceId() || '';
+  dialog(html`<h3>Choose a voice</h3><p class="small muted" style="margin:4px 0 12px">Tap a voice to hear it. It is used for flashcards, quizzes and notes.</p>
+    <div class="voice-list"><button class="voice ${cur ? '' : 'on'}" data-action="sp-voice-pick" data-u="" type="button"><b>Automatic</b><span class="tiny muted">Best voice on this phone</span></button>
+    ${vs.map((v) => html`<button class="voice ${cur === v.voiceURI ? 'on' : ''}" data-action="sp-voice-pick" data-u="${v.voiceURI}" type="button"><b>${v.name}</b><span class="tiny muted">${v.lang}${v.localService ? '' : ' · needs internet'}</span></button>`)}</div>
+    ${vs.length > 1 ? '' : html`<p class="small muted" style="margin-top:10px">Only one voice is installed on this phone.</p>`}
+    <details style="margin-top:12px"><summary class="small">Want better voices?</summary><p class="small muted" style="margin-top:6px"><b>Android:</b> Settings, then Text-to-speech output, choose Google, then Install voice data and pick an English voice (UK, US or Nigerian).<br><b>iPhone:</b> Settings, then Accessibility, then Spoken Content, then Voices, then English, and download an Enhanced or Premium voice.</p></details>
+    <div class="row end" style="margin-top:14px"><button class="btn primary" data-close type="button" autofocus>Done</button></div>`, { onClose: () => stopSp() });
+}
 
 function filtered(st, S, user) {
   const q = F.q.toLowerCase(); const sc = currentScope(user);
@@ -43,7 +53,7 @@ export const actions = {
     const m = S.state.materials.find((x) => x.id === el.dataset.id); if (!m) return;
     dialog(html`<div class="row gap-s wrap-r" style="margin-bottom:10px"><span class="chip">${m.course}</span><span class="chip grey">${kindLabel[m.kind] || 'Resource'}</span></div>
       <h3>${m.title}</h3><div class="${m.paid ? 'no-copy' : ''}" style="white-space:pre-line;margin:12px 0 20px;line-height:1.65">${m.note || ''}</div>
-      ${canSpeak() && m.note ? html`<div class="row gap-s listen-row" style="margin:-6px 0 14px"><button class="btn ghost small" data-action="sp-note" data-id="${m.id}" type="button">${icon('volume', 16)} <span>Listen</span></button><button class="btn ghost small sp-rate" data-action="sp-rate" type="button" title="Reading speed">${rateLabel()}</button></div>` : ''}
+      ${canSpeak() && m.note ? html`<div class="row gap-s listen-row" style="margin:-6px 0 14px"><button class="btn ghost small" data-action="sp-note" data-id="${m.id}" type="button">${icon('volume', 16)} <span>Listen</span></button><button class="btn ghost small sp-rate" data-action="sp-rate" type="button" title="Reading speed">${rateLabel()}</button><button class="btn ghost small" data-action="sp-voice" type="button">Voice</button></div>` : ''}
       <div class="row end gap-s wrap-r">${m.fileId ? fileBtn(m) : ''}
       ${m.link ? html`<a class="btn ghost small" href="${m.link}" target="_blank" rel="noopener noreferrer">${icon('link', 16)} Open link</a>` : ''}
       <button class="btn ghost small" data-close type="button" autofocus>Close</button></div>`, { wide: true, onClose: () => stopSpeech() });
@@ -56,6 +66,12 @@ export const actions = {
     const help = noVoiceHelp(); if (help) { toast(help, 'bad'); return; }
     label.textContent = 'Pause';
     speak(`${m.title}. ${m.note || ''}`, { watch: el.closest('.modal'), onstate: (s) => { if (s === 'idle') label.textContent = 'Listen'; } });
+  },
+  'sp-voice'() { voiceDialog(); },
+  'sp-voice-pick'(el, ev) {
+    const u = el.dataset.u; chooseVoice(u || null);
+    document.querySelectorAll('.voice-list [data-u]').forEach((b) => b.classList.toggle('on', (b.dataset.u || '') === (u || '')));
+    speak('Hello, this is how I will read your notes and flashcards.');
   },
   'sp-rate'() { nextRate(); document.querySelectorAll('.sp-rate').forEach((b) => { b.textContent = rateLabel(); }); },
 };
