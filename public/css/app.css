@@ -530,3 +530,8 @@ button.q { text-align: left; font: inherit; color: inherit; cursor: pointer; wid
 #splash img { width: min(56vw, 240px); height: auto; animation: splash-in .6s ease both; }
 @keyframes splash-in { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { #splash img { animation: none; } }
+
+/* v21: read aloud */
+.listen-row { margin: 12px 0 0; flex-wrap: wrap; }
+.listen-row .btn svg { vertical-align: -3px; }
+.sp-rate { min-width: 48px; font-variant-numeric: tabular-nums; }
