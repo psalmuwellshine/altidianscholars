@@ -1,5 +1,7 @@
 import { fileBtn } from './viewer.js';
-import { html, icon, dialog, kindLabel, debounce, mount } from '../core/ui.js';
+import { canSpeak, speak, pause as pauseSpeech, resume as resumeSpeech, speechState, nextRate, rateLabel, noVoiceHelp } from '../core/speech.js';
+import { html, icon, dialog, kindLabel, debounce, mount, toast } from '../core/ui.js';
+import { stop as stopSpeech } from '../core/speech.js';
 import { resourceCard, emptyState, scopeBar, inScope, currentScope, scopeState, courseIndex } from './shared.js';
 
 const F = { q: '', course: '', kind: '' };
@@ -41,8 +43,19 @@ export const actions = {
     const m = S.state.materials.find((x) => x.id === el.dataset.id); if (!m) return;
     dialog(html`<div class="row gap-s wrap-r" style="margin-bottom:10px"><span class="chip">${m.course}</span><span class="chip grey">${kindLabel[m.kind] || 'Resource'}</span></div>
       <h3>${m.title}</h3><div class="${m.paid ? 'no-copy' : ''}" style="white-space:pre-line;margin:12px 0 20px;line-height:1.65">${m.note || ''}</div>
+      ${canSpeak() && m.note ? html`<div class="row gap-s listen-row" style="margin:-6px 0 14px"><button class="btn ghost small" data-action="sp-note" data-id="${m.id}" type="button">${icon('volume', 16)} <span>Listen</span></button><button class="btn ghost small sp-rate" data-action="sp-rate" type="button" title="Reading speed">${rateLabel()}</button></div>` : ''}
       <div class="row end gap-s wrap-r">${m.fileId ? fileBtn(m) : ''}
       ${m.link ? html`<a class="btn ghost small" href="${m.link}" target="_blank" rel="noopener noreferrer">${icon('link', 16)} Open link</a>` : ''}
-      <button class="btn ghost small" data-close type="button" autofocus>Close</button></div>`, { wide: true });
+      <button class="btn ghost small" data-close type="button" autofocus>Close</button></div>`, { wide: true, onClose: () => stopSpeech() });
   },
+  'sp-note'(el, ev, { S }) {
+    const m = S.state.materials.find((x) => x.id === el.dataset.id); if (!m) return;
+    const label = el.querySelector('span'); const st = speechState();
+    if (st === 'playing') { pauseSpeech(); label.textContent = 'Resume'; return; }
+    if (st === 'paused') { resumeSpeech(); label.textContent = 'Pause'; return; }
+    const help = noVoiceHelp(); if (help) { toast(help, 'bad'); return; }
+    label.textContent = 'Pause';
+    speak(`${m.title}. ${m.note || ''}`, { watch: el.closest('.modal'), onstate: (s) => { if (s === 'idle') label.textContent = 'Listen'; } });
+  },
+  'sp-rate'() { nextRate(); document.querySelectorAll('.sp-rate').forEach((b) => { b.textContent = rateLabel(); }); },
 };

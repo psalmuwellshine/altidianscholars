@@ -1,5 +1,6 @@
 import { html, mount, icon, api, toast, pct, esc, dialog } from '../core/ui.js';
 import { reportButton } from './report.js';
+import { canSpeak, speak, stop as stopSpeech, speechState, nextRate, rateLabel, noVoiceHelp } from '../core/speech.js';
 import { markBtn, weakCard } from './more.js';
 import { quizCard, emptyState, scopeBar, inScope, currentScope, scopeState } from './shared.js';
 
@@ -70,6 +71,7 @@ function cardScreen() {
   const qi = run.queue[0]; const q = quiz.questions[qi]; const done = run.total - new Set(run.queue).size;
   return html`<div class="row between small"><button class="btn ghost small" data-action="qz-quit" type="button">${icon('x', 15)} Leave</button><span class="muted"><b>${run.queue.length}</b> left</span></div>
     <div class="bar" style="margin-top:12px"><i style="width:${(done / run.total) * 100}%"></i></div>
+    ${canSpeak() ? html`<div class="row gap-s listen-row"><button class="btn ghost small" data-action="sp-card" type="button">${icon(speechState() === 'playing' && !run.auto ? 'pause' : 'volume', 16)} ${speechState() === 'playing' && !run.auto ? 'Stop' : 'Listen'}</button><button class="btn ${run.auto ? 'primary' : 'ghost'} small" data-action="sp-auto" type="button">${icon(run.auto ? 'pause' : 'play', 16)} ${run.auto ? 'Stop auto' : 'Auto-play'}</button><button class="btn ghost small sp-rate" data-action="sp-rate" type="button" title="Reading speed">${rateLabel()}</button></div>` : ''}
     <div class="flash card ${run.show ? 'back' : ''}"><p class="tiny muted">${quiz.course} · ${quiz.title}</p><h2 class="q-text" style="margin:8px 0 0">${q.q}</h2>
       ${run.show ? html`<div class="flash-ans"><span class="chip good">${icon('check', 13)} Answer</span><p style="font-weight:700;margin:8px 0">${q.o[q.a]}</p>${q.e ? html`<p class="small muted">${q.e}</p>` : ''}</div>` : ''}</div>
     ${run.show ? html`<div class="row gap" style="margin-top:14px"><button class="btn ghost grow" data-action="qz-card-again" type="button">${icon('refresh', 16)} Again</button><button class="btn primary grow" data-action="qz-card-got" type="button">${icon('check', 16)} Got it</button></div>`
@@ -105,7 +107,7 @@ function screen() {
   const chosen = exam ? run.answers[qi] : run.picked;
   const last = run.i + 1 === n;
   return html`<div class="row between small"><button class="btn ghost small" data-action="qz-quit" type="button">${icon('x', 15)} Leave</button>
-      ${exam ? html`<span class="timer" title="Time left"><b id="timer">${fmt(left())}</b></span>` : ''}<span class="muted"><b>${run.i + 1}</b> of ${n}</span></div>
+      ${exam ? html`<span class="timer" title="Time left"><b id="timer">${fmt(left())}</b></span>` : ''}<span class="muted row gap-s">${canSpeak() ? html`<button class="icon-btn small-ic" data-action="sp-quiz" type="button" aria-label="Read this question aloud" title="Read aloud">${icon(speechState() === 'playing' ? 'pause' : 'volume', 18)}</button>` : ''}<span><b>${run.i + 1}</b> of ${n}</span></span></div>
     ${mode === 'practice' ? html`<p class="small muted" style="margin-top:10px">Practising questions you got wrong before. No points here, but each right answer leaves your mistakes list.</p>` : ''}
     ${exam ? html`<p class="small muted" style="margin-top:10px">Exam mode: answers and explanations show only at the end. Change an answer any time before you submit.</p>` : ''}
     <div class="bar" style="margin-top:12px" role="progressbar" aria-valuemin="0" aria-valuemax="${n}" aria-valuenow="${run.i + (locked ? 1 : 0)}"><i style="width:${((run.i + (locked ? 1 : 0)) / n) * 100}%"></i></div>
@@ -162,6 +164,25 @@ function reviewHtml() {
       ${q.e ? html`<p class="small muted" style="margin-top:6px">${q.e}</p>` : ''}
       <p style="margin-top:8px">${markBtn('q', quiz.id, i)} ${reportButton('question', quiz.id, i)}</p></div>`;
   })}`;
+}
+/* ---- reading aloud ---- */
+const quizQ = (qi) => run.quiz.questions[qi];
+const answerText = (q) => `Answer. ${q.o[q.a]}.${q.e ? ' ' + q.e : ''}`;
+const questionText = (qi) => { const q = quizQ(qi); return q.q + '. ' + run.perm[qi].map((oi, i) => `Option ${L[i]}. ${q.o[oi]}.`).join(' '); };
+function startSpeech(text, onend) {
+  const help = noVoiceHelp(); if (help) { toast(help, 'bad'); return false; }
+  const r = run;
+  return speak(text, { watch: document.getElementById('runner'), onstate: () => { if (run === r && document.getElementById('runner')) draw(); }, onend });
+}
+function autoOff() { if (run && run.auto) { run.auto = false; stopSpeech(); } }
+function autoStep() {
+  const r = run;
+  if (!r || !r.auto || r.mode !== 'cards') return;
+  if (!r.queue.length) { r.auto = false; draw(); return; }
+  const key = r.queue[0]; const q = r.quiz.questions[key]; const same = () => run === r && r.auto && r.queue[0] === key;
+  const wait = (ms, f) => setTimeout(() => { if (same()) f(); }, ms);
+  r.show = false; draw();
+  startSpeech(q.q, () => wait(1800, () => { r.show = true; draw(); startSpeech(answerText(q), () => wait(1600, () => { r.queue.shift(); r.show = false; autoStep(); })); }));
 }
 const draw = () => { mount(document.getElementById('runner'), run.result ? resultScreen() : screen()); beginClock(); };
 
@@ -239,9 +260,27 @@ export const actions = {
     const nx = document.querySelector('[data-action="qz-next"]'); if (nx) nx.focus();
   },
   'qz-time'(el) { if (!run || run.endAt) return; run.endAt = Date.now() + Number(el.dataset.min) * 60000; draw(); window.scrollTo(0, 0); },
-  'qz-card-show'() { run.show = true; draw(); },
-  'qz-card-got'() { run.queue.shift(); run.show = false; draw(); },
-  'qz-card-again'() { const i = run.queue.shift(); run.again.add(i); run.queue.splice(Math.min(3, run.queue.length), 0, i); run.show = false; draw(); },
+  'qz-card-show'() { autoOff(); run.show = true; draw(); },
+  'sp-card'() {
+    if (!run || run.mode !== 'cards') return;
+    if (speechState() !== 'idle') { stopSpeech(); run.auto = false; draw(); return; }
+    const q = run.quiz.questions[run.queue[0]];
+    if (!startSpeech(run.show ? answerText(q) : q.q)) return;
+  },
+  'sp-auto'() {
+    if (!run || run.mode !== 'cards') return;
+    if (run.auto) { autoOff(); draw(); return; }
+    if (!canSpeak() || noVoiceHelp()) { toast(noVoiceHelp() || 'Reading aloud is not supported on this phone.', 'bad'); return; }
+    run.auto = true; autoStep();
+  },
+  'sp-quiz'() {
+    if (!run || run.mode === 'cards' || run.result) return;
+    if (speechState() !== 'idle') { stopSpeech(); draw(); return; }
+    const qi = run.list[run.i]; const q = quizQ(qi); const locked = run.mode !== 'exam' && run.picked !== null;
+    startSpeech(locked ? answerText(q) : questionText(qi));
+  },
+  'qz-card-got'() { autoOff(); run.queue.shift(); run.show = false; draw(); },
+  'qz-card-again'() { autoOff(); const i = run.queue.shift(); run.again.add(i); run.queue.splice(Math.min(3, run.queue.length), 0, i); run.show = false; draw(); },
   'qz-cards-again'() { start(run.quiz, 'cards'); draw(); },
   'qz-goto'(el) {
     if (!run || run.result || run.mode !== 'exam') return;
