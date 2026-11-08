@@ -36,7 +36,8 @@ Every student gets a **General** room, a room for their **department**, and a ro
 ### Sharing quizzes
 Every quiz card has a share button, and the results screen has **Share my score**. It opens the phone's share sheet (WhatsApp, Telegram and so on), or copies the text and link if sharing is not available. The link opens the quiz directly. Someone who is not logged in is taken to log in or sign up first, then straight to the quiz. Paid quizzes still need to be unlocked.
 
-### Read aloud (v21)
+### Read aloud (v21, voice picker in v22)
+- A "Voice" button (flashcards and notes) lets each student pick any English voice installed on their phone, hear a sample, and keep the choice. "Automatic" is the default.
 - Flashcards: Listen (reads the question, or the answer and explanation once flipped), Auto-play (hands-free: question, pause, answer, next card) and a speed button.
 - Quizzes: a speaker icon reads the question and options, and after you answer it reads the answer and why.
 - Notes ("Read notes"): Listen / Pause / Resume and a speed button.
