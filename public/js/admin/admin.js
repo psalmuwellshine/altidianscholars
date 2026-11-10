@@ -1,5 +1,5 @@
 /* Altidian admin control panel. */
-import { html, raw, mount, icon, api, toast, dialog, confirmBox, fmtDate, ago, pct, initial, avatar, kindLabel, initTheme, toggleTheme, readFile, debounce, eventDate, todayKey, plural, ApiError } from '../core/ui.js';
+import { html, raw, mount, icon, api, toast, dialog, confirmBox, fmtDate, ago, pct, initial, avatar, kindLabel, initTheme, toggleTheme, readFile, squarePhoto, debounce, eventDate, todayKey, plural, ApiError } from '../core/ui.js';
 import { parseBulk } from './bulk.js';
 import { embedOf } from '../core/video.js';
 import { placeFields, placeChange } from '../pages/shared.js';
@@ -19,6 +19,7 @@ const SECTIONS = [
   { id: 'materials', label: 'Resources', icon: 'book' },
   { id: 'quizzes', label: 'Quizzes', icon: 'quiz' },
   { id: 'events', label: 'Events', icon: 'calendar' },
+  { id: 'election', label: 'Student elections', icon: 'users' },
   { id: 'chat', label: 'Chat', icon: 'chat' },
   { id: 'uploads', label: 'Student uploads', icon: 'upload' },
   { id: 'transfers', label: 'Transfers and levels', icon: 'refresh' },
@@ -190,6 +191,21 @@ const views = {
     return html`${head('Events', 'Shown on the home page and the Events page.', html`<button class="btn primary" data-action="ev-new" type="button">${icon('plus', 18)} Add event</button>`)}
       ${list.length ? html`<div class="tbl-wrap"><table><thead><tr><th>Event</th><th>When</th><th>Where</th><th></th></tr></thead><tbody>${list.map((e) => html`<tr><td><b>${e.title}</b> ${e.date < t ? html`<span class="chip grey">Past</span>` : ''}</td><td>${eventDate(e).long}${e.time ? ' · ' + e.time : ''}</td><td>${e.location || '—'}</td>
         <td><div class="actions"><button class="btn ghost small icon" data-action="ev-edit" data-id="${e.id}" type="button" aria-label="Edit ${e.title}">${icon('edit', 17)}</button><button class="btn ghost small icon" data-action="ev-del" data-id="${e.id}" type="button" aria-label="Delete ${e.title}">${icon('trash', 17)}</button></div></td></tr>`)}</tbody></table></div>` : empty('calendar', 'No events', 'Add a test, meeting or study session.')}`;
+  },
+
+  async election() {
+    await loadAcad(); const d = await api('GET', '/api/admin/election'); A.cache.cands = d.candidates; A.cache.positions = d.positions; const c = d.cfg;
+    return html`${head('Student elections', 'Campaign pages for one department. Only students of the department you choose can see them.', html`<button class="btn primary" data-action="el-cand-new" type="button">${icon('plus', 18)} Add candidate</button>`)}
+      <div class="card" style="max-width:720px;margin-bottom:18px"><div class="msg alert bad" hidden role="alert"></div>
+        <form data-submit="el-save" novalidate>
+          <label class="check" style="margin-bottom:14px"><input type="checkbox" name="on" ${c.on ? raw('checked') : ''}> Show the campaigns to students</label>
+          <label class="field"><span>Title</span><input name="title" maxlength="80" value="${c.title}"></label>
+          <div class="grid2"><label class="field"><span>Which department sees it?</span><select name="departmentId"><option value="">Choose…</option>${A.acad.departments.map((x) => html`<option value="${x.id}" ${c.departmentId === x.id ? raw('selected') : ''}>${x.name}</option>`)}</select></label>
+          <label class="field"><span>Voting day (optional)</span><input type="date" name="votingDate" value="${c.votingDate || ''}"><small>Students see a countdown to this date.</small></label></div>
+          <label class="field"><span>Note under the title (optional)</span><textarea name="note" maxlength="600" placeholder="Voting is organised by the electoral committee. This page only shares information about the candidates.">${c.note || ''}</textarea></label>
+          <button class="btn primary" type="submit">Save settings</button></form></div>
+      ${d.candidates.length ? html`<div class="tbl-wrap"><table><thead><tr><th>Candidate</th><th>Position</th><th>Level</th><th></th></tr></thead><tbody>${d.candidates.map((x) => html`<tr><td><div class="row gap-s">${x.photo ? html`<img src="/avatars/${x.photo}" alt="" width="36" height="36" style="border-radius:50%;object-fit:cover">` : html`<span class="avatar sm">${initial(x.name)}</span>`}<b>${x.name}</b></div></td><td>${x.position}</td><td>${x.level ? x.level + ' level' : ''}</td>
+        <td><div class="actions"><button class="btn ghost small icon" data-action="el-cand-edit" data-id="${x.id}" type="button" aria-label="Edit ${x.name}">${icon('edit', 17)}</button><button class="btn ghost small icon" data-action="el-cand-del" data-id="${x.id}" type="button" aria-label="Delete ${x.name}">${icon('trash', 17)}</button></div></td></tr>`)}</tbody></table></div>` : html`<div class="card"><p class="muted">No candidates yet. Add each candidate with their photo, slogan and manifesto.</p></div>`}`;
   },
 
   async notice() {
@@ -472,6 +488,23 @@ function eventDialog(e) {
   const f = box.querySelector('form'); f.dataset.id = e ? e.id : ''; f.closeFn = close;
 }
 
+/* ---------- dialogs: election candidates ---------- */
+function candidateDialog(c) {
+  const { box, close } = dialog(html`<h3>${c ? 'Edit candidate' : 'Add candidate'}</h3><div class="msg alert bad" hidden role="alert"></div>
+    <form data-submit="el-cand-save" novalidate>
+      <label class="field"><span>Photo (optional)</span><input type="file" name="photo" accept="image/*"><small>Choose from your gallery. It is cropped to a square, so use a photo with the face in the middle.${c && c.photo ? ' Leave empty to keep the current photo.' : ''}</small></label>
+      ${c && c.photo ? html`<label class="check small" style="margin-bottom:12px"><input type="checkbox" name="removePhoto"> Remove current photo</label>` : ''}
+      <label class="field"><span>Full name</span><input name="name" maxlength="80" required value="${c ? c.name : ''}" autofocus></label>
+      <div class="grid2"><label class="field"><span>Position</span><input name="position" list="el-positions" maxlength="60" required value="${c ? c.position : ''}"><datalist id="el-positions">${(A.cache.positions || []).map((p) => html`<option value="${p}"></option>`)}</datalist></label>
+      <label class="field"><span>Level (optional)</span><select name="level"><option value="">Not shown</option>${[100, 200, 300, 400, 500, 600].map((l) => html`<option value="${l}" ${c && c.level === l ? raw('selected') : ''}>${l} level</option>`)}</select></label></div>
+      <label class="field"><span>Slogan (optional)</span><input name="slogan" maxlength="140" value="${c ? c.slogan : ''}"></label>
+      <label class="field"><span>Manifesto (optional)</span><textarea name="manifesto" rows="6" maxlength="4000">${c ? c.manifesto : ''}</textarea></label>
+      <label class="field"><span>Key promises (optional, one per line)</span><textarea name="promises" rows="4" maxlength="2400">${c ? (c.promises || []).join('\n') : ''}</textarea></label>
+      <label class="field"><span>Link (optional)</span><input name="link" inputmode="url" placeholder="https://" value="${c ? c.link || '' : ''}"></label>
+      <div class="row end gap"><button class="btn ghost" data-close type="button">Cancel</button><button class="btn primary" type="submit">${c ? 'Save candidate' : 'Add candidate'}</button></div></form>`);
+  const f = box.querySelector('form'); f.dataset.id = c ? c.id : ''; f.closeFn = close;
+}
+
 /* ---------- actions ---------- */
 async function busy(form, work) {
   const btn = form.querySelector('button[type=submit]'); const label = btn ? btn.textContent : '';
@@ -639,6 +672,14 @@ const actions = {
     await api('DELETE', '/api/admin/events/' + e.id); toast('Deleted.'); reload();
   },
 
+  /* student elections */
+  'el-cand-new': () => candidateDialog(null),
+  'el-cand-edit': (el) => candidateDialog(byId('cands', el.dataset.id)),
+  async 'el-cand-del'(el) {
+    const c = byId('cands', el.dataset.id);
+    if (!(await sure('Delete ' + c.name + '?', 'Their campaign page will be removed.', 'Delete'))) return;
+    await api('DELETE', '/api/admin/election/candidates/' + c.id); toast('Deleted.'); reload();
+  },
   /* notice and board */
   async 'notice-clear'() { await api('PUT', '/api/admin/notice', { text: '' }); toast('Banner removed.'); reload(); },
   async 'board-del'(el) {
@@ -711,6 +752,20 @@ const submits = {
       form.closeFn(); toast(id ? 'Event saved.' : 'Event added.'); reload();
     });
   },
+  async 'el-cand-save'(form) {
+    await busy(form, async () => {
+      const body = { name: val(form, 'name'), position: val(form, 'position'), level: val(form, 'level'), slogan: val(form, 'slogan'), manifesto: val(form, 'manifesto'), promises: val(form, 'promises'), link: val(form, 'link'), removePhoto: chk(form, 'removePhoto') };
+      const file = form.querySelector('[name=photo]').files[0];
+      if (file) body.photo = await squarePhoto(file);
+      const id = form.dataset.id;
+      await api(id ? 'PUT' : 'POST', '/api/admin/election/candidates' + (id ? '/' + id : ''), body);
+      form.closeFn(); toast(id ? 'Saved.' : 'Candidate added.'); reload();
+    });
+  },
+  async 'el-save'(form) {
+    await busy(form, async () => { await api('PUT', '/api/admin/election', { on: chk(form, 'on'), title: val(form, 'title'), departmentId: val(form, 'departmentId'), votingDate: val(form, 'votingDate'), note: val(form, 'note') }); toast('Saved.'); });
+  },
+
   async 'notice-save'(form) {
     await busy(form, async () => { await api('PUT', '/api/admin/notice', { text: val(form, 'text'), level: val(form, 'level'), push: chk(form, 'push') }); toast('Announcement published.'); });
   },
