@@ -4,6 +4,7 @@ import { todayKey } from '../core/ui.js';
 import * as move from './transition.js';
 import * as more from './more.js';
 import * as notifyMod from './notify.js';
+import { votingLine } from './election.js';
 import { upcomingExams, classesToday, daysTo, countdown } from './timetable.js';
 
 /* ---------- search ---------- */
@@ -98,6 +99,7 @@ export async function render({ S, user, config }) {
       </div>
     </section>
     ${u ? more.qotdSlot() : ''}
+    ${u && st.election ? html`<section class="sec"><a class="card election-card" href="#/election"><div><span class="chip gold">Student elections</span><h3>${st.election.title}</h3><p class="small">${st.election.count} candidate${st.election.count === 1 ? '' : 's'}${votingLine(st.election.votingDate) ? ' · ' + votingLine(st.election.votingDate) : ''}</p></div><span class="btn gold small">Meet the candidates ${icon('arrow', 16)}</span></a></section>` : ''}
     <section class="sec home-search">
       <form class="hs-form" data-submit="home-search-go" role="search">
         <label class="searchbox big">${icon('search', 20)}<span class="sr">Search Altidian</span><input id="hs-input" type="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Search notes, past questions, quizzes…" value="${Q}" data-input="home-search"></label>
