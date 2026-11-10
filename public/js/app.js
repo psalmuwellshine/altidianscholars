@@ -5,6 +5,7 @@ import * as library from './pages/library.js';
 import * as quizzes from './pages/quizzes.js';
 import * as board from './pages/board.js';
 import * as events from './pages/events.js';
+import * as election from './pages/election.js';
 import * as account from './pages/account.js';
 import * as viewer from './pages/viewer.js';
 import * as pay from './pages/pay.js';
@@ -74,7 +75,7 @@ const PAGES = [
 ];
 const visiblePages = () => PAGES.filter((p) => p.id !== 'chat' || (S.state && S.state.config.chatEnabled));
 const ctxApi = { S, load, user, config, go, renderView: () => route() };
-const modules = [home, library, quizzes, board, events, account, viewer, pay, chat, timetable, share, pushask, saved, rep, notify, cgpa, report, more, scan];
+const modules = [home, library, quizzes, board, events, election, account, viewer, pay, chat, timetable, share, pushask, saved, rep, notify, cgpa, report, more, scan];
 const actions = Object.assign({}, ...modules.map((m) => m.actions || {}));
 
 /* ---------- chrome (header, notice, tabs, footer) ---------- */
@@ -125,7 +126,7 @@ function currentId() {
   if (path.startsWith('/quiz/')) return 'quizzes';
   if (path === '/timetable') return 'events';
   if (path === '/share' || path === '/saved') return 'library';
-  if (path === '/cgpa' || path === '/bookmarks' || path === '/groups' || path.startsWith('/group/') || path === '/receipts') return 'home';
+  if (path === '/cgpa' || path === '/election' || path === '/bookmarks' || path === '/groups' || path.startsWith('/group/') || path === '/receipts') return 'home';
   return '';
 }
 
@@ -143,6 +144,7 @@ async function route() {
   else if (path.startsWith('/quiz/')) { page = quizzes.runner; params = { id: path.slice(6) }; }
   else if (path === '/board') page = board;
   else if (path === '/events') page = events;
+  else if (path === '/election') page = election;
   else if (path === '/timetable') page = timetable;
   else if (path === '/share') page = share;
   else if (path === '/saved') page = saved;
