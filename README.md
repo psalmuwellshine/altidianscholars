@@ -36,6 +36,11 @@ Every student gets a **General** room, a room for their **department**, and a ro
 ### Sharing quizzes
 Every quiz card has a share button, and the results screen has **Share my score**. It opens the phone's share sheet (WhatsApp, Telegram and so on), or copies the text and link if sharing is not available. The link opens the quiz directly. Someone who is not logged in is taken to log in or sign up first, then straight to the quiz. Paid quizzes still need to be unlocked.
 
+### Student elections (v23)
+- **Admin → Student elections**: pick the department (e.g. Medical Laboratory Science), set a title (e.g. NIMELSSA Elections 2026), an optional voting date and note, then add candidates (photo from the gallery, name, position, level, slogan, manifesto, key promises, optional link). Switch **On** to publish.
+- Only students of that department see it: a card on the home page opens a page with each position and its candidates, with a "Read manifesto" window and a share button. Everyone else sees nothing.
+- Information only: no voting, likes or comments in the app. Switch it off to hide everything instantly.
+
 ### Read aloud (v21, voice picker in v22)
 - A "Voice" button (flashcards and notes) lets each student pick any English voice installed on their phone, hear a sample, and keep the choice. "Automatic" is the default.
 - Flashcards: Listen (reads the question, or the answer and explanation once flipped), Auto-play (hands-free: question, pause, answer, next card) and a speed button.
