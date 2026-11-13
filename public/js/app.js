@@ -1,5 +1,5 @@
 /* Altidian student site: shell, state, router. Pages live in /js/pages. */
-import { html, raw, mount, icon, api, toast, initTheme, toggleTheme, initial, avatar, ApiError } from './core/ui.js';
+import { html, raw, mount, icon, api, toast, initTheme, toggleTheme, initial, avatar, ApiError, siteOrigin } from './core/ui.js';
 import * as home from './pages/home.js';
 import * as library from './pages/library.js';
 import * as quizzes from './pages/quizzes.js';
@@ -191,9 +191,9 @@ actions.theme = () => toggleTheme();
 actions.retry = () => route();
 actions.share = async (el, ev) => {
   ev.preventDefault();
-  const data = { title: config().siteName, text: config().tagline || 'Study with Altidian', url: location.origin };
+  const data = { title: config().siteName, text: config().tagline || 'Study with Altidian', url: siteOrigin() };
   try { if (navigator.share) { await navigator.share(data); return; } } catch (e) { return; }
-  try { await navigator.clipboard.writeText(location.origin); toast('Link copied. Paste it in your group.'); } catch (e) { toast(location.origin); }
+  try { await navigator.clipboard.writeText(siteOrigin()); toast('Link copied. Paste it in your group.'); } catch (e) { toast(siteOrigin()); }
 };
 document.addEventListener('click', (ev) => {
   const el = ev.target.closest('[data-action]');
