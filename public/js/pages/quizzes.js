@@ -1,4 +1,4 @@
-import { html, mount, icon, api, toast, pct, esc, dialog } from '../core/ui.js';
+import { html, mount, icon, api, toast, pct, esc, dialog, siteOrigin } from '../core/ui.js';
 import { reportButton } from './report.js';
 import { canSpeak, speak, stop as stopSpeech, speechState, nextRate, rateLabel, noVoiceHelp } from '../core/speech.js';
 import { markBtn, weakCard } from './more.js';
@@ -241,13 +241,13 @@ async function shareOut(title, text, url) {
 }
 export const actions = {
   'quiz-share'(el) {
-    const d = el.dataset; const url = location.origin + '/#/quiz/' + d.id;
+    const d = el.dataset; const url = siteOrigin() + '/#/quiz/' + d.id;
     const sh = document.querySelector('.sheet .btn.block');
     shareOut(d.title, `Try this quiz on Altidian: ${d.course}, ${d.title} (${d.n} questions). Instant answers, and it counts on the leaderboard.`, url).then(() => { if (sh && sh.isConnected) sh.click(); }); // close the ⋯ menu once shared
   },
   'qz-share-score'() {
     if (!run || !run.result) return; const r = run.result; const q = run.quiz;
-    shareOut(q.title, `I got ${r.correct}/${r.total} (${pct(r.correct, r.total)}%) in ${q.course}: ${q.title} on Altidian. Can you beat me?`, location.origin + '/#/quiz/' + q.id);
+    shareOut(q.title, `I got ${r.correct}/${r.total} (${pct(r.correct, r.total)}%) in ${q.course}: ${q.title} on Altidian. Can you beat me?`, siteOrigin() + '/#/quiz/' + q.id);
   },
   'qz-scope': (el, ev, { renderView }) => { scopeState.v = el.dataset.v; F.course = ''; renderView(); },
   'qz-course': (el, ev, { renderView }) => { F.course = el.dataset.v; renderView(); },

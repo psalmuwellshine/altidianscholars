@@ -1,4 +1,4 @@
-import { html, icon, api, dialog, toast, initial } from '../core/ui.js';
+import { html, icon, api, dialog, toast, initial, siteOrigin } from '../core/ui.js';
 import { emptyState } from './shared.js';
 
 let DATA = { posts: [] };
@@ -41,7 +41,7 @@ export const actions = {
   },
   async 'el-share'(el) {
     const c = DATA.posts.flatMap((p) => p.candidates).find((x) => x.id === el.dataset.id); if (!c) return;
-    const text = `${c.name}, candidate for ${c.position}${c.slogan ? ': “' + c.slogan + '”' : ''}. Read the manifesto on Altidian:`; const url = location.origin + '/#/election';
+    const text = `${c.name}, candidate for ${c.position}${c.slogan ? ': “' + c.slogan + '”' : ''}. Read the manifesto on Altidian:`; const url = siteOrigin() + '/#/election';
     try { if (navigator.share) { await navigator.share({ title: c.name, text, url }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
     try { await navigator.clipboard.writeText(text + ' ' + url); toast('Link copied.'); } catch (e) { toast(url); }
   },

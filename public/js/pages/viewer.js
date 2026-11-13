@@ -119,7 +119,7 @@ async function openViewer(m) {
   const close = root.querySelector('.v-close'); close.addEventListener('click', closeViewer); close.focus();
   const body = root.querySelector('.v-body');
   try {
-    const res = await fetch('/files/' + encodeURIComponent(m.fileId), { headers: { 'X-Altidian-View': '1' }, credentials: 'same-origin', cache: 'no-store' });
+    const res = await fetch('/files/' + encodeURIComponent(m.fileId), { headers: { 'X-Altidian-View': '1' }, credentials: 'same-origin', cache: m.paid ? 'no-store' : 'default' }); // free files may come from the phone's own copy (saves data)
     if (!res.ok) throw new Error(res.status === 403 ? 'This file is locked. Unlock it first.' : 'Could not open this file. Check your connection and try again.');
     const type = (res.headers.get('Content-Type') || '').split(';')[0];
     const buf = await res.arrayBuffer();

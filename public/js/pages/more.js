@@ -1,5 +1,5 @@
 // Student extras: bookmarks, question of the day, weak topics, study groups, receipts and department transfers.
-import { html, raw, icon, api, toast, dialog, confirmBox, ago, fmtDate, pct, plural } from '../core/ui.js';
+import { html, raw, icon, api, toast, dialog, confirmBox, ago, fmtDate, pct, plural, siteOrigin } from '../core/ui.js';
 import { resourceCard, emptyState, scopeOptions, currentScope } from './shared.js';
 import { canSave, isSaved } from '../core/offline.js';
 import { reportButton } from './report.js';
@@ -216,7 +216,7 @@ export const actions = {
   async 'grp-leave'(el, ev, { go }) { if (!(await confirmBox({ title: 'Leave this group?', text: 'You can rejoin later with the code.', yes: 'Leave' }))) return; try { await api('POST', `/api/groups/${el.dataset.id}/leave`); go('/groups'); } catch (e) { toast(e.message, 'bad'); } },
   async 'grp-delete'(el, ev, { go }) { if (!(await confirmBox({ title: 'Delete this group?', text: 'It is removed for every member.', yes: 'Delete', danger: true }))) return; try { await api('DELETE', '/api/groups/' + el.dataset.id); go('/groups'); } catch (e) { toast(e.message, 'bad'); } },
   async 'grp-copy'(el) {
-    const text = 'Join my study group "' + el.dataset.name + '" on Altidian. Code: ' + el.dataset.code + ' — ' + location.origin + '/#/groups';
+    const text = 'Join my study group "' + el.dataset.name + '" on Altidian. Code: ' + el.dataset.code + ' — ' + siteOrigin() + '/#/groups';
     try { if (navigator.share) { await navigator.share({ text }); return; } } catch (e) { return; }
     try { await navigator.clipboard.writeText(text); toast('Invite copied. Paste it in your chat.'); } catch (e) { toast(el.dataset.code); }
   },
