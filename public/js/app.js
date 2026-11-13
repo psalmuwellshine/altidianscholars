@@ -22,6 +22,7 @@ import { saveSnapshot, loadSnapshot } from './core/offline.js';
 import * as push from './core/push.js';
 import * as idle from './core/idle.js';
 import * as more from './pages/more.js';
+import * as channels from './pages/channels.js';
 import * as scan from './pages/scan.js';
 
 initTheme();
@@ -75,7 +76,7 @@ const PAGES = [
 ];
 const visiblePages = () => PAGES.filter((p) => p.id !== 'chat' || (S.state && S.state.config.chatEnabled));
 const ctxApi = { S, load, user, config, go, renderView: () => route() };
-const modules = [home, library, quizzes, board, events, election, account, viewer, pay, chat, timetable, share, pushask, saved, rep, notify, cgpa, report, more, scan];
+const modules = [home, library, quizzes, board, events, election, account, viewer, pay, chat, timetable, share, pushask, saved, rep, notify, cgpa, report, more, channels, scan];
 const actions = Object.assign({}, ...modules.map((m) => m.actions || {}));
 
 /* ---------- chrome (header, notice, tabs, footer) ---------- */
@@ -99,12 +100,8 @@ function renderChrome() {
     <footer class="foot"><div class="wrap in">
       <div><b>${c.siteName}</b> ${c.tagline ? html`· ${c.tagline}` : ''}<br>${c.motto ? html`<span class="motto">${c.motto}</span><br>` : ''}<span class="tiny">${c.footerText}</span></div>
       <div class="links">
-        ${L.whatsapp ? html`<a href="${L.whatsapp}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
-        ${L.telegram ? html`<a href="${L.telegram}" target="_blank" rel="noopener">Telegram</a>` : ''}
-        ${L.instagram ? html`<a href="${L.instagram}" target="_blank" rel="noopener">Instagram</a>` : ''}
-        ${L.website ? html`<a href="${L.website}" target="_blank" rel="noopener">Website</a>` : ''}
-        ${L.email ? html`<a href="mailto:${L.email}">Email us</a>` : ''}
-        <a href="#" data-action="share">Share site</a>
+        <a href="#" data-action="channels-open">Our channels</a>
+        <a href="#" data-action="support-open">Contact support</a>
       </div>
     </div></footer>
     ${u ? html`<nav class="tabbar" aria-label="Main">${visiblePages().map((p) => html`<a class="tab ${cur === p.id ? 'on' : ''}" href="#${p.path}">${icon(p.icon, 22)}<span>${p.label}</span></a>`)}</nav>` : ''}`);
