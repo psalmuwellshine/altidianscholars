@@ -339,6 +339,7 @@ const views = {
           ${tg('leaderboardEnabled', c.leaderboardEnabled, 'Show the leaderboard', 'Hides rankings everywhere on the site.')}</div>
         <div class="card" style="margin-top:16px"><h3 style="margin-bottom:6px">Move-over banner</h3><p class="muted small" style="margin-bottom:12px">The "Exam Warriors is now Altidian" banner with a countdown, a first-time welcome pop-up, and a ribbon on the login page. Turn it off when the move is done.</p>
           ${tg('moveOn', c.moveOn, 'Show the move-over banner', 'Stays visible until a week after the countdown day.')}
+          ${tg('moveCount', c.moveCount !== false, 'Show the countdown', 'Turn this off to remove the “only on Altidian” countdown but keep the banner. Students still get resources on Telegram as before.')}
           <label class="field" style="margin-top:10px"><span>Countdown day (resources only on Altidian from this day)</span><input name="moveEnds" type="date" value="${c.moveEnds || ''}" style="max-width:200px"></label>
           <label class="field"><span>Banner headline (optional)</span><input name="moveTitle" maxlength="80" placeholder="Exam Warriors is now Altidian" value="${c.moveTitle || ''}"></label>
           <label class="field"><span>Banner text (optional)</span><textarea name="moveText" maxlength="240" placeholder="Same team, same quality. Everything now lives in one place.">${c.moveText || ''}</textarea></label></div>
@@ -350,10 +351,12 @@ const views = {
         <div class="card" style="margin-top:16px"><h3 style="margin-bottom:6px">Semester pass</h3><p class="muted small" style="margin-bottom:12px">One payment that unlocks every paid note and quiz until the last day below. Mark items as paid, with their own prices, under Materials and Quizzes.</p>
           <div class="grid2"><label class="field"><span>Pass price (naira)</span><input name="passPrice" type="number" inputmode="numeric" min="0" step="1" placeholder="e.g. 2000" value="${c.passPrice || ''}"></label>
           <label class="field"><span>Pass lasts until</span><input name="passEnds" type="date" value="${c.passEnds || ''}"></label></div></div>
-        <div class="card" style="margin-top:16px"><h3 style="margin-bottom:12px">Contact links</h3><p class="muted small" style="margin-bottom:12px">Shown in the site footer. Leave blank to hide.</p>
+        <div class="card" style="margin-top:16px"><h3 style="margin-bottom:12px">Contact links</h3><p class="muted small" style="margin-bottom:12px">Shown in the “Our channels” window (every link you fill in gets a button) and “Contact support”. Leave blank to hide.</p>
           <div class="grid2"><label class="field"><span>WhatsApp link</span><input name="whatsapp" inputmode="url" placeholder="https://" value="${L.whatsapp}"></label><label class="field"><span>Telegram link</span><input name="telegram" inputmode="url" placeholder="https://" value="${L.telegram}"></label>
-          <label class="field"><span>Instagram link</span><input name="instagram" inputmode="url" placeholder="https://" value="${L.instagram}"></label><label class="field"><span>Website</span><input name="website" inputmode="url" placeholder="https://" value="${L.website}"></label></div>
-          <label class="field"><span>Email</span><input name="email" type="email" value="${L.email}"></label></div>
+          <label class="field"><span>YouTube channel link</span><input name="youtube" inputmode="url" placeholder="https://www.youtube.com/@…" value="${L.youtube || ''}"></label><label class="field"><span>Instagram link</span><input name="instagram" inputmode="url" placeholder="https://" value="${L.instagram}"></label>
+          <label class="field"><span>TikTok link</span><input name="tiktok" inputmode="url" placeholder="https://" value="${L.tiktok || ''}"></label><label class="field"><span>Facebook link</span><input name="facebook" inputmode="url" placeholder="https://" value="${L.facebook || ''}"></label>
+          <label class="field"><span>X (Twitter) link</span><input name="x" inputmode="url" placeholder="https://" value="${L.x || ''}"></label><label class="field"><span>Website</span><input name="website" inputmode="url" placeholder="https://" value="${L.website}"></label></div>
+          <label class="field"><span>Support email (leave blank to use support@altidian.com.ng)</span><input name="email" type="email" placeholder="support@altidian.com.ng" value="${L.email}"></label></div>
         <div style="margin-top:18px"><button class="btn primary" type="submit">Save settings</button></div></form>`;
   },
 };
@@ -792,8 +795,8 @@ const submits = {
   async 'settings-save'(form) {
     await busy(form, async () => {
       const body = { siteName: val(form, 'siteName'), tagline: val(form, 'tagline'), motto: val(form, 'motto'), heroTitle: val(form, 'heroTitle'), heroText: val(form, 'heroText'), footerText: val(form, 'footerText'),
-        registrationOpen: chk(form, 'registrationOpen'), requireLogin: chk(form, 'requireLogin'), leaderboardEnabled: chk(form, 'leaderboardEnabled'), chatEnabled: chk(form, 'chatEnabled'), dmEnabled: chk(form, 'dmEnabled'), contribEnabled: chk(form, 'contribEnabled'), contribPoints: val(form, 'contribPoints'), moveOn: chk(form, 'moveOn'), moveEnds: val(form, 'moveEnds'), moveTitle: val(form, 'moveTitle'), moveText: val(form, 'moveText'), payBank: val(form, 'payBank'), payAccountNumber: val(form, 'payAccountNumber'), payAccountName: val(form, 'payAccountName'), payNote: val(form, 'payNote'), passPrice: val(form, 'passPrice'), passEnds: val(form, 'passEnds'),
-        links: { whatsapp: val(form, 'whatsapp'), telegram: val(form, 'telegram'), instagram: val(form, 'instagram'), website: val(form, 'website'), email: val(form, 'email') } };
+        registrationOpen: chk(form, 'registrationOpen'), requireLogin: chk(form, 'requireLogin'), leaderboardEnabled: chk(form, 'leaderboardEnabled'), chatEnabled: chk(form, 'chatEnabled'), dmEnabled: chk(form, 'dmEnabled'), contribEnabled: chk(form, 'contribEnabled'), contribPoints: val(form, 'contribPoints'), moveOn: chk(form, 'moveOn'), moveCount: chk(form, 'moveCount'), moveEnds: val(form, 'moveEnds'), moveTitle: val(form, 'moveTitle'), moveText: val(form, 'moveText'), payBank: val(form, 'payBank'), payAccountNumber: val(form, 'payAccountNumber'), payAccountName: val(form, 'payAccountName'), payNote: val(form, 'payNote'), passPrice: val(form, 'passPrice'), passEnds: val(form, 'passEnds'),
+        links: { whatsapp: val(form, 'whatsapp'), telegram: val(form, 'telegram'), youtube: val(form, 'youtube'), instagram: val(form, 'instagram'), tiktok: val(form, 'tiktok'), facebook: val(form, 'facebook'), x: val(form, 'x'), website: val(form, 'website'), email: val(form, 'email') } };
       A.config = await api('PUT', '/api/admin/config', body); toast('Settings saved. The site is updated.');
     });
   },
