@@ -97,6 +97,7 @@ export async function render({ S, user, config }) {
         <a class="btn ghost" href="#/library">${icon('book', 19)} Browse the library</a>
         ${!u && c.registrationOpen ? html`<a class="btn ghost" href="#/register">Create account</a>` : ''}
       </div>
+      <div class="hero-links"><button class="linkish" data-action="channels-open" type="button">${icon('users', 16)} Our channels</button><button class="linkish" data-action="support-open" type="button">${icon('mail', 16)} Contact support</button></div>
     </section>
     ${u ? more.qotdSlot() : ''}
     ${u && st.election ? html`<section class="sec"><a class="card election-card" href="#/election"><div><span class="chip gold">Student elections</span><h3>${st.election.title}</h3><p class="small">${st.election.count} candidate${st.election.count === 1 ? '' : 's'}${votingLine(st.election.votingDate) ? ' · ' + votingLine(st.election.votingDate) : ''}</p></div><span class="btn gold small">Meet the candidates ${icon('arrow', 16)}</span></a></section>` : ''}

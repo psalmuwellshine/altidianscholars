@@ -6,7 +6,7 @@ const longDate = (d) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', {
 export const active = (c) => !!c.moveOn && (!c.moveEnds || daysTo(c.moveEnds) >= -7);
 
 function countdown(c) {
-  if (!c.moveEnds) return null;
+  if (!c.moveEnds || c.moveCount === false) return null;
   const n = daysTo(c.moveEnds);
   if (n > 1) return { big: n, unit: 'days', line: 'until resources live only on Altidian (' + longDate(c.moveEnds) + ')' };
   if (n === 1) return { big: 1, unit: 'day', line: 'left. From tomorrow, resources live only on Altidian.' };
