@@ -101,6 +101,18 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
     });
   });
 
+  // Keeps the most recently opened files in memory (up to about 30 MB) so the database is not asked again and again.
+  const FILE_CACHE = new Map(); let fileCacheBytes = 0;
+  async function fileCache(id) {
+    if (FILE_CACHE.has(id)) { const b = FILE_CACHE.get(id); FILE_CACHE.delete(id); FILE_CACHE.set(id, b); return b; }
+    const b = await store.getFile(id);
+    if (b && b.length < 8 * 1024 * 1024) {
+      FILE_CACHE.set(id, b); fileCacheBytes += b.length;
+      while (fileCacheBytes > 30 * 1024 * 1024 && FILE_CACHE.size) { const k = FILE_CACHE.keys().next().value; fileCacheBytes -= FILE_CACHE.get(k).length; FILE_CACHE.delete(k); }
+    }
+    return b;
+  }
+
   route('GET', '/files/:id', {}, async (req, res, ctx) => {
     const id = ctx.params[0];
     const mats = await store.list('materials');
@@ -120,15 +132,20 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
     if (m.paid && !H.isAdmin(req) && req.headers['x-altidian-view'] !== '1') {
       return send(res, 403, 'This file is view-only. Open it from inside Altidian.', { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
     }
-    const buf = await store.getFile(id);
+    // A file's id changes whenever the file is replaced, so free files can be kept by the phone for a long time.
+    const tag = '"f-' + id + '"';
+    if (!m.paid && req.headers['if-none-match'] === tag) return send(res, 304, undefined, { ETag: tag, 'Cache-Control': 'public, max-age=2592000' });
+    const buf = await fileCache(id);
     if (!buf) return send(res, 404, 'Not found', { 'Content-Type': 'text/plain' });
+    if (buf.length > 1024 * 1024) console.log('[bandwidth] file ' + (m.fileName || id) + ' ' + (buf.length / 1048576).toFixed(1) + ' MB' + (m.paid ? ' (paid)' : ''));
     const meta = fileTypes[m.fileType] || { inline: false };
     const name = (m.fileName || 'file').replace(/[^\w.\- ]+/g, '_');
     send(res, 200, buf, {
       'Content-Type': m.fileType || 'application/octet-stream',
       'Content-Disposition': (meta.inline || m.paid ? 'inline' : 'attachment') + "; filename*=UTF-8''" + encodeURIComponent(name),
       'Content-Security-Policy': 'sandbox',
-      'Cache-Control': m.paid ? 'private, no-store' : 'public, max-age=3600', // paid files must never sit in a shared cache
+      'Cache-Control': m.paid ? 'private, no-store' : 'public, max-age=2592000', // paid files must never sit in a shared cache
+      ...(m.paid ? {} : { ETag: tag }),
     });
   });
 
