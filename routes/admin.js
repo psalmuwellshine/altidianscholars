@@ -514,7 +514,7 @@ module.exports = function registerAdmin({ route, store, send, push }) {
       passPrice: wholeNaira(b.passPrice, 'semester pass price', true),
       passEnds: (() => { const d = String(b.passEnds || '').trim(); if (d && !isDate(d)) throw new HttpError(400, 'Pick a valid last day for the semester pass.'); return d; })(),
       levelOpen: cur.levelOpen, levelEnds: cur.levelEnds,
-      moveOn: bool(b.moveOn),
+      moveOn: bool(b.moveOn), moveCount: bool(b.moveCount),
       moveEnds: (() => { const d = String(b.moveEnds || '').trim(); if (d && !isDate(d)) throw new HttpError(400, 'Pick a valid day for the move-over countdown.'); return d; })(),
       moveTitle: clean(b.moveTitle, 80), moveText: clean(b.moveText, 240),
       links: {},
