@@ -21,6 +21,19 @@ const csv = (rows) => rows.map((r) => r.map(csvCell).join(',')).join('\r\n') + '
 module.exports = function registerAdmin({ route, store, send, push }) {
   const A = { admin: true };
 
+  // A WhatsApp number (0815 117 9933, +234 815 117 9933) or a WhatsApp link, saved as a wa.me link.
+  function waContact(raw, who) {
+    const v = clean(raw, 200); if (!v) return '';
+    if (isHttp(v)) {
+      if (!/^https?:\/\/(wa\.me|api\.whatsapp\.com|wa\.link|chat\.whatsapp\.com)\//i.test(v)) throw new HttpError(400, who + ': use a WhatsApp link or just the phone number.');
+      return v;
+    }
+    let d = v.replace(/\D/g, '');
+    if (d.length === 11 && d.startsWith('0')) d = '234' + d.slice(1); // 0815... -> 234815...
+    else if (d.length === 10) d = '234' + d;                           // 815... -> 234815...
+    if (d.length < 11 || d.length > 15) throw new HttpError(400, who + ': that phone number does not look right. Example: 0815 117 9933.');
+    return 'https://wa.me/' + d;
+  }
   const VIEWABLE = new Set(['application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/webp']);
   // Prices are whole naira. Used by materials, quizzes and the semester pass.
   function wholeNaira(v, what, allowBlank) {
@@ -517,6 +530,8 @@ module.exports = function registerAdmin({ route, store, send, push }) {
       moveOn: bool(b.moveOn), moveCount: bool(b.moveCount),
       moveEnds: (() => { const d = String(b.moveEnds || '').trim(); if (d && !isDate(d)) throw new HttpError(400, 'Pick a valid day for the move-over countdown.'); return d; })(),
       moveTitle: clean(b.moveTitle, 80), moveText: clean(b.moveText, 240),
+      support1Name: clean(b.support1Name, 40), support1Wa: waContact(b.support1Wa, 'Admin 1'),
+      support2Name: clean(b.support2Name, 40), support2Wa: waContact(b.support2Wa, 'Admin 2'),
       links: {},
     };
     const L = b.links || {};
