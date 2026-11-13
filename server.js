@@ -51,7 +51,7 @@ function serveStatic(req, res, pathname) {
     etags.set(file, tag);
     const headers = {
       'Content-Type': STATIC_TYPES[ext] || 'application/octet-stream',
-      'Cache-Control': 'no-cache', // always check with the server (304 when unchanged), so a replaced logo shows up straight away
+      'Cache-Control': /[\\/]vendor[\\/]/.test(file) ? 'public, max-age=2592000' : 'no-cache', // app files: always check with the server (304 when unchanged), so a replaced logo shows up straight away
       ETag: tag,
     };
     if (req.headers['if-none-match'] === tag) return send(res, 304, undefined, headers);

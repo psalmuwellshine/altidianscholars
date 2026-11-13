@@ -36,6 +36,13 @@ Every student gets a **General** room, a room for their **department**, and a ro
 ### Sharing quizzes
 Every quiz card has a share button, and the results screen has **Share my score**. It opens the phone's share sheet (WhatsApp, Telegram and so on), or copies the text and link if sharing is not available. The link opens the quiz directly. Someone who is not logged in is taken to log in or sign up first, then straight to the quiz. Paid quizzes still need to be unlocked.
 
+### Altidian address (v25)
+Share buttons (the app, quizzes, study groups, elections) now always give out `https://www.altidian.com.ng`. Students who already use the old onrender.com link keep working, but each web address keeps its own login, saved offline files and notification setting, so students who move to the new address log in again and turn notifications on again.
+
+### Less data used (v24)
+- Free files opened in the viewer are now kept by the phone (30 days), so reopening one does not download it again. The server also answers "unchanged" instead of resending, keeps recently opened files in memory, and the PDF/photo-reader libraries are cached for 30 days. Paid files are still never stored.
+- Render's log prints a "[bandwidth]" line for every file over 1 MB that is sent, so you can see which files are heavy.
+
 ### Student elections (v23)
 - **Admin → Student elections**: pick the department (e.g. Medical Laboratory Science), set a title (e.g. NIMELSSA Elections 2026), an optional voting date and note, then add candidates (photo from the gallery, name, position, level, slogan, manifesto, key promises, optional link). Switch **On** to publish.
 - Only students of that department see it: a card on the home page opens a page with each position and its candidates, with a "Read manifesto" window and a share button. Everyone else sees nothing.
@@ -117,7 +124,7 @@ current pricing page.
 3. Environment variables (these keep secrets out of your code):
    - `ADMIN_PASSWORD` = a strong password only you know
    - `MONGODB_URI` = the connection string from step 1
-4. Deploy. Render gives you a link like `https://exam-warriors.onrender.com`.
+4. Deploy. Render gives you a link like `https://exam-warriors.onrender.com`. Altidian's own address is `https://www.altidian.com.ng` (Render → Settings → Custom Domains; DNS at Whogohost: A record `@` → 216.24.57.1 and CNAME `www` → the onrender.com address). Share links always use the Altidian address, even when someone opened the app from the old link.
 
 Share that link with students. Go to `/admin` on the same link to log in.
 
