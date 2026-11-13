@@ -36,6 +36,17 @@ Every student gets a **General** room, a room for their **department**, and a ro
 ### Sharing quizzes
 Every quiz card has a share button, and the results screen has **Share my score**. It opens the phone's share sheet (WhatsApp, Telegram and so on), or copies the text and link if sharing is not available. The link opens the quiz directly. Someone who is not logged in is taken to log in or sign up first, then straight to the quiz. Paid quizzes still need to be unlocked.
 
+### Old address redirect (v28)
+Anyone who opens the old Render address (`exam-warriors.onrender.com`) is sent to `https://www.altidian.com.ng`, on the same page. Render's own health checks are not redirected. To use a different address, set the `CANONICAL_URL` setting on Render; to switch the redirect off, set `NO_CANONICAL_REDIRECT=1`.
+
+### Countdown switch (v27)
+**Admin → Settings → Move-over banner** now has a separate **Show the countdown** switch. Turn it off to remove the "only on Altidian" countdown while keeping the banner (or turn the whole banner off). Resources can then keep going to Telegram as before.
+
+### Our channels and Contact support (v26)
+- **Our channels:** one window that lists every social link you fill in (WhatsApp, Telegram, YouTube, Instagram, TikTok, Facebook, X, Website). Fill them in under **Admin → Settings → Contact links**; blank ones stay hidden.
+- **Contact support:** opens a window with an email button (defaults to support@altidian.com.ng), a WhatsApp button if you set one, and copy-email.
+- Both open from a link under the home page hero and from the footer. The scattered footer links and the "Share site" link were removed.
+
 ### Altidian address (v25)
 Share buttons (the app, quizzes, study groups, elections) now always give out `https://www.altidian.com.ng`. Students who already use the old onrender.com link keep working, but each web address keeps its own login, saved offline files and notification setting, so students who move to the new address log in again and turn notifications on again.
 

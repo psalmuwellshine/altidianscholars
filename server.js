@@ -89,8 +89,15 @@ async function main() {
   require('./routes/transfers')({ route, store, send, userOf, push });
   require('./routes/backup')({ route, store, send });
 
+  // The old Render address (…onrender.com) sends visitors to Altidian's own address, on the same page they asked for.
+  const CANONICAL = (process.env.CANONICAL_URL || 'https://www.altidian.com.ng').replace(/\/+$/, '');
+  const oldHost = (req) => !process.env.NO_CANONICAL_REDIRECT && /\.onrender\.com$/i.test(String(req.headers.host || '').split(':')[0]) && !/^Render\//i.test(String(req.headers['user-agent'] || ''));
   const server = http.createServer(async (req, res) => {
     try {
+      if (oldHost(req)) { // 301 for pages; 308 keeps the method for anything else
+        res.writeHead(req.method === 'GET' || req.method === 'HEAD' ? 301 : 308, { Location: CANONICAL + req.url, 'Cache-Control': 'public, max-age=3600' });
+        return res.end();
+      }
       const url = new URL(req.url, 'http://x');
       let pathname;
       try { pathname = decodeURIComponent(url.pathname); } catch (e) { throw new HttpError(400, 'Bad request.'); }
