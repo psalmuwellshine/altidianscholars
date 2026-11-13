@@ -2,6 +2,8 @@
 
 export class Raw { constructor(s) { this.s = s; } toString() { return this.s; } }
 export const raw = (s) => new Raw(s);
+// The address students should share: the official Altidian address, even if the app was opened from the old onrender.com link.
+export const siteOrigin = () => (/\.onrender\.com$/.test(location.hostname) ? 'https://www.altidian.com.ng' : location.origin);
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 export const esc = (v) => String(v).replace(/[&<>"']/g, (c) => ESC[c]);
 const part = (v) => {
