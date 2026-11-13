@@ -23,14 +23,18 @@ export const actions = {
       <div class="chan-list">${list.length ? list.map((c) => html`<a class="chan" href="${L[c.k]}" target="_blank" rel="noopener noreferrer"><span class="chan-dot" style="background:${c.color}">${c.name.charAt(0)}</span><span class="chan-t"><b>${c.name}</b><span class="tiny muted">${c.hint}</span></span>${icon('arrow', 16)}</a>`) : html`<p class="muted">Our channels will appear here soon.</p>`}</div>
       <button class="btn ghost block" data-close type="button">Close</button></div>`);
   },
-  'support-open'(el, ev, { config }) {
+  'support-open'(el, ev, { config, user }) {
     if (ev && ev.preventDefault) ev.preventDefault();
-    const L = config().links || {}; const mail = supportEmail(L);
+    const L = config().links || {}; const mail = supportEmail(L); const cfg = config(); const me = user && user();
+    // One WhatsApp button per support admin, so either of them can reply. (The channel link is for "Our channels" only.)
+    const text = 'Hello, I need help on ' + cfg.siteName + '.' + (me && me.username ? '\nUsername: ' + me.username : '');
+    const withText = (wa) => (/^https?:\/\/(wa\.me|api\.whatsapp\.com)\//i.test(wa) ? wa + (wa.includes('?') ? '&' : '?') + 'text=' + encodeURIComponent(text) : wa);
+    const admins = [1, 2].map((i) => ({ name: cfg['support' + i + 'Name'] || 'Admin ' + i, wa: cfg['support' + i + 'Wa'] })).filter((a) => a.wa);
     const sub = encodeURIComponent(config().siteName + ' support');
-    dialog(html`<div class="sheet"><h3>Contact support</h3><p class="tiny muted">Having a problem with the app, a payment or your account? Write to us and we will reply as soon as we can.</p>
+    dialog(html`<div class="sheet"><h3>Contact support</h3><p class="tiny muted">Having a problem with the app, a payment or your account? Write to us and we will reply as soon as we can.${admins.length > 1 ? ' Either admin can help, so pick whoever you like.' : ''}</p>
       <div class="more-list">
         <a class="btn primary" href="mailto:${mail}?subject=${sub}">${icon('mail', 16)} Email ${mail}</a>
-        ${L.whatsapp ? html`<a class="btn ghost" href="${L.whatsapp}" target="_blank" rel="noopener noreferrer">Message us on WhatsApp</a>` : ''}
+        ${admins.map((a) => html`<a class="btn ghost" href="${withText(a.wa)}" target="_blank" rel="noopener noreferrer">Chat with ${a.name} on WhatsApp</a>`)}
         <button class="btn ghost" data-copy-support="${mail}" type="button">Copy email address</button>
       </div><button class="btn ghost block" data-close type="button">Close</button></div>`);
   },
