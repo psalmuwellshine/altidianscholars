@@ -66,7 +66,7 @@ Each receipt in My purchases has a **View** button that opens a branded receipt 
 Students can pay for a paid item or the semester pass by card or bank transfer on Paystack's own secure page; it unlocks by itself and a receipt is saved under My purchases. Bank transfer (the old way) stays as a backup.
 1. In Paystack, copy your **secret key** (Settings → API Keys & Webhooks). Start with the **test** key (`sk_test_…`).
 2. On Render → your service → **Environment**, add `PAYSTACK_SECRET_KEY` with that key and save (Render redeploys). Never paste the key in the code, on GitHub or in a chat.
-3. In Paystack → Settings → API Keys & Webhooks, set the **Webhook URL** to `https://www.altidian.com.ng/api/paystack/webhook` (Admin → Settings shows the exact address). Do this for both the test and live boxes.
+3. In Paystack → Settings → API Keys & Webhooks, set the **Webhook URL** to `https://altidian.com.ng/api/paystack/webhook` (Admin → Settings shows the exact address). Do this for both the test and live boxes.
 4. In **Admin → Settings → Pay online (Paystack)** switch **Let students pay online** on, and set the semester pass price and last day.
 5. Try a test payment with Paystack's test card. When Paystack has activated your business, replace the key on Render with the **live** key (`sk_live_…`).
 - **Admin → Online payments** lists every attempt (Paid / Waiting / Failed) with a "Check again" button.
@@ -76,7 +76,7 @@ Students can pay for a paid item or the semester pass by card or bank transfer o
 Every quiz card has a share button, and the results screen has **Share my score**. It opens the phone's share sheet (WhatsApp, Telegram and so on), or copies the text and link if sharing is not available. The link opens the quiz directly. Someone who is not logged in is taken to log in or sign up first, then straight to the quiz. Paid quizzes still need to be unlocked.
 
 ### Old address redirect (v28)
-Anyone who opens the old Render address (`exam-warriors.onrender.com`) is sent to `https://www.altidian.com.ng`, on the same page. Render's own health checks are not redirected. To use a different address, set the `CANONICAL_URL` setting on Render; to switch the redirect off, set `NO_CANONICAL_REDIRECT=1`.
+Anyone who opens the old Render address (`exam-warriors.onrender.com`) is sent to `https://altidian.com.ng`, on the same page. Render's own health checks are not redirected. To use a different address, set the `CANONICAL_URL` setting on Render; to switch the redirect off, set `NO_CANONICAL_REDIRECT=1`.
 
 ### Countdown switch (v27)
 **Admin → Settings → Move-over banner** now has a separate **Show the countdown** switch. Turn it off to remove the "only on Altidian" countdown while keeping the banner (or turn the whole banner off). Resources can then keep going to Telegram as before.
@@ -87,7 +87,7 @@ Anyone who opens the old Render address (`exam-warriors.onrender.com`) is sent t
 - Both open from a link under the home page hero and from the footer. The scattered footer links and the "Share site" link were removed.
 
 ### Altidian address (v25)
-Share buttons (the app, quizzes, study groups, elections) now always give out `https://www.altidian.com.ng`. Students who already use the old onrender.com link keep working, but each web address keeps its own login, saved offline files and notification setting, so students who move to the new address log in again and turn notifications on again.
+Share buttons (the app, quizzes, study groups, elections) now always give out `https://altidian.com.ng`. Students who already use the old onrender.com link keep working, but each web address keeps its own login, saved offline files and notification setting, so students who move to the new address log in again and turn notifications on again.
 
 ### Less data used (v24)
 - Free files opened in the viewer are now kept by the phone (30 days), so reopening one does not download it again. The server also answers "unchanged" instead of resending, keeps recently opened files in memory, and the PDF/photo-reader libraries are cached for 30 days. Paid files are still never stored.
@@ -174,7 +174,7 @@ current pricing page.
 3. Environment variables (these keep secrets out of your code):
    - `ADMIN_PASSWORD` = a strong password only you know
    - `MONGODB_URI` = the connection string from step 1
-4. Deploy. Render gives you a link like `https://exam-warriors.onrender.com`. Altidian's own address is `https://www.altidian.com.ng` (Render → Settings → Custom Domains; DNS at Whogohost: A record `@` → 216.24.57.1 and CNAME `www` → the onrender.com address). Share links always use the Altidian address, even when someone opened the app from the old link.
+4. Deploy. Render gives you a link like `https://exam-warriors.onrender.com`. Altidian's own address is `https://altidian.com.ng` (Render → Settings → Custom Domains; DNS at Whogohost: A record `@` → 216.24.57.1 and CNAME `www` → the onrender.com address). Share links always use the Altidian address, even when someone opened the app from the old link.
 
 Share that link with students. Go to `/admin` on the same link to log in.
 
@@ -255,3 +255,6 @@ Admin > Site settings > Move-over banner. Shows a banner with a countdown on the
   MONGODB_URI="your database link" node scripts/restore.js altidian-files-backup-2026-11-01.zip
   ```
   (Add `MONGODB_DB=...` too if you use a database name other than the default.)
+
+### v38: bare address
+Altidian's main address is now `https://altidian.com.ng` (no www). Share links, Paystack return links and the old-address redirect use it. On Render, make the bare domain the main one under Custom Domains (www then redirects to it), and set the Paystack webhook to `https://altidian.com.ng/api/paystack/webhook`. To use another address, set `CANONICAL_URL` on Render.

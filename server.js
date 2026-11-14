@@ -91,7 +91,7 @@ async function main() {
   require('./routes/backup')({ route, store, send });
 
   // The old Render address (…onrender.com) sends visitors to Altidian's own address, on the same page they asked for.
-  const CANONICAL = (process.env.CANONICAL_URL || 'https://www.altidian.com.ng').replace(/\/+$/, '');
+  const CANONICAL = (process.env.CANONICAL_URL || 'https://altidian.com.ng').replace(/\/+$/, '');
   const oldHost = (req) => !process.env.NO_CANONICAL_REDIRECT && /\.onrender\.com$/i.test(String(req.headers.host || '').split(':')[0]) && !/^Render\//i.test(String(req.headers['user-agent'] || ''));
   const server = http.createServer(async (req, res) => {
     try {
