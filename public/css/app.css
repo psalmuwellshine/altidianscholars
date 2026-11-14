@@ -566,3 +566,12 @@ button.q { text-align: left; font: inherit; color: inherit; cursor: pointer; wid
 .chan-t { display: grid; flex: 1; min-width: 0; } .chan-t b { font-size: 15.5px; }
 body.has-tabs footer.foot { padding-bottom: calc(var(--tab-h) + 24px + env(safe-area-inset-bottom)); } /* keep the footer links clear of the bottom tab bar */
 @media (min-width: 880px) { body.has-tabs footer.foot { padding-bottom: 36px; } }
+
+/* v30: online payments */
+.payon { margin: 14px 0 4px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.payon .field { margin-bottom: 10px; }
+.bank-part { margin-top: 10px; padding-top: 6px; border-top: 1px dashed var(--line); }
+
+.rcpt-tbl{width:100%;border-collapse:collapse}.rcpt-tbl th{text-align:left;font-weight:600;color:var(--muted,#667);padding:8px 10px 8px 0;width:34%;vertical-align:top;border-bottom:1px solid var(--line,#e4e6ee)}.rcpt-tbl td{padding:8px 0;border-bottom:1px solid var(--line,#e4e6ee);word-break:break-word}
+.rcpt-print{display:none}
+@media print{body.printing>*:not(.rcpt-print){display:none!important}body.printing .rcpt-print{display:block;max-width:520px;margin:30px auto;color:#000}}
