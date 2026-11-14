@@ -14,7 +14,7 @@ const { HttpError } = H;
 const qHash = (q) => H.sha(String(q.q)).slice(0, 10); // follows a question even if the quiz is reordered
 
 module.exports = function registerPublic({ route, store, send, userOf, fileTypes, stats }) {
-  const publicUser = (u) => ({ id: u.id, username: u.username, createdAt: u.createdAt || null, facultyId: u.facultyId || '', departmentId: u.departmentId || '', level: u.level || 0, rep: u.rep || null, avatarId: u.avatarId || '' });
+  const publicUser = (u) => ({ id: u.id, username: u.username, createdAt: u.createdAt || null, facultyId: u.facultyId || '', departmentId: u.departmentId || '', level: u.level || 0, rep: u.rep || null, avatarId: u.avatarId || '', paidUntil: u.paidUntil || '' });
   const AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
   const MAX_AVATAR = 400 * 1024;
 
