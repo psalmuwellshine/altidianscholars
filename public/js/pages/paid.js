@@ -9,8 +9,8 @@ export const paid = {
     if (s === 'ok') toast('Payment successful. Your item is unlocked.');
     const view = {
       ok: ['check', 'Payment received', 'Thank you! Your item is unlocked and a receipt is saved under My purchases.'],
-      pending: ['clock', 'We are confirming your payment', 'This can take a minute. It unlocks by itself as soon as Paystack confirms. If it is still locked after a few minutes, contact support with your username.'],
-      failed: ['flag', 'Payment was not completed', 'No money was taken for this attempt. You can try again from the item, or pay by bank transfer.'],
+      pending: ['clock', 'We are confirming your payment', 'If you have paid, it unlocks by itself as soon as Paystack confirms. Bank transfers can take a few minutes. Please do not pay again. You can also open My purchases and press Confirm payment. If it is still locked after about 15 minutes, contact support with your username and the time you paid. If you did not finish paying, nothing was charged.'],
+      failed: ['flag', 'Payment was not completed', 'Paystack did not confirm this payment. If your bank shows that money left your account, do not pay again. Open My purchases and press Confirm payment to check it again. If that does not work, contact support with your username and the time you paid. Otherwise you can try again from the item.'],
       unknown: ['flag', 'We could not find that payment', 'If you paid and your item is still locked, contact support with your username and the time you paid.'],
     }[s] || ['flag', 'Payment', ''];
     return html`<div class="card" style="max-width:520px;margin:30px auto;text-align:center"><div class="welcome-ico" style="margin:0 auto 12px">${icon(view[0], 30)}</div>

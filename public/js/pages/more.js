@@ -109,11 +109,16 @@ export const receipts = {
   needsLogin: true,
   async render({ user, config }) {
     const d = await api('GET', '/api/receipts'); RC = d.receipts; WHO = d.username;
+    let tries = []; try { tries = (await api('GET', '/api/pay/mine')).payments.filter((x) => x.status !== 'paid'); } catch (e) { /* not logged in or payments off */ }
     return html`<div class="sec-head"><div><h2>My purchases</h2><p>What you have unlocked, and your receipts.</p></div></div>
       ${passButton(config(), Object.assign({}, user(), { paidUntil: d.paidUntil }))}
       <div class="card flat" style="margin-bottom:16px"><div class="row gap-s wrap-r"><span class="chip ${d.passActive ? 'good' : 'grey'}">${icon(d.passActive ? 'check' : 'lock', 13)} Semester pass</span>
         <span>${d.passActive ? 'Active until ' + fmtDate(Date.parse(d.paidUntil + 'T00:00:00Z'), { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : d.paidUntil ? 'Ended ' + fmtDate(Date.parse(d.paidUntil + 'T00:00:00Z'), { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : 'You do not have a pass.'}</span></div></div>
       ${d.items.length ? html`<h3 style="margin:6px 0 10px">Unlocked items</h3><div class="card flat" style="margin-bottom:16px"><ol class="lb">${d.items.map((x) => html`<li><span class="ico-box">${icon(x.what === 'quiz' ? 'quiz' : 'book', 18)}</span><span class="grow"><b>${x.title}</b><br><span class="tiny muted">${x.course} · ${x.what}</span></span></li>`)}</ol></div>` : ''}
+      ${(config().paystack || tries.length) ? html`<div class="card flat" style="margin-bottom:16px"><h3 style="margin:0 0 4px">Paid but still locked?</h3>
+        <p class="small muted" style="margin:0 0 10px">Press Confirm and we will check the payment with Paystack. If it was paid, it unlocks straight away. Do not pay again.</p>
+        ${tries.length ? html`<div class="cf-list">${tries.map((x) => html`<div class="cf-row"><div class="grow"><b>${x.title}</b> · ${nairaOf(x.amount)}<br><span class="tiny muted">${fmtDate(x.createdAt)} · <span class="mono">${x.id}</span></span></div><button class="btn gold small" data-action="pay-confirm" data-ref="${x.id}" type="button">Confirm payment</button></div>`)}</div>` : ''}
+        <form class="cf-form" data-submit="pay-confirm-form"><label class="field" style="margin:10px 0 8px"><span>Or enter the payment reference from your Paystack receipt</span><input name="reference" autocomplete="off" autocapitalize="characters" placeholder="ALT…" maxlength="80"></label><button class="btn ghost small" type="submit">Confirm with reference</button></form></div>` : ''}
       <h3 style="margin:6px 0 10px">Receipts</h3>
       ${d.receipts.length ? html`<div class="tbl-wrap"><table><thead><tr><th>Receipt</th><th>For</th><th class="num">Amount</th><th>Date</th><th></th></tr></thead><tbody>${d.receipts.map((r) => html`<tr><td class="mono">${r.no}</td><td>${r.title}${r.until ? html`<br><span class="tiny muted">until ${r.until}</span>` : ''}</td><td class="num">${r.amount ? nairaOf(r.amount) : '—'}</td><td>${fmtDate(r.at)}</td><td><button class="btn ghost small" data-action="rcpt-view" data-id="${r.id}" type="button">View</button></td></tr>`)}</tbody></table></div>` : emptyState('check', 'No receipts yet', 'When you pay online, or an admin unlocks something for you, the receipt shows here.')}`;
   },
@@ -219,6 +224,23 @@ export const actions = {
   async 'grp-todo-del'(el, ev, { renderView }) { try { await api('DELETE', `/api/groups/${el.dataset.id}/todos/${el.dataset.tid}`); renderView(); } catch (e) { toast(e.message, 'bad'); } },
   async 'grp-leave'(el, ev, { go }) { if (!(await confirmBox({ title: 'Leave this group?', text: 'You can rejoin later with the code.', yes: 'Leave' }))) return; try { await api('POST', `/api/groups/${el.dataset.id}/leave`); go('/groups'); } catch (e) { toast(e.message, 'bad'); } },
   async 'grp-delete'(el, ev, { go }) { if (!(await confirmBox({ title: 'Delete this group?', text: 'It is removed for every member.', yes: 'Delete', danger: true }))) return; try { await api('DELETE', '/api/groups/' + el.dataset.id); go('/groups'); } catch (e) { toast(e.message, 'bad'); } },
+  async 'pay-confirm'(el, ev, { load, renderView }) {
+    el.disabled = true; const t = el.textContent; el.textContent = 'Checking…';
+    try {
+      const r = await api('POST', '/api/pay/confirm', { reference: el.dataset.ref });
+      toast(r.message, r.state === 'ok' ? undefined : 'bad'); if (r.state === 'ok') { await load(); renderView(); return; }
+    } catch (e) { toast(e.message, 'bad'); }
+    el.disabled = false; el.textContent = t;
+  },
+  async 'pay-confirm-form'(form, ev, { load, renderView }) {
+    const ref = String(form.elements.reference.value || '').trim(); if (!ref) return toast('Enter the payment reference.', 'bad');
+    const b = form.querySelector('[type=submit]'); b.disabled = true;
+    try {
+      const r = await api('POST', '/api/pay/confirm', { reference: ref });
+      toast(r.message, r.state === 'ok' ? undefined : 'bad'); if (r.state === 'ok') { await load(); renderView(); return; }
+    } catch (e) { toast(e.message, 'bad'); }
+    b.disabled = false;
+  },
   async 'rcpt-view'(el) {
     const r = RC.find((x) => x.id === el.dataset.id); if (!r) return;
     const via = r.via === 'online' ? 'Paid online with Paystack' + (r.channel ? ' (' + (CH[r.channel] || r.channel) + ')' : '') : 'Unlocked by an Altidian admin';
