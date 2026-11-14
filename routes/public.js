@@ -6,6 +6,7 @@ const D = require('../lib/domain');
 const Ac = require('../lib/academics');
 const { looksLike } = require('../lib/files');
 const Elec = require('../lib/election');
+const Pay = require('../lib/paystack');
 const Cl = require('../lib/classes');
 
 const { HttpError } = H;
@@ -70,7 +71,7 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
     const visibleMaterials = materials.filter((m) => !m.hidden);
     const visibleQuizzes = quizzes.filter((q) => !q.hidden);
     send(res, 200, {
-      config, academics, election: await Elec.summary(store, user),
+      config: Object.assign({}, config, { paystack: Pay.enabled(config) }), academics, election: await Elec.summary(store, user),
       notice: user && notice && notice.text ? { text: notice.text, level: notice.level || 'info' } : null,
       materials: visibleMaterials
         .sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0))
