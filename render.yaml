@@ -10,5 +10,7 @@ services:
         sync: false
       - key: MONGODB_URI
         sync: false
+      - key: PAYSTACK_SECRET_KEY
+        sync: false # your Paystack secret key (sk_test_… or sk_live_…); never put it in the code
       - key: SESSION_SECRET
         generateValue: true

@@ -87,6 +87,7 @@ async function main() {
   require('./routes/extras')({ route, store, send, userOf, push, stats });
   require('./routes/election')({ route, store, send, userOf });
   require('./routes/transfers')({ route, store, send, userOf, push });
+  require('./routes/paystack')({ route, store, send, userOf, push });
   require('./routes/backup')({ route, store, send });
 
   // The old Render address (…onrender.com) sends visitors to Altidian's own address, on the same page they asked for.
@@ -114,8 +115,9 @@ async function main() {
         const { r, params } = matched;
         if (r.opts.admin && !H.isAdmin(req)) throw new HttpError(401, 'Admin login required.');
         if (r.opts.limit && H.limited(req, ...r.opts.limit)) throw new HttpError(429, 'Too many requests. Please wait a bit and try again.');
-        const body = ['POST', 'PUT'].includes(req.method) ? await H.readJson(req) : {};
-        return await r.handler(req, res, { params: params.map(decodeURIComponent), query: url.searchParams, body });
+        const raw = r.opts.raw ? await H.readRaw(req) : null;
+        const body = !raw && ['POST', 'PUT'].includes(req.method) ? await H.readJson(req) : {};
+        return await r.handler(req, res, { params: params.map(decodeURIComponent), query: url.searchParams, body, raw });
       }
       if (pathname.startsWith('/api/') || pathname.startsWith('/files/') || pathname.startsWith('/avatars/') || pathMatch) throw new HttpError(pathMatch ? 405 : 404, pathMatch ? 'Method not allowed.' : 'Not found.');
       if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'Method not allowed.');

@@ -33,6 +33,19 @@ The admin menu is hidden until you tap the menu button (three lines, top left). 
 
 Every student gets a **General** room, a room for their **department**, and a room for their **class** (department + level). Students only see rooms that belong to them, and the server enforces it. Messages appear live (Server-Sent Events, no extra service needed), with a 20-second fallback if live updates are blocked. Each room keeps its last 300 messages; messages are 600 characters at most, with a 1-per-second rate limit and duplicate-message blocking. Students can delete their own messages and report others. Chat can be switched off in **Site settings**.
 
+### Receipts and payment methods (v31)
+Each receipt in My purchases has a **View** button that opens a branded receipt (number, item, amount, date, method, Paystack reference) with **Print / save as PDF**. Paystack's page offers card, bank transfer, USSD, QR and mobile money (whatever is switched on in your Paystack dashboard). Pay-with-transfer unlocks automatically too, even if the student closes the page, because Paystack tells the server by webhook. After a successful payment the student sees a success message.
+
+### Online payments with Paystack (v30)
+Students can pay for a paid item or the semester pass by card or bank transfer on Paystack's own secure page; it unlocks by itself and a receipt is saved under My purchases. Bank transfer (the old way) stays as a backup.
+1. In Paystack, copy your **secret key** (Settings → API Keys & Webhooks). Start with the **test** key (`sk_test_…`).
+2. On Render → your service → **Environment**, add `PAYSTACK_SECRET_KEY` with that key and save (Render redeploys). Never paste the key in the code, on GitHub or in a chat.
+3. In Paystack → Settings → API Keys & Webhooks, set the **Webhook URL** to `https://www.altidian.com.ng/api/paystack/webhook` (Admin → Settings shows the exact address). Do this for both the test and live boxes.
+4. In **Admin → Settings → Pay online (Paystack)** switch **Let students pay online** on, and set the semester pass price and last day.
+5. Try a test payment with Paystack's test card. When Paystack has activated your business, replace the key on Render with the **live** key (`sk_live_…`).
+- **Admin → Online payments** lists every attempt (Paid / Waiting / Failed) with a "Check again" button.
+- Every payment is verified with Paystack before anything unlocks, and the amount must match the price.
+
 ### Sharing quizzes
 Every quiz card has a share button, and the results screen has **Share my score**. It opens the phone's share sheet (WhatsApp, Telegram and so on), or copies the text and link if sharing is not available. The link opens the quiz directly. Someone who is not logged in is taken to log in or sign up first, then straight to the quiz. Paid quizzes still need to be unlocked.
 
