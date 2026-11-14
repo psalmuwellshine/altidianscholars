@@ -33,6 +33,12 @@ The admin menu is hidden until you tap the menu button (three lines, top left). 
 
 Every student gets a **General** room, a room for their **department**, and a room for their **class** (department + level). Students only see rooms that belong to them, and the server enforces it. Messages appear live (Server-Sent Events, no extra service needed), with a 20-second fallback if live updates are blocked. Each room keeps its last 300 messages; messages are 600 characters at most, with a 1-per-second rate limit and duplicate-message blocking. Students can delete their own messages and report others. Chat can be switched off in **Site settings**.
 
+### Data kept in memory (v37)
+Each page used to read whole collections (users, scores, materials, quizzes...) from MongoDB again on every request, which is slow when the database is far away or busy. Now each collection is read once, kept in memory, and every save still goes to MongoDB first and is then copied into memory. Pages no longer wait on the database for reads.
+- This is correct while **one** Altidian server runs. If you ever run two servers at once, set `NO_STORE_CACHE=1` on them, or they will not see each other's changes. (While moving to a new Render service, suspend the old service as soon as the domain has moved.)
+- A collection bigger than 40 MB is read from the database each time instead of being kept (a note appears in the logs).
+- Memory use goes up a little (about the size of your data, without the files).
+
 ### Faster opening (v36)
 - The app's JavaScript is packed into a few small minified files in `public/js/dist` (about 35 KB zipped for the first screen) instead of 30+ separate files. `index.html` and `admin.html` point at them. **If you ever change a file under `public/js`, run `node scripts/build.js`** (needs esbuild: `npm i -D esbuild`) so the packed files are rebuilt. They are committed, so Render does not need to build.
 - Built files have their version in the address and are saved by the phone for a year, so they never need re-downloading until they change.

@@ -99,9 +99,40 @@ async function mongoStore(uri) {
   };
 }
 
-async function createStore() {
-  if (process.env.MONGODB_URI) return mongoStore(process.env.MONGODB_URI);
-  return fileStore(process.env.DATA_DIR || path.join(__dirname, 'data'));
+/* Keeps every collection in memory after it is first read, so a page no longer waits on the database for each lookup.
+   All saves still go to the database first; the memory copy is updated only after the save worked. This is right while ONE server runs
+   Altidian. If you ever run two servers at once, set NO_STORE_CACHE=1 so each one always reads the database. */
+function withCache(inner) {
+  const cols = new Map();      // collection name -> Promise of { map } (or { skip:true } when too big to keep)
+  const MAX_ONE = 40 * 1024 * 1024, MAX_ALL = 160 * 1024 * 1024; let total = 0;
+  const copy = (d) => (d == null ? d : structuredClone(d));
+  function ensure(c) {
+    if (!cols.has(c)) {
+      cols.set(c, inner.list(c).then((arr) => {
+        const size = JSON.stringify(arr).length;
+        if (size > MAX_ONE || total + size > MAX_ALL) { console.log('store cache: ' + c + ' is large (' + Math.round(size / 1048576) + ' MB), read from the database each time'); return { skip: true }; }
+        total += size;
+        const map = new Map(); arr.forEach((d) => map.set(d.id, d)); return { map };
+      }).catch((e) => { cols.delete(c); throw e; }));
+    }
+    return cols.get(c);
+  }
+  return Object.assign({}, inner, {
+    cached: true,
+    async list(c) { const x = await ensure(c); return x.skip ? inner.list(c) : Array.from(x.map.values(), copy); },
+    async get(c, id) { const x = await ensure(c); return x.skip ? inner.get(c, id) : copy(x.map.get(id) || null); },
+    async put(c, doc) {
+      const x = await ensure(c); await inner.put(c, doc);
+      if (!x.skip) x.map.set(doc.id, copy(doc));
+    },
+    async del(c, id) { const x = await ensure(c); await inner.del(c, id); if (!x.skip) x.map.delete(id); },
+  });
 }
 
-module.exports = { createStore, COLLECTIONS };
+async function createStore() {
+  if (process.env.MONGODB_URI) { const m = await mongoStore(process.env.MONGODB_URI); return process.env.NO_STORE_CACHE ? m : withCache(m); }
+  const f = fileStore(process.env.DATA_DIR || path.join(__dirname, 'data'));
+  return process.env.FORCE_STORE_CACHE ? withCache(f) : f; // (FORCE_STORE_CACHE is only for testing the cache on a laptop)
+}
+
+module.exports = { createStore, COLLECTIONS, withCache };
