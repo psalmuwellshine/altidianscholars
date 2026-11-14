@@ -575,3 +575,7 @@ body.has-tabs footer.foot { padding-bottom: calc(var(--tab-h) + 24px + env(safe-
 .rcpt-tbl{width:100%;border-collapse:collapse}.rcpt-tbl th{text-align:left;font-weight:600;color:var(--muted,#667);padding:8px 10px 8px 0;width:34%;vertical-align:top;border-bottom:1px solid var(--line,#e4e6ee)}.rcpt-tbl td{padding:8px 0;border-bottom:1px solid var(--line,#e4e6ee);word-break:break-word}
 .rcpt-print{display:none}
 @media print{body.printing>*:not(.rcpt-print){display:none!important}body.printing .rcpt-print{display:block;max-width:520px;margin:30px auto;color:#000}}
+
+.pass-card{display:flex;align-items:center;gap:14px;flex-wrap:wrap;border:1px solid var(--gold,#f2a900)}.pass-card img{flex:none;object-fit:contain}.pass-card h3{margin:6px 0 2px}.pass-card p{margin:0}.pass-card .grow{flex:1 1 200px;min-width:0}
+
+.pass-card{position:relative;padding-right:44px}.pass-x{position:absolute;top:8px;right:8px;width:30px;height:30px;border:0;border-radius:50%;background:transparent;color:var(--muted,#667);display:grid;place-items:center;cursor:pointer}.pass-x:hover{background:rgba(0,0,0,.07)}
