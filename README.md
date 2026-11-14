@@ -33,6 +33,20 @@ The admin menu is hidden until you tap the menu button (three lines, top left). 
 
 Every student gets a **General** room, a room for their **department**, and a room for their **class** (department + level). Students only see rooms that belong to them, and the server enforces it. Messages appear live (Server-Sent Events, no extra service needed), with a 20-second fallback if live updates are blocked. Each room keeps its last 300 messages; messages are 600 characters at most, with a 1-per-second rate limit and duplicate-message blocking. Students can delete their own messages and report others. Chat can be switched off in **Site settings**.
 
+### Faster opening (v36)
+- The app's JavaScript is packed into a few small minified files in `public/js/dist` (about 35 KB zipped for the first screen) instead of 30+ separate files. `index.html` and `admin.html` point at them. **If you ever change a file under `public/js`, run `node scripts/build.js`** (needs esbuild: `npm i -D esbuild`) so the packed files are rebuilt. They are committed, so Render does not need to build.
+- Built files have their version in the address and are saved by the phone for a year, so they never need re-downloading until they change.
+- The Google fonts no longer block the first screen: text appears at once in a normal font and switches when the fonts arrive.
+- The opening logo screen is shorter (0.5 s instead of 1.2 s).
+- The service worker now opens the home page from the phone's saved copy at once, and refreshes it in the background. A returning student sees the app immediately, even while the server is waking up. After a new deploy students get the new version the second time they open the app.
+- Zipped copies of files are kept in memory instead of being zipped on every request.
+
+### Student "Confirm payment" button (v35)
+In **My purchases** a student with a payment that did not unlock sees "Paid but still locked?", with their recent unfinished attempts. **Confirm payment** checks that payment with Paystack and unlocks it if it was paid, with no admin needed. They can also type the payment reference (starts with ALT, shown on their Paystack receipt). A student can only confirm their own payments.
+
+### Payment fix (v34)
+A payment now unlocks when Paystack reports it as successful for **at least** the price (it used to need the exact amount, which failed if Paystack added fees on top). A bank transfer that Paystack has not yet seen no longer says "no money was taken"; it says it is being confirmed and unlocks by itself when the webhook arrives. Admin → Online payments shows the reason under any payment marked "Check amount", and "Check again" re-verifies it.
+
 ### Cleaner home page (v33)
 The home page no longer shows the resource, quiz and climber counts or the "Try:" search suggestions. The semester pass card has an **×** to hide it (remembered on that phone, and it comes back if you set a new pass end date). The pass stays available as a **Get the semester pass** button on the profile and My purchases.
 
