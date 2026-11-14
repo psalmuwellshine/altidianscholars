@@ -33,6 +33,12 @@ The admin menu is hidden until you tap the menu button (three lines, top left). 
 
 Every student gets a **General** room, a room for their **department**, and a room for their **class** (department + level). Students only see rooms that belong to them, and the server enforces it. Messages appear live (Server-Sent Events, no extra service needed), with a 20-second fallback if live updates are blocked. Each room keeps its last 300 messages; messages are 600 characters at most, with a 1-per-second rate limit and duplicate-message blocking. Students can delete their own messages and report others. Chat can be switched off in **Site settings**.
 
+### Cleaner home page (v33)
+The home page no longer shows the resource, quiz and climber counts or the "Try:" search suggestions. The semester pass card has an **×** to hide it (remembered on that phone, and it comes back if you set a new pass end date). The pass stays available as a **Get the semester pass** button on the profile and My purchases.
+
+### Semester pass card (v32)
+While the pass is on sale (price and last day set, and online or bank payment ready) and the student does not have it, a **Semester pass** card with the Altidian logo shows on the home page and in My purchases. Its button opens the payment dialog with only the pass. It disappears once the student has the pass.
+
 ### Receipts and payment methods (v31)
 Each receipt in My purchases has a **View** button that opens a branded receipt (number, item, amount, date, method, Paystack reference) with **Print / save as PDF**. Paystack's page offers card, bank transfer, USSD, QR and mobile money (whatever is switched on in your Paystack dashboard). Pay-with-transfer unlocks automatically too, even if the student closes the page, because Paystack tells the server by webhook. After a successful payment the student sees a success message.
 
