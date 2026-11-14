@@ -23,6 +23,7 @@ import * as push from './core/push.js';
 import * as idle from './core/idle.js';
 import * as more from './pages/more.js';
 import * as channels from './pages/channels.js';
+import { paid } from './pages/paid.js';
 import * as scan from './pages/scan.js';
 
 initTheme();
@@ -123,7 +124,7 @@ function currentId() {
   if (path.startsWith('/quiz/')) return 'quizzes';
   if (path === '/timetable') return 'events';
   if (path === '/share' || path === '/saved') return 'library';
-  if (path === '/cgpa' || path === '/election' || path === '/bookmarks' || path === '/groups' || path.startsWith('/group/') || path === '/receipts') return 'home';
+  if (path === '/cgpa' || path === '/election' || path === '/bookmarks' || path === '/groups' || path.startsWith('/group/') || path === '/receipts' || path === '/paid') return 'home';
   return '';
 }
 
@@ -151,6 +152,7 @@ async function route() {
   else if (path === '/groups') page = more.groups;
   else if (path.startsWith('/group/')) { page = more.group; params = { id: path.slice(7) }; }
   else if (path === '/receipts') page = more.receipts;
+  else if (path === '/paid') page = paid;
   else if (path === '/chat' || path.startsWith('/chat/')) { page = chat; params = { room: path.slice(6) }; }
   else if (path === '/profile') page = account.profile;
   else if (['/login', '/register', '/forgot'].includes(path)) { page = account.auth; params = { mode: path.slice(1) }; }
