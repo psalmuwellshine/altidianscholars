@@ -3,6 +3,7 @@ import * as notifyMod from './notify.js';
 import * as move from './transition.js';
 import * as more from './more.js';
 import { emptyState, placeFields, placeChange, hasPlace, deptName, facultyName, acad } from './shared.js';
+import { passButton } from './pay.js';
 
 let nextPath = '/';
 const safeNext = (n) => (n && n.startsWith('/') && !n.startsWith('//') ? n : '/');
@@ -89,6 +90,7 @@ export const profile = {
       </div>
       ${p.rank.position ? html`<p class="muted" style="margin-top:14px">${icon('trophy', 17)} You are <b>#${p.rank.position}</b> of ${p.rank.outOf} on the leaderboard.</p>` : ''}
 
+      ${passButton(config(), user())}
       <section class="sec"><div class="quick">
         <a class="card flat q" href="#/share">${icon('upload', 22)}<b>Share a note</b><span>Earn points when it is approved</span></a>
         <a class="card flat q" href="#/saved">${icon('download', 22)}<b>Saved offline</b><span>Read with no internet</span></a>

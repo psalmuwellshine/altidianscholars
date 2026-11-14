@@ -2,6 +2,7 @@ import { html, raw, icon, plural, esc, avatar, kindLabel, kindIcon, debounce } f
 import { resourceCard, quizCard, eventTile, leaderRows, emptyState, inScope, hasPlace, placeLine } from './shared.js';
 import { todayKey } from '../core/ui.js';
 import * as move from './transition.js';
+import { passCard } from './pay.js';
 import * as more from './more.js';
 import * as notifyMod from './notify.js';
 import { votingLine } from './election.js';
@@ -89,6 +90,7 @@ export async function render({ S, user, config }) {
     ${u ? html`<div id="push-nudge" style="margin-top:16px"></div>` : ''}
     ${move.banner(c)}
     ${u && c.levelOpen && (!c.levelEnds || c.levelEnds >= todayKey()) ? html`<div class="alert warning level-banner"><b>New session!</b> Update your level so you see the right courses. <a href="#/profile" data-action="goto-settings">Update my level</a></div>` : ''}
+    ${passCard(c, u)}
     <section class="hero">
       ${c.tagline ? html`<span class="tag">${c.tagline}</span>` : ''}
       <h1>${c.heroTitle}</h1><p>${c.heroText}</p>
@@ -106,15 +108,9 @@ export async function render({ S, user, config }) {
         <label class="searchbox big">${icon('search', 20)}<span class="sr">Search Altidian</span><input id="hs-input" type="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Search notes, past questions, quizzes…" value="${Q}" data-input="home-search"></label>
         <button class="btn primary" type="submit">${icon('search', 18)} Search</button>
       </form>
-      ${chips.length ? html`<div class="filters hs-chips"><span class="tiny muted">Try:</span>${chips.map((c) => html`<button class="pill" data-action="home-chip" data-v="${c}" type="button">${c}</button>`)}</div>` : ''}
       <div id="hs-results" aria-live="polite">${searching ? resultsHtml(S, u, Q.trim()) : ''}</div>
     </section>
     <div id="home-main" ${searching ? raw('hidden') : ''}>
-    <div class="stats">
-      <div class="stat"><b>${st.stats.materials}</b><span>Study resources</span></div>
-      <div class="stat"><b>${st.stats.quizzes}</b><span>Practice quizzes</span></div>
-      <div class="stat"><b>${st.stats.students}</b><span>Climbers</span></div>
-    </div>
     ${u && st.me ? html`<section class="sec"><div class="card row gap wrap-r between"><div class="row gap">${avatar(u.username, u.avatarId, 'md')}
       <div><p class="muted small">Welcome back</p><h3>${u.username}</h3><p class="small"><span class="chip brand">${st.me.rank.title}</span> ${st.me.points} points${st.me.position ? ' · #' + st.me.position + ' on the board' : ''}</p></div></div>
       <a class="btn gold" href="#/profile">View my profile ${icon('arrow', 17)}</a></div></section>` : ''}

@@ -1,7 +1,7 @@
 /* "Unlock" for paid items, paid by bank transfer.
    The student sees the price and the admin's account details, transfers the money, then sends proof on WhatsApp.
    The admin then gives them access from Students -> Access. */
-import { html, icon, toast, dialog, api } from '../core/ui.js';
+import { html, icon, toast, dialog, api, todayKey } from '../core/ui.js';
 
 const naira = (n) => '₦' + Number(n || 0).toLocaleString('en-NG');
 const niceDate = (d) => { try { return new Date(d + 'T12:00:00').toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' }); } catch (e) { return d; } };
@@ -13,12 +13,38 @@ async function copy(text) {
   try { await navigator.clipboard.writeText(text); toast('Copied.'); } catch (e) { toast(text); }
 }
 
+// The semester pass is offered only while it is on sale and the student does not have it.
+const passOn = (c, u) => {
+  const price = Number(c.passPrice) > 0 ? Number(c.passPrice) : 0;
+  const canPay = !!(c.paystack || (c.payBank && c.payAccountNumber));
+  if (!u || !price || !canPay || !c.passEnds || c.passEnds < todayKey()) return 0;
+  if (u.paidUntil && u.paidUntil >= todayKey()) return 0;
+  return price;
+};
+const hideKey = 'alt-pass-hide';
+const hidden = (c) => { try { return localStorage.getItem(hideKey) === String(c.passEnds); } catch (e) { return false; } };
+// Home page card, with an x so the student can hide it (it stays available as a button on the profile).
+export function passCard(c, u) {
+  const price = passOn(c, u);
+  if (!price || hidden(c)) return '';
+  return html`<section class="sec"><div class="card pass-card"><button class="pass-x" data-action="pass-hide" data-ends="${c.passEnds}" type="button" aria-label="Hide this">${icon('x', 16)}</button><img src="/logo.png" alt="" width="52" height="60"><div class="grow"><span class="chip gold">Semester pass</span><h3>Unlock every paid note and quiz</h3><p class="small muted">${naira(price)} until ${niceDate(c.passEnds)}. ${c.paystack ? 'Pay online and it opens straight away.' : 'Pay by bank transfer.'}</p></div><button class="btn gold" data-action="getpass" type="button">Get the pass</button></div></section>`;
+}
+// A plain button for the profile and My purchases.
+export function passButton(c, u) {
+  const price = passOn(c, u);
+  return price ? html`<div class="row gap-s wrap-r" style="margin:0 0 16px"><button class="btn gold" data-action="getpass" type="button">${icon('lock', 16)} Get the semester pass · ${naira(price)}</button><span class="tiny muted">Until ${niceDate(c.passEnds)}</span></div>` : '';
+}
+
 export const actions = {
+  'pass-hide'(el) { try { localStorage.setItem(hideKey, String(el.closest('.pass-card') ? (el.dataset.ends || '') : '')); } catch (e) { /* private mode */ } const s = el.closest('.sec'); if (s) s.remove(); },
+  getpass(el, ev, ctx) { el.dataset.id = ''; return actions.unlock(el, ev, ctx); },
   unlock(el, ev, { S, config, user }) {
     const c = config(); const u = user() || {}; const L = c.links || {};
-    const item = S.state.materials.concat(S.state.quizzes).find((x) => x.id === el.dataset.id);
+    const passOnly = !el.dataset.id;
+    const item = passOnly ? { title: 'Semester pass', price: 0 } : S.state.materials.concat(S.state.quizzes).find((x) => x.id === el.dataset.id);
     if (!item) return;
     const passPrice = Number(c.passPrice) > 0 ? Number(c.passPrice) : 0;
+    if (passOnly && !passPrice) return;
     const ready = !!(c.payBank && c.payAccountNumber);
     const online = !!c.paystack;
     const wa = L.whatsapp || '';
@@ -34,7 +60,7 @@ export const actions = {
     const { box } = dialog(html`<h3>${icon('lock', 20)} Unlock</h3>
       <p class="muted small" style="margin:4px 0 14px">${online ? 'Pay online and it unlocks straight away.' : 'Pay by bank transfer, then send your proof. An admin will unlock it for you.'}</p>
       ${passPrice ? html`<label class="plan"><input type="radio" name="plan" value="pass" checked><span class="grow"><b>Semester pass</b><br><span class="small muted">Unlocks every paid note and quiz${c.passEnds ? ' until ' + niceDate(c.passEnds) : ''}</span></span><b>${naira(passPrice)}</b></label>` : ''}
-      <label class="plan"><input type="radio" name="plan" value="item" ${passPrice ? '' : 'checked'}><span class="grow"><b>This item only</b><br><span class="small muted">${item.title}</span></span><b>${naira(item.price)}</b></label>
+      ${passOnly ? '' : html`<label class="plan"><input type="radio" name="plan" value="item" ${passPrice ? '' : 'checked'}><span class="grow"><b>This item only</b><br><span class="small muted">${item.title}</span></span><b>${naira(item.price)}</b></label>`}
       ${online ? html`<div class="payon"><label class="field"><span>Your email (your receipt is sent here)</span><input type="email" name="payemail" autocomplete="email" inputmode="email" placeholder="you@gmail.com" value="${savedEmail}"></label>
         <button class="btn primary block" data-payonline type="button">${icon('lock', 17)} Pay <span data-amount></span> online</button>
         <p class="tiny muted" style="margin-top:8px">Card, bank transfer, USSD or bank app on Paystack's secure page. Altidian never sees your card details.</p></div>` : ''}

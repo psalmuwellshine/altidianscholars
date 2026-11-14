@@ -4,6 +4,7 @@ import { resourceCard, emptyState, scopeOptions, currentScope } from './shared.j
 import { canSave, isSaved } from '../core/offline.js';
 import { reportButton } from './report.js';
 import { embedOf } from '../core/video.js';
+import { passButton } from './pay.js';
 
 const nairaOf = (n) => '₦' + Number(n || 0).toLocaleString('en-NG');
 
@@ -106,9 +107,10 @@ let RC = [], WHO = '';
 const CH = { card: 'Card', bank: 'Bank', bank_transfer: 'Bank transfer', ussd: 'USSD', qr: 'QR code', mobile_money: 'Mobile money', apple_pay: 'Apple Pay' };
 export const receipts = {
   needsLogin: true,
-  async render() {
+  async render({ user, config }) {
     const d = await api('GET', '/api/receipts'); RC = d.receipts; WHO = d.username;
     return html`<div class="sec-head"><div><h2>My purchases</h2><p>What you have unlocked, and your receipts.</p></div></div>
+      ${passButton(config(), Object.assign({}, user(), { paidUntil: d.paidUntil }))}
       <div class="card flat" style="margin-bottom:16px"><div class="row gap-s wrap-r"><span class="chip ${d.passActive ? 'good' : 'grey'}">${icon(d.passActive ? 'check' : 'lock', 13)} Semester pass</span>
         <span>${d.passActive ? 'Active until ' + fmtDate(Date.parse(d.paidUntil + 'T00:00:00Z'), { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : d.paidUntil ? 'Ended ' + fmtDate(Date.parse(d.paidUntil + 'T00:00:00Z'), { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : 'You do not have a pass.'}</span></div></div>
       ${d.items.length ? html`<h3 style="margin:6px 0 10px">Unlocked items</h3><div class="card flat" style="margin-bottom:16px"><ol class="lb">${d.items.map((x) => html`<li><span class="ico-box">${icon(x.what === 'quiz' ? 'quiz' : 'book', 18)}</span><span class="grow"><b>${x.title}</b><br><span class="tiny muted">${x.course} · ${x.what}</span></span></li>`)}</ol></div>` : ''}
