@@ -48,6 +48,31 @@ module.exports = function registerPaystack({ route, store, send, userOf, push })
     send(res, 200, { url, reference });
   });
 
+  // The student's own recent payment attempts, so they can confirm one that paid but did not unlock.
+  route('GET', '/api/pay/mine', {}, async (req, res) => {
+    const user = await userOf(req);
+    if (!user) throw new HttpError(401, 'Please log in first.');
+    const since = Date.now() - 30 * 86400000;
+    const mine = (await store.list('payments')).filter((p) => p.userId === user.id && (p.createdAt || 0) >= since).sort((a, b) => b.createdAt - a.createdAt).slice(0, 10);
+    send(res, 200, { payments: mine.map((p) => ({ id: p.id, title: p.title, amount: p.amount, status: p.status, createdAt: p.createdAt })) });
+  });
+
+  // "I have paid" button: checks one of the student's own payments with Paystack and unlocks it if Paystack says it was paid.
+  route('POST', '/api/pay/confirm', { limit: ['payconfirm', 20, 15 * 60 * 1000] }, async (req, res, c) => {
+    const user = await userOf(req);
+    if (!user) throw new HttpError(401, 'Please log in first.');
+    if (!P.keyPresent()) throw new HttpError(400, 'Online payment is not set up.');
+    const ref = clean(c.body.reference, 80).replace(/\s+/g, '').toUpperCase();
+    const p = ref && (await store.get('payments', ref));
+    if (!p || p.userId !== user.id) throw new HttpError(404, 'We could not find a payment with that reference on your account. Check it and try again.');
+    const r = await P.settle(ctx, ref);
+    const state = r.state === 'unknown' ? 'failed' : r.state;
+    const message = state === 'ok' ? 'Payment confirmed. ' + p.title + ' is now unlocked.'
+      : state === 'pending' ? 'Paystack has not confirmed this payment yet. Bank transfers can take a few minutes. Try again shortly.'
+      : 'Paystack did not confirm this payment. If your bank shows that money left your account, contact support with the reference ' + ref + '.';
+    send(res, 200, { state, message });
+  });
+
   // Paystack sends the student back here after paying. We confirm the payment, then open the app on the result page.
   route('GET', '/pay/return', {}, async (req, res, c) => {
     const ref = String(c.query.get('reference') || c.query.get('trxref') || '').slice(0, 80);
@@ -71,7 +96,7 @@ module.exports = function registerPaystack({ route, store, send, userOf, push })
   });
   route('GET', '/api/admin/payments', A, async (req, res) => {
     const list = (await store.list('payments')).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 300);
-    send(res, 200, { payments: list.map((p) => ({ id: p.id, username: p.username, kind: p.kind, title: p.title, amount: p.amount, status: p.status, createdAt: p.createdAt, paidAt: p.paidAt || 0, channel: p.channel || '' })) });
+    send(res, 200, { payments: list.map((p) => ({ id: p.id, username: p.username, kind: p.kind, title: p.title, amount: p.amount, status: p.status, createdAt: p.createdAt, paidAt: p.paidAt || 0, channel: p.channel || '', note: p.note || '' })) });
   });
   // Re-check one payment with Paystack (for a payment that shows "pending" although the student says they paid).
   route('POST', '/api/admin/payments/:id/check', A, async (req, res, c) => {
