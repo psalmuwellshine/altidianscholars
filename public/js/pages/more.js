@@ -102,16 +102,18 @@ export const group = {
 const withMsg = async (form, fn) => { const m = form.querySelector('.msg'); if (m) m.hidden = true; const b = form.querySelector('[type=submit]'); if (b) b.disabled = true; try { await fn(); } catch (e) { if (m) { m.textContent = e.message; m.hidden = false; } else toast(e.message, 'bad'); if (b) b.disabled = false; } };
 
 /* ---------- receipts ---------- */
+let RC = [], WHO = '';
+const CH = { card: 'Card', bank: 'Bank', bank_transfer: 'Bank transfer', ussd: 'USSD', qr: 'QR code', mobile_money: 'Mobile money', apple_pay: 'Apple Pay' };
 export const receipts = {
   needsLogin: true,
   async render() {
-    const d = await api('GET', '/api/receipts');
+    const d = await api('GET', '/api/receipts'); RC = d.receipts; WHO = d.username;
     return html`<div class="sec-head"><div><h2>My purchases</h2><p>What you have unlocked, and your receipts.</p></div></div>
       <div class="card flat" style="margin-bottom:16px"><div class="row gap-s wrap-r"><span class="chip ${d.passActive ? 'good' : 'grey'}">${icon(d.passActive ? 'check' : 'lock', 13)} Semester pass</span>
         <span>${d.passActive ? 'Active until ' + fmtDate(Date.parse(d.paidUntil + 'T00:00:00Z'), { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : d.paidUntil ? 'Ended ' + fmtDate(Date.parse(d.paidUntil + 'T00:00:00Z'), { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : 'You do not have a pass.'}</span></div></div>
       ${d.items.length ? html`<h3 style="margin:6px 0 10px">Unlocked items</h3><div class="card flat" style="margin-bottom:16px"><ol class="lb">${d.items.map((x) => html`<li><span class="ico-box">${icon(x.what === 'quiz' ? 'quiz' : 'book', 18)}</span><span class="grow"><b>${x.title}</b><br><span class="tiny muted">${x.course} · ${x.what}</span></span></li>`)}</ol></div>` : ''}
       <h3 style="margin:6px 0 10px">Receipts</h3>
-      ${d.receipts.length ? html`<div class="tbl-wrap"><table><thead><tr><th>Receipt</th><th>For</th><th class="num">Amount</th><th>Date</th></tr></thead><tbody>${d.receipts.map((r) => html`<tr><td class="mono">${r.no}</td><td>${r.title}${r.until ? html`<br><span class="tiny muted">until ${r.until}</span>` : ''}</td><td class="num">${r.amount ? nairaOf(r.amount) : '—'}</td><td>${fmtDate(r.at)}</td></tr>`)}</tbody></table></div>` : emptyState('check', 'No receipts yet', 'When an admin unlocks something for you, the receipt shows here.')}`;
+      ${d.receipts.length ? html`<div class="tbl-wrap"><table><thead><tr><th>Receipt</th><th>For</th><th class="num">Amount</th><th>Date</th><th></th></tr></thead><tbody>${d.receipts.map((r) => html`<tr><td class="mono">${r.no}</td><td>${r.title}${r.until ? html`<br><span class="tiny muted">until ${r.until}</span>` : ''}</td><td class="num">${r.amount ? nairaOf(r.amount) : '—'}</td><td>${fmtDate(r.at)}</td><td><button class="btn ghost small" data-action="rcpt-view" data-id="${r.id}" type="button">View</button></td></tr>`)}</tbody></table></div>` : emptyState('check', 'No receipts yet', 'When you pay online, or an admin unlocks something for you, the receipt shows here.')}`;
   },
 };
 
@@ -215,6 +217,30 @@ export const actions = {
   async 'grp-todo-del'(el, ev, { renderView }) { try { await api('DELETE', `/api/groups/${el.dataset.id}/todos/${el.dataset.tid}`); renderView(); } catch (e) { toast(e.message, 'bad'); } },
   async 'grp-leave'(el, ev, { go }) { if (!(await confirmBox({ title: 'Leave this group?', text: 'You can rejoin later with the code.', yes: 'Leave' }))) return; try { await api('POST', `/api/groups/${el.dataset.id}/leave`); go('/groups'); } catch (e) { toast(e.message, 'bad'); } },
   async 'grp-delete'(el, ev, { go }) { if (!(await confirmBox({ title: 'Delete this group?', text: 'It is removed for every member.', yes: 'Delete', danger: true }))) return; try { await api('DELETE', '/api/groups/' + el.dataset.id); go('/groups'); } catch (e) { toast(e.message, 'bad'); } },
+  async 'rcpt-view'(el) {
+    const r = RC.find((x) => x.id === el.dataset.id); if (!r) return;
+    const via = r.via === 'online' ? 'Paid online with Paystack' + (r.channel ? ' (' + (CH[r.channel] || r.channel) + ')' : '') : 'Unlocked by an Altidian admin';
+    const U = { username: WHO };
+    dialog(html`<div class="rcpt-sheet"><div style="text-align:center;margin-bottom:12px"><h2 style="margin:0">Altidian</h2><p class="tiny muted" style="margin:2px 0 0">Payment receipt</p></div>
+      <table class="rcpt-tbl"><tbody>
+        <tr><th>Receipt no.</th><td class="mono">${r.no}</td></tr>
+        <tr><th>For</th><td>${r.title}${r.until ? html` (until ${r.until})` : ''}</td></tr>
+        <tr><th>Amount</th><td><b>${r.amount ? nairaOf(r.amount) : '—'}</b></td></tr>
+        <tr><th>Date</th><td>${fmtDate(r.at, { day: 'numeric', month: 'long', year: 'numeric', hour: 'numeric', minute: '2-digit' })}</td></tr>
+        <tr><th>Method</th><td>${via}</td></tr>
+        ${r.pref ? html`<tr><th>Reference</th><td class="mono">${r.pref}</td></tr>` : ''}
+        ${U.username ? html`<tr><th>Student</th><td>${U.username}</td></tr>` : ''}
+      </tbody></table>
+      <p class="tiny muted" style="margin-top:12px;text-align:center">Thank you for learning with Altidian. Rise to your highest point.</p></div>
+      <div class="row gap-s" style="justify-content:flex-end;margin-top:14px"><button class="btn ghost" data-close type="button">Close</button><button class="btn primary" data-action="rcpt-print" type="button">Print / save as PDF</button></div>`);
+  },
+  async 'rcpt-print'(el) {
+    const sheet = el.closest('.modal').querySelector('.rcpt-sheet'); if (!sheet) return;
+    const w = document.createElement('div'); w.className = 'rcpt-print'; w.appendChild(sheet.cloneNode(true)); document.body.appendChild(w);
+    document.body.classList.add('printing');
+    const done = () => { document.body.classList.remove('printing'); w.remove(); window.removeEventListener('afterprint', done); };
+    window.addEventListener('afterprint', done); setTimeout(() => window.print(), 50);
+  },
   async 'grp-copy'(el) {
     const text = 'Join my study group "' + el.dataset.name + '" on Altidian. Code: ' + el.dataset.code + ' — ' + siteOrigin() + '/#/groups';
     try { if (navigator.share) { await navigator.share({ text }); return; } } catch (e) { return; }

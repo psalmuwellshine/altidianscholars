@@ -1,7 +1,7 @@
 /* "Unlock" for paid items, paid by bank transfer.
    The student sees the price and the admin's account details, transfers the money, then sends proof on WhatsApp.
    The admin then gives them access from Students -> Access. */
-import { html, icon, toast, dialog } from '../core/ui.js';
+import { html, icon, toast, dialog, api } from '../core/ui.js';
 
 const naira = (n) => '₦' + Number(n || 0).toLocaleString('en-NG');
 const niceDate = (d) => { try { return new Date(d + 'T12:00:00').toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' }); } catch (e) { return d; } };
@@ -20,27 +20,34 @@ export const actions = {
     if (!item) return;
     const passPrice = Number(c.passPrice) > 0 ? Number(c.passPrice) : 0;
     const ready = !!(c.payBank && c.payAccountNumber);
+    const online = !!c.paystack;
     const wa = L.whatsapp || '';
 
-    if (!ready) {
+    if (!ready && !online) {
       dialog(html`<h3>${icon('lock', 20)} ${item.title}</h3>
         <p style="margin:12px 0">This is a paid item (${naira(item.price)}). Payment details have not been set up yet, so please contact an admin to unlock it.</p>
         <div class="row gap wrap-r">${wa ? html`<a class="btn primary" href="${wa}" target="_blank" rel="noopener">Contact admin</a>` : ''}<button class="btn ghost" data-close type="button">Close</button></div>`);
       return;
     }
+    let savedEmail = ''; try { savedEmail = localStorage.getItem('alt-pay-email') || ''; } catch (e) { /* private mode */ }
 
     const { box } = dialog(html`<h3>${icon('lock', 20)} Unlock</h3>
-      <p class="muted small" style="margin:4px 0 14px">Pay by bank transfer, then send your proof. An admin will unlock it for you.</p>
+      <p class="muted small" style="margin:4px 0 14px">${online ? 'Pay online and it unlocks straight away.' : 'Pay by bank transfer, then send your proof. An admin will unlock it for you.'}</p>
       ${passPrice ? html`<label class="plan"><input type="radio" name="plan" value="pass" checked><span class="grow"><b>Semester pass</b><br><span class="small muted">Unlocks every paid note and quiz${c.passEnds ? ' until ' + niceDate(c.passEnds) : ''}</span></span><b>${naira(passPrice)}</b></label>` : ''}
       <label class="plan"><input type="radio" name="plan" value="item" ${passPrice ? '' : 'checked'}><span class="grow"><b>This item only</b><br><span class="small muted">${item.title}</span></span><b>${naira(item.price)}</b></label>
-      <p class="small" style="margin:14px 0 6px"><b>1. Transfer <span data-amount></span> to:</b></p>
-      <div class="acct"><div class="small muted">${c.payBank}</div><div class="num">${c.payAccountNumber}</div><div class="small">${c.payAccountName || ''}</div>
-        <button class="btn ghost small" data-copy="${c.payAccountNumber}" type="button" style="margin-top:8px">Copy account number</button></div>
-      ${c.payNote ? html`<p class="small muted" style="margin-top:8px">${c.payNote}</p>` : ''}
-      <p class="small" style="margin:14px 0 6px"><b>2. Use your username “${u.username || ''}” as the transfer reference or narration.</b></p>
-      <p class="small" style="margin:14px 0 6px"><b>3. Send your proof of payment:</b></p>
-      <div class="row gap wrap-r">${wa ? html`<a class="btn primary" data-wa target="_blank" rel="noopener" href="${wa}">Send proof on WhatsApp</a>` : ''}<button class="btn ghost" data-copy-msg type="button">Copy message</button><button class="btn ghost" data-close type="button">Close</button></div>
-      ${wa ? '' : html`<p class="small muted" style="margin-top:8px">Send the message and your payment receipt to an admin.</p>`}`);
+      ${online ? html`<div class="payon"><label class="field"><span>Your email (your receipt is sent here)</span><input type="email" name="payemail" autocomplete="email" inputmode="email" placeholder="you@gmail.com" value="${savedEmail}"></label>
+        <button class="btn primary block" data-payonline type="button">${icon('lock', 17)} Pay <span data-amount></span> online</button>
+        <p class="tiny muted" style="margin-top:8px">Card, bank transfer, USSD or bank app on Paystack's secure page. Altidian never sees your card details.</p></div>` : ''}
+      ${ready ? html`<div class="bank-part">
+        <p class="small" style="margin:14px 0 6px"><b>${online ? 'Or pay by bank transfer. ' : ''}1. Transfer <span data-amount></span> to:</b></p>
+        <div class="acct"><div class="small muted">${c.payBank}</div><div class="num">${c.payAccountNumber}</div><div class="small">${c.payAccountName || ''}</div>
+          <button class="btn ghost small" data-copy="${c.payAccountNumber}" type="button" style="margin-top:8px">Copy account number</button></div>
+        ${c.payNote ? html`<p class="small muted" style="margin-top:8px">${c.payNote}</p>` : ''}
+        <p class="small" style="margin:14px 0 6px"><b>2. Use your username “${u.username || ''}” as the transfer reference or narration.</b></p>
+        <p class="small" style="margin:14px 0 6px"><b>3. Send your proof of payment:</b></p>
+        <div class="row gap wrap-r">${wa ? html`<a class="btn ${online ? 'ghost' : 'primary'}" data-wa target="_blank" rel="noopener" href="${wa}">Send proof on WhatsApp</a>` : ''}<button class="btn ghost" data-copy-msg type="button">Copy message</button></div>
+        ${wa ? '' : html`<p class="small muted" style="margin-top:8px">Send the message and your payment receipt to an admin.</p>`}</div>` : ''}
+      <div class="row end" style="margin-top:14px"><button class="btn ghost" data-close type="button">Close</button></div>`);
 
     let message = '';
     const refresh = () => {
@@ -48,12 +55,23 @@ export const actions = {
       const amount = plan === 'pass' ? passPrice : Number(item.price);
       const what = plan === 'pass' ? 'the semester pass' : '“' + item.title + '”';
       message = 'Hello, I have paid ' + naira(amount) + ' for ' + what + ' on ' + (c.siteName || 'Altidian') + '.\nUsername: ' + (u.username || '') + (u.matric ? '\nMatric: ' + u.matric : '');
-      box.querySelector('[data-amount]').textContent = naira(amount);
+      box.querySelectorAll('[data-amount]').forEach((n) => { n.textContent = naira(amount); });
       const link = box.querySelector('[data-wa]'); if (link) link.href = waHref(wa, message);
       box.querySelectorAll('.plan').forEach((p) => p.classList.toggle('on', p.querySelector('input').checked));
     };
     box.addEventListener('change', refresh);
     box.addEventListener('click', (e) => {
+      const go = e.target.closest('[data-payonline]');
+      if (go) {
+        const email = String((box.querySelector('input[name=payemail]') || {}).value || '').trim();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return toast('Enter a valid email address. Your receipt is sent there.');
+        const plan = (box.querySelector('input[name=plan]:checked') || {}).value || 'item';
+        go.disabled = true;
+        api('POST', '/api/pay/start', { kind: plan === 'pass' ? 'pass' : 'item', itemId: item.id, email })
+          .then((r) => { try { localStorage.setItem('alt-pay-email', email); } catch (er) { /* private mode */ } location.href = r.url; })
+          .catch((er) => { toast(er.message || 'Could not start the payment.'); go.disabled = false; });
+        return;
+      }
       const b = e.target.closest('[data-copy]'); if (b) return copy(b.dataset.copy);
       if (e.target.closest('[data-copy-msg]')) return copy(message);
       const w = e.target.closest('[data-wa]');
