@@ -267,6 +267,6 @@ module.exports = function registerExtras({ route, store, send, userOf, push, sta
     const all = mats.map((m) => ({ ...m, what: 'resource' })).concat(qzs.map((q) => ({ ...q, what: 'quiz' })));
     const receipts = (Array.isArray(u.receipts) ? u.receipts : []).slice().sort((a, b) => b.at - a.at);
     const items = (Array.isArray(u.unlocked) ? u.unlocked : []).map((id) => all.find((x) => x.id === id)).filter(Boolean).map((x) => ({ id: x.id, title: x.title, course: x.course, what: x.what }));
-    send(res, 200, { paidUntil: u.paidUntil || '', passActive: !!u.paidUntil && u.paidUntil >= today, items, receipts });
+    send(res, 200, { username: u.username || '', paidUntil: u.paidUntil || '', passActive: !!u.paidUntil && u.paidUntil >= today, items, receipts });
   });
 };

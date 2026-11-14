@@ -524,6 +524,7 @@ module.exports = function registerAdmin({ route, store, send, push }) {
       contribPoints: (() => { if (b.contribPoints === undefined || b.contribPoints === '') return cur.contribPoints; const n = Number(b.contribPoints); if (!Number.isInteger(n) || n < 0 || n > 500) throw new HttpError(400, 'Points for an approved upload must be a whole number from 0 to 500.'); return n; })(),
       payBank: clean(b.payBank, 60), payAccountName: clean(b.payAccountName, 80), payNote: clean(b.payNote, 300),
       payAccountNumber: (() => { const n = String(b.payAccountNumber || '').replace(/\s+/g, ''); if (n && !/^\d{10}$/.test(n)) throw new HttpError(400, 'The account number must be 10 digits.'); return n; })(),
+      paystackOn: bool(b.paystackOn),
       passPrice: wholeNaira(b.passPrice, 'semester pass price', true),
       passEnds: (() => { const d = String(b.passEnds || '').trim(); if (d && !isDate(d)) throw new HttpError(400, 'Pick a valid last day for the semester pass.'); return d; })(),
       levelOpen: cur.levelOpen, levelEnds: cur.levelEnds,
