@@ -23,6 +23,7 @@ const SECTIONS = [
   { id: 'chat', label: 'Chat', icon: 'chat' },
   { id: 'uploads', label: 'Student uploads', icon: 'upload' },
   { id: 'transfers', label: 'Transfers and levels', icon: 'refresh' },
+  { id: 'payments', label: 'Online payments', icon: 'lock' },
   { id: 'reports', label: 'Reports', icon: 'flag' },
   { id: 'timetable', label: 'Timetable and exams', icon: 'clock' },
   { id: 'notice', label: 'Announcement', icon: 'bell' },
@@ -247,6 +248,13 @@ const views = {
       ${d.recent.length ? html`<h3 style="margin:24px 0 10px">Recently reviewed</h3><div class="card" style="padding:0;overflow:hidden">${d.recent.map((m) => row(m, false))}</div>` : ''}`;
   },
 
+  async payments() {
+    const d = await api('GET', '/api/admin/payments');
+    const label = { paid: ['Paid', 'brand'], pending: ['Waiting', 'grey'], failed: ['Failed', 'grey'], cancelled: ['Not completed', 'grey'], mismatch: ['Check amount', 'grey'] };
+    return html`${head('Online payments', 'Payments made through Paystack. A paid item or pass is unlocked automatically. “Waiting” means the student has not finished paying yet.')}
+      ${d.payments.length ? html`<div class="tbl-wrap"><table><thead><tr><th>Student</th><th>For</th><th>Amount</th><th>Status</th><th>When</th><th></th></tr></thead><tbody>${d.payments.map((p) => html`<tr><td><b>${p.username}</b><br><span class="tiny muted">${p.id}</span></td><td>${p.title}</td><td>₦${Number(p.amount).toLocaleString('en-NG')}</td><td><span class="chip ${(label[p.status] || ['', 'grey'])[1]}">${(label[p.status] || [p.status])[0]}</span></td><td class="small">${fmtDate(p.paidAt || p.createdAt, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</td><td>${p.status === 'pending' || p.status === 'cancelled' ? html`<button class="btn ghost small" data-action="pay-check" data-id="${p.id}" type="button">Check again</button>` : ''}</td></tr>`)}</tbody></table></div>` : html`<div class="card">${empty('lock', 'No online payments yet', 'They will appear here once students start paying through Paystack.')}</div>`}`;
+  },
+
   async reports() {
     const d = await api('GET', '/api/admin/reports');
     const row = (r, open) => html`<div class="cm rp"><div class="cm-top"><span class="chip ${r.type === 'site' ? 'grey' : 'brand'}">${r.type === 'question' ? 'Quiz question' : r.type === 'material' ? 'Resource' : 'Site'}</span><span class="chip">${reasonLabel(r.reason)}</span>${r.course ? html`<span class="chip">${r.course}</span>` : ''}<span class="tiny muted">by ${r.username} · ${ago(r.at)}</span></div>
@@ -319,7 +327,7 @@ const views = {
         <ul class="small" style="padding-left:18px;line-height:1.7"><li>These files contain student names, matric numbers, scores and password codes. Do not share them or post them in groups.</li><li>Store them somewhere private, such as your own Google Drive or a computer only you use.</li><li>Download a data backup at least once a week, and before any big change.</li></ul></div>`;
   },
   async settings() {
-    const c = await api('GET', '/api/admin/config'); A.config = c; const L = c.links;
+    const [c, ps] = await Promise.all([api('GET', '/api/admin/config'), api('GET', '/api/admin/paystack').catch(() => ({ keyPresent: false }))]); A.config = c; const L = c.links;
     const tg = (name, on, title, sub) => html`<label class="toggle-row"><input type="checkbox" name="${name}" ${on ? raw('checked') : ''}><span><b>${title}</b><small class="muted" style="display:block">${sub}</small></span></label>`;
     return html`${head('Site settings', 'Everything students see on the site, in one place.')}
       <form data-submit="settings-save" novalidate style="max-width:760px"><div class="msg alert bad" hidden role="alert"></div>
@@ -343,6 +351,10 @@ const views = {
           <label class="field" style="margin-top:10px"><span>Countdown day (resources only on Altidian from this day)</span><input name="moveEnds" type="date" value="${c.moveEnds || ''}" style="max-width:200px"></label>
           <label class="field"><span>Banner headline (optional)</span><input name="moveTitle" maxlength="80" placeholder="Exam Warriors is now Altidian" value="${c.moveTitle || ''}"></label>
           <label class="field"><span>Banner text (optional)</span><textarea name="moveText" maxlength="240" placeholder="Same team, same quality. Everything now lives in one place.">${c.moveText || ''}</textarea></label></div>
+        <div class="card" style="margin-top:16px"><h3 style="margin-bottom:6px">Pay online (Paystack)</h3><p class="muted small" style="margin-bottom:12px">Students pay by card or bank transfer on Paystack's secure page, and the item or semester pass unlocks by itself. The bank-transfer option below stays as a backup.</p>
+          <p class="small" style="margin-bottom:10px">${ps.keyPresent ? html`<span class="chip ${ps.mode === 'live' ? 'brand' : 'grey'}">Paystack key found · ${ps.mode === 'live' ? 'LIVE mode (real money)' : 'TEST mode (practice, no real money)'}</span>` : html`<span class="chip grey">No Paystack key yet</span> Add <b>PAYSTACK_SECRET_KEY</b> under Render → Environment, then redeploy.`}</p>
+          ${tg('paystackOn', c.paystackOn && ps.keyPresent, 'Let students pay online', ps.keyPresent ? 'Turn this on when you are ready. Students then see a “Pay online” button when they tap Unlock.' : 'Available once the Paystack key is added on Render.')}
+          ${ps.webhookUrl ? html`<label class="field" style="margin-top:10px"><span>Webhook address (paste this in Paystack → Settings → API Keys &amp; Webhooks, in both the test and live boxes)</span><input readonly value="${ps.webhookUrl}"></label>` : ''}</div>
         <div class="card" style="margin-top:16px"><h3 style="margin-bottom:6px">Pay by bank transfer</h3><p class="muted small" style="margin-bottom:12px">Students see these details when they tap Unlock, transfer the money, then send you proof on WhatsApp (set your WhatsApp link below). You then give them access under Students.</p>
           <div class="grid2"><label class="field"><span>Bank name</span><input name="payBank" maxlength="60" placeholder="e.g. Opay, GTBank" value="${c.payBank || ''}"></label>
           <label class="field"><span>Account number (10 digits)</span><input name="payAccountNumber" inputmode="numeric" maxlength="10" value="${c.payAccountNumber || ''}"></label></div>
@@ -542,6 +554,9 @@ const actions = {
   'search-students': debounce((el) => { A.search = el.value; const t = document.getElementById('stu-table'); if (t) t.innerHTML = studentTable(A.cache.students || []).s; }, 120),
 
   /* reports */
+  async 'pay-check'(el) {
+    try { const r = await api('POST', '/api/admin/payments/' + el.dataset.id + '/check'); toast(r.state === 'ok' ? 'Paid. Access unlocked.' : r.state === 'pending' ? 'Still waiting for the student to pay.' : 'This payment did not go through.'); reload(); } catch (e) { toast(e.message); }
+  },
   async 'rp-resolve'(el) {
     const { box, close } = dialog(html`<h3>Mark as fixed</h3><label class="field"><span>Short note for the student (optional)</span><input name="note" maxlength="200" placeholder="e.g. Corrected the answer, thanks" autofocus></label><div class="row end gap-s" style="margin-top:14px"><button class="btn ghost" type="button" data-close>Cancel</button><button class="btn primary" type="button" data-yes>Mark fixed</button></div>`);
     box.querySelector('[data-yes]').addEventListener('click', async () => { try { await api('POST', `/api/admin/reports/${el.dataset.id}/resolve`, { note: box.querySelector('[name=note]').value }); close(); toast('Marked as fixed.'); reload(); } catch (e) { toast(e.message, 'bad'); } });
@@ -798,7 +813,7 @@ const submits = {
   async 'settings-save'(form) {
     await busy(form, async () => {
       const body = { siteName: val(form, 'siteName'), tagline: val(form, 'tagline'), motto: val(form, 'motto'), heroTitle: val(form, 'heroTitle'), heroText: val(form, 'heroText'), footerText: val(form, 'footerText'),
-        registrationOpen: chk(form, 'registrationOpen'), requireLogin: chk(form, 'requireLogin'), leaderboardEnabled: chk(form, 'leaderboardEnabled'), chatEnabled: chk(form, 'chatEnabled'), dmEnabled: chk(form, 'dmEnabled'), contribEnabled: chk(form, 'contribEnabled'), contribPoints: val(form, 'contribPoints'), moveOn: chk(form, 'moveOn'), moveCount: chk(form, 'moveCount'), moveEnds: val(form, 'moveEnds'), moveTitle: val(form, 'moveTitle'), moveText: val(form, 'moveText'), payBank: val(form, 'payBank'), payAccountNumber: val(form, 'payAccountNumber'), payAccountName: val(form, 'payAccountName'), payNote: val(form, 'payNote'), passPrice: val(form, 'passPrice'), passEnds: val(form, 'passEnds'),
+        registrationOpen: chk(form, 'registrationOpen'), requireLogin: chk(form, 'requireLogin'), leaderboardEnabled: chk(form, 'leaderboardEnabled'), chatEnabled: chk(form, 'chatEnabled'), dmEnabled: chk(form, 'dmEnabled'), contribEnabled: chk(form, 'contribEnabled'), contribPoints: val(form, 'contribPoints'), moveOn: chk(form, 'moveOn'), paystackOn: chk(form, 'paystackOn'), moveCount: chk(form, 'moveCount'), moveEnds: val(form, 'moveEnds'), moveTitle: val(form, 'moveTitle'), moveText: val(form, 'moveText'), payBank: val(form, 'payBank'), payAccountNumber: val(form, 'payAccountNumber'), payAccountName: val(form, 'payAccountName'), payNote: val(form, 'payNote'), passPrice: val(form, 'passPrice'), passEnds: val(form, 'passEnds'),
         support1Name: val(form, 'support1Name'), support1Wa: val(form, 'support1Wa'), support2Name: val(form, 'support2Name'), support2Wa: val(form, 'support2Wa'),
         links: { whatsapp: val(form, 'whatsapp'), telegram: val(form, 'telegram'), youtube: val(form, 'youtube'), instagram: val(form, 'instagram'), tiktok: val(form, 'tiktok'), facebook: val(form, 'facebook'), x: val(form, 'x'), website: val(form, 'website'), email: val(form, 'email') } };
       A.config = await api('PUT', '/api/admin/config', body); toast('Settings saved. The site is updated.');
