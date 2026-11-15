@@ -5,6 +5,7 @@
 import { html, icon, toast, esc } from '../core/ui.js';
 import { embedOf } from '../core/video.js';
 import { list as savedList } from '../core/offline.js';
+import { canSpeak, speak, stop as stopSpeech, pause as pauseSpeech, resume as resumeSpeech, speechState, noVoiceHelp } from '../core/speech.js';
 
 const PDFJS = '/vendor/pdfjs/';
 let pdfjsPromise = null;
@@ -31,6 +32,7 @@ export const fileBtn = (m, label = 'Open file', size = 16) => canView(m)
 function teardown() {
   if (!current) return;
   const { root, task, onKey, io } = current; current = null;
+  stopSpeech();
   if (io) io.disconnect();
   if (task) task.destroy().catch(() => {});
   document.removeEventListener('keydown', onKey);
@@ -63,6 +65,37 @@ const sizeCanvas = (canvas, cssW, cssH, scale) => {
   canvas.style.width = cssW + 'px'; canvas.style.height = cssH + 'px';
 };
 
+
+// Reads a PDF aloud on the phone (no data used). It starts from the page you are looking at and moves on page by page.
+// A PDF made of scanned pictures has no text to read.
+function addListen(pdf, body) {
+  if (!canSpeak()) return;
+  const bar = body.parentNode.querySelector('.v-bar'); if (!bar) return;
+  const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'btn ghost small v-listen'; btn.textContent = 'Listen';
+  bar.insertBefore(btn, bar.querySelector('.v-close'));
+  let token = 0;
+  const pageText = async (n) => { const pg = await pdf.getPage(n); const tc = await pg.getTextContent(); return tc.items.map((i) => i.str).join(' ').replace(/\s+/g, ' ').trim(); };
+  const topPage = () => { const top = body.getBoundingClientRect().top; let n = 1; body.querySelectorAll('.v-page').forEach((s) => { if (s.getBoundingClientRect().bottom > top + 40 && n === 1 && s.getBoundingClientRect().top <= top + 80) n = Number(s.dataset.n) || 1; }); return n; };
+  const label = () => { const s = speechState(); btn.textContent = s === 'playing' ? 'Pause' : s === 'paused' ? 'Resume' : 'Listen'; };
+  const run = async (from) => {
+    const my = ++token; let said = 0;
+    for (let n = from; n <= pdf.numPages && my === token; n++) {
+      const t = await pageText(n); if (my !== token) return;
+      if (t.length < 20) { if (n - from >= 2 && !said) break; continue; }
+      said++;
+      const slot = body.querySelector('.v-page[data-n="' + n + '"]'); if (slot) slot.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      await new Promise((res) => { if (!speak(t, { onstate: label, onend: res })) res(); });
+    }
+    if (my === token) { if (!said) toast('This PDF is made of scanned pictures, so it cannot be read aloud.', 'bad'); token++; label(); }
+  };
+  btn.addEventListener('click', () => {
+    const s = speechState();
+    if (s === 'playing') pauseSpeech(); else if (s === 'paused') resumeSpeech();
+    else { const h = noVoiceHelp(); if (h) toast(h, 'bad'); run(topPage()); }
+    label();
+  });
+}
+
 async function showPdf(buf, body) {
   const pdfjs = await loadPdfjs();
   const task = pdfjs.getDocument({ data: new Uint8Array(buf), standardFontDataUrl: PDFJS + 'standard_fonts/', useWasm: false });
@@ -93,6 +126,7 @@ async function showPdf(buf, body) {
   // Pages are drawn as they scroll into view, so long PDFs stay light on a phone.
   const io = new IntersectionObserver((entries) => entries.forEach((e) => { if (e.isIntersecting) draw(e.target).catch(() => { e.target.textContent = 'This page could not be shown.'; }); }), { root: body, rootMargin: '600px 0px' });
   current.io = io; slots.forEach((s) => io.observe(s));
+  addListen(pdf, body);
 }
 
 async function showImage(buf, type, body) {

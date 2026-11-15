@@ -104,18 +104,20 @@ export const profile = {
       ${notifyMod.section()}
       ${more.transferSection()}
 
-      <section class="sec"><div class="sec-head"><div><h2>Badges</h2><p>${earned} of ${p.badges.length} unlocked</p></div></div>
-        <div class="badges">${p.badges.map((b) => html`<div class="badge ${b.earned ? '' : 'off'}"><div class="ico-box">${icon(b.earned ? 'medal' : 'lock', 24)}</div><b>${b.name}</b><span>${b.desc}</span>${b.earned ? '' : html`<div class="bar" style="margin-top:8px"><i style="width:${pct(b.progress.current, b.progress.target)}%"></i></div>`}</div>`)}</div></section>
+      <section class="sec folds"><details class="fold"><summary><span class="ico-box">${icon('medal', 20)}</span><span class="grow"><b>Badges</b><br><span class="tiny muted">${earned} of ${p.badges.length} unlocked</span></span></summary><div class="fold-body">
+        <div class="badges">${p.badges.map((b) => html`<div class="badge ${b.earned ? '' : 'off'}"><div class="ico-box">${icon(b.earned ? 'medal' : 'lock', 24)}</div><b>${b.name}</b><span>${b.desc}</span>${b.earned ? '' : html`<div class="bar" style="margin-top:8px"><i style="width:${pct(b.progress.current, b.progress.target)}%"></i></div>`}</div>`)}</div></div></details></section>
 
-      <section class="sec"><div class="sec-head"><div><h2>My quiz scores</h2><p>Your best attempt counts towards your points.</p></div></div>
+      <section class="sec folds"><details class="fold"><summary><span class="ico-box">${icon('quiz', 20)}</span><span class="grow"><b>My quiz scores</b><br><span class="tiny muted">Quizzes for your department. Your best attempt counts towards your points.</span></span></summary><div class="fold-body">
         ${p.quizzes.length ? html`<div class="tbl-wrap"><table><thead><tr><th>Quiz</th><th>Course</th><th class="num">Best</th><th class="num">Attempts</th><th>Last tried</th><th></th></tr></thead><tbody>
           ${p.quizzes.map((q) => html`<tr><td><b>${q.title}</b></td><td><span class="chip">${q.course}</span></td>
             <td class="num">${q.best ? html`<b>${q.best.correct}/${q.best.total}</b> <span class="muted">(${q.best.pct}%)</span>` : html`<span class="muted">Not taken</span>`}</td>
-            <td class="num">${q.attempts}</td><td>${q.last ? ago(q.last) : '—'}</td><td><a class="btn ${q.best ? 'ghost' : 'primary'} small" href="#/quiz/${q.id}">${q.best ? 'Retake' : 'Start'}</a></td></tr>`)}</tbody></table></div>` : emptyState('quiz', 'No quizzes yet', 'Quizzes will show up here.')}</section>
+            <td class="num">${q.attempts}</td><td>${q.last ? ago(q.last) : '—'}</td><td><a class="btn ${q.best ? 'ghost' : 'primary'} small" href="#/quiz/${q.id}">${q.best ? 'Retake' : 'Start'}</a></td></tr>`)}</tbody></table></div>` : emptyState('quiz', 'No quizzes yet', 'Quizzes will show up here.')}</div></details></section>
 
-      ${p.courses.length ? html`<section class="sec"><div class="sec-head"><div><h2>Progress by course</h2></div></div><div class="cards">
-        ${p.courses.map((c) => html`<div class="card flat"><div class="row between"><h4>${c.code}</h4><span class="chip ${c.done === c.quizzes ? 'good' : ''}">${c.done}/${plural(c.quizzes, 'quiz', 'quizzes')}</span></div><p class="muted small">${c.name}</p>
-          <div class="bar" style="margin:10px 0 6px"><i style="width:${pct(c.done, c.quizzes)}%"></i></div><p class="small">${c.accuracy === null ? 'No attempts yet' : 'Accuracy ' + c.accuracy + '%'}</p></div>`)}</div></section>` : ''}
+      ${p.courses.length ? html`<section class="sec folds"><details class="fold"><summary><span class="ico-box">${icon('chart', 20)}</span><span class="grow"><b>Exam readiness by course</b><br><span class="tiny muted">How ready you are in each course, and what to do next</span></span></summary><div class="fold-body"><div class="cards">
+        ${p.courses.map((c) => { const r = c.readiness; const lvl = r === null ? ['', 'Not started'] : r >= 70 ? ['good', 'Exam ready'] : r >= 40 ? ['', 'Getting there'] : ['bad', 'Needs work']; return html`<div class="card flat"><div class="row between"><h4>${c.code}</h4><span class="chip ${lvl[0]}">${lvl[1]}</span></div><p class="muted small">${c.name}</p>
+          <div class="bar" style="margin:10px 0 6px" role="img" aria-label="Readiness ${r === null ? 'not started' : r + ' percent'}"><i style="width:${r === null ? 0 : r}%"></i></div>
+          <p class="small"><b>${r === null ? 'Take a quiz to see your score' : r + '% ready'}</b>${c.accuracy === null ? '' : ' · Accuracy ' + c.accuracy + '%'} · ${c.done}/${plural(c.quizzes, 'quiz', 'quizzes')}</p>
+          ${c.next ? html`<a class="btn ${c.next.fresh ? 'primary' : 'ghost'} small" href="#/quiz/${c.next.id}" style="margin-top:8px">${c.next.fresh ? 'Try next: ' : 'Practise: '}${c.next.title}</a>` : ''}</div>`; })}</div></div></details></section>` : ''}
 
       <section class="sec"><div class="sec-head"><div><h2>Recent activity</h2></div></div>
         ${p.recent.length ? html`<div class="card flat"><ol class="lb">${p.recent.map((a) => html`<li><span class="ico-box ${a.pct >= 70 ? '' : 'brand'}">${icon(a.pct >= 70 ? 'check' : 'refresh', 20)}</span><span class="grow"><b>${a.title}</b><br><span class="tiny muted">${a.course} · ${ago(a.at)}</span></span><span class="pts">${a.correct}/${a.total}</span></li>`)}</ol></div>` : emptyState('clock', 'No activity yet', 'Finish a quiz and it will show up here.')}</section>

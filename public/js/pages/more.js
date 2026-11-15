@@ -245,7 +245,7 @@ export const actions = {
     const r = RC.find((x) => x.id === el.dataset.id); if (!r) return;
     const via = r.via === 'online' ? 'Paid online with Paystack' + (r.channel ? ' (' + (CH[r.channel] || r.channel) + ')' : '') : 'Unlocked by an Altidian admin';
     const U = { username: WHO };
-    dialog(html`<div class="rcpt-sheet"><div style="text-align:center;margin-bottom:12px"><h2 style="margin:0">Altidian</h2><p class="tiny muted" style="margin:2px 0 0">Payment receipt</p></div>
+    dialog(html`<div class="rcpt-sheet"><div class="rcpt-head"><img class="rcpt-logo" src="/logo.png" alt="" width="64" height="74"><h2 style="margin:0">Altidian</h2><p class="tiny muted" style="margin:2px 0 0">Payment receipt</p></div>
       <table class="rcpt-tbl"><tbody>
         <tr><th>Receipt no.</th><td class="mono">${r.no}</td></tr>
         <tr><th>For</th><td>${r.title}${r.until ? html` (until ${r.until})` : ''}</td></tr>

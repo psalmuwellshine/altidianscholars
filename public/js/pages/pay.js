@@ -40,8 +40,9 @@ export const actions = {
   getpass(el, ev, ctx) { el.dataset.id = ''; return actions.unlock(el, ev, ctx); },
   unlock(el, ev, { S, config, user }) {
     const c = config(); const u = user() || {}; const L = c.links || {};
-    const passOnly = !el.dataset.id;
-    const item = passOnly ? { title: 'Semester pass', price: 0 } : S.state.materials.concat(S.state.quizzes).find((x) => x.id === el.dataset.id);
+    const pack = el.dataset.pack ? (S.state.packs || []).find((x) => x.id === el.dataset.pack) : null;
+    const passOnly = !el.dataset.id && !pack;
+    const item = pack ? { id: pack.id, title: pack.name, price: pack.price } : passOnly ? { title: 'Semester pass', price: 0 } : S.state.materials.concat(S.state.quizzes).find((x) => x.id === el.dataset.id);
     if (!item) return;
     const passPrice = Number(c.passPrice) > 0 ? Number(c.passPrice) : 0;
     if (passOnly && !passPrice) return;
@@ -60,7 +61,7 @@ export const actions = {
     const { box } = dialog(html`<h3>${icon('lock', 20)} Unlock</h3>
       <p class="muted small" style="margin:4px 0 14px">${online ? 'Pay online and it unlocks straight away.' : 'Pay by bank transfer, then send your proof. An admin will unlock it for you.'}</p>
       ${passPrice ? html`<label class="plan"><input type="radio" name="plan" value="pass" checked><span class="grow"><b>Semester pass</b><br><span class="small muted">Unlocks every paid note and quiz${c.passEnds ? ' until ' + niceDate(c.passEnds) : ''}</span></span><b>${naira(passPrice)}</b></label>` : ''}
-      ${passOnly ? '' : html`<label class="plan"><input type="radio" name="plan" value="item" ${passPrice ? '' : 'checked'}><span class="grow"><b>This item only</b><br><span class="small muted">${item.title}</span></span><b>${naira(item.price)}</b></label>`}
+      ${passOnly ? '' : html`<label class="plan"><input type="radio" name="plan" value="item" ${passPrice ? '' : 'checked'}><span class="grow"><b>${pack ? 'This pack' : 'This item only'}</b><br><span class="small muted">${item.title}</span></span><b>${naira(item.price)}</b></label>`}
       ${online ? html`<div class="payon"><label class="field"><span>Your email (your receipt is sent here)</span><input type="email" name="payemail" autocomplete="email" inputmode="email" placeholder="you@gmail.com" value="${savedEmail}"></label>
         <button class="btn primary block" data-payonline type="button">${icon('lock', 17)} Pay <span data-amount></span> online</button>
         <p class="tiny muted" style="margin-top:8px">Card, bank transfer, USSD or bank app on Paystack's secure page. Altidian never sees your card details.</p></div>` : ''}
@@ -79,7 +80,7 @@ export const actions = {
     const refresh = () => {
       const plan = (box.querySelector('input[name=plan]:checked') || {}).value || 'item';
       const amount = plan === 'pass' ? passPrice : Number(item.price);
-      const what = plan === 'pass' ? 'the semester pass' : '“' + item.title + '”';
+      const what = plan === 'pass' ? 'the semester pass' : (pack ? 'the pack ' : '') + '“' + item.title + '”';
       message = 'Hello, I have paid ' + naira(amount) + ' for ' + what + ' on ' + (c.siteName || 'Altidian') + '.\nUsername: ' + (u.username || '') + (u.matric ? '\nMatric: ' + u.matric : '');
       box.querySelectorAll('[data-amount]').forEach((n) => { n.textContent = naira(amount); });
       const link = box.querySelector('[data-wa]'); if (link) link.href = waHref(wa, message);
@@ -93,7 +94,7 @@ export const actions = {
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return toast('Enter a valid email address. Your receipt is sent there.');
         const plan = (box.querySelector('input[name=plan]:checked') || {}).value || 'item';
         go.disabled = true;
-        api('POST', '/api/pay/start', { kind: plan === 'pass' ? 'pass' : 'item', itemId: item.id, email })
+        api('POST', '/api/pay/start', { kind: plan === 'pass' ? 'pass' : pack ? 'pack' : 'item', itemId: item.id, email })
           .then((r) => { try { localStorage.setItem('alt-pay-email', email); } catch (er) { /* private mode */ } location.href = r.url; })
           .catch((er) => { toast(er.message || 'Could not start the payment.'); go.disabled = false; });
         return;

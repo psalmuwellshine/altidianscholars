@@ -125,3 +125,13 @@ export function sponsorSlot(S, place) {
 export const sponsorActions = {
   'sp-click'(el) { fetch('/api/sponsor/' + encodeURIComponent(el.dataset.id) + '/click', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}', keepalive: true }).catch(() => {}); },
 };
+
+/* ---------- semester packs: several paid items at one price ---------- */
+export function packsSlot(S) {
+  const list = S.state.packs || []; if (!list.length) return '';
+  return html`<section class="sec folds"><details class="fold"><summary><span class="ico-box">${icon('star', 20)}</span><span class="grow"><b>Semester packs</b><br><span class="tiny muted">Premium notes bundled at one price</span></span><span class="chip grey">${list.length}</span></summary><div class="fold-body"><div class="cards">
+    ${list.map((x) => html`<article class="card flat"><h3>${x.name}</h3>${x.description ? html`<p class="small muted">${x.description}</p>` : ''}
+      <p class="small"><b>${x.count} items</b> · ${x.value > x.price ? html`<span class="muted"><s>${naira(x.value)}</s></span> ` : ''}<b>${naira(x.price)}</b>${x.value > x.price ? html` <span class="chip good">Save ${naira(x.value - x.price)}</span>` : ''}</p>
+      <details class="tiny"><summary>What is inside</summary><ul style="margin:6px 0 0 18px">${x.items.map((i) => html`<li>${i.title}${i.course ? ' · ' + i.course : ''}</li>`)}</ul></details>
+      <div class="go">${x.owned ? html`<span class="chip good">${icon('check', 13)} You have this</span>` : html`<button class="btn gold small" data-action="unlock" data-pack="${x.id}" type="button">${icon('lock', 16)} Get this pack</button>`}</div></article>`)}</div></div></details></section>`;
+}
