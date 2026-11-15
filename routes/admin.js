@@ -6,7 +6,9 @@ const Ac = require('../lib/academics');
 const { FILE_TYPES, MAX_FILE_BYTES, looksLike } = require('../lib/files');
 
 const { HttpError, clean, okCourse, isHttp, newId, isDate, isTime, bool } = H;
-const KINDS = ['notes', 'pq', 'slides', 'video', 'other'];
+const KINDS = ['notes', 'pq', 'slides', 'video', 'official', 'other'];
+const LEVELS_NUM = [100, 200, 300, 400, 500, 600];
+const SCOPES = ['course', 'department', 'faculty', 'university'];
 const LEVELS = ['info', 'success', 'warning'];
 const day = 86400000;
 
@@ -339,19 +341,42 @@ module.exports = function registerAdmin({ route, store, send, push }) {
     } catch (e) { /* notifications are best effort */ }
   }
 
+  async function notifyCampus(doc, title, body) {
+    try {
+      const audience = doc.scope === 'department' ? { departmentIds: [doc.departmentId] } : {};
+      if (doc.scope === 'faculty') {
+        const ds = (await store.list('departments')).filter((d) => d.facultyId === doc.facultyId).map((d) => d.id);
+        if (!ds.length) return; audience.departmentIds = ds;
+      }
+      push.later({ audience, type: 'materials', title, body, url: '/#/campus' });
+    } catch (e) { /* best effort */ }
+  }
+
   /* ---------- materials ---------- */
   async function readMaterial(b, existing) {
     const title = clean(b.title, 120);
-    const course = clean(b.course, 10).toUpperCase();
+    const scope = SCOPES.includes(b.scope) ? b.scope : 'course';
+    const course = scope === 'course' ? clean(b.course, 10).toUpperCase() : '';
     const kind = KINDS.includes(b.kind) ? b.kind : 'other';
     const note = clean(b.note, 8000);
     const link = clean(b.link, 500);
     if (!title) throw new HttpError(400, 'Add a title.');
-    if (!okCourse(course)) throw new HttpError(400, 'Course code must be 2 to 10 letters or digits, like MBH222.');
+    if (scope === 'course' && !okCourse(course)) throw new HttpError(400, 'Course code must be 2 to 10 letters or digits, like MBH222.');
+    let departmentId = ''; let facultyId = '';
+    if (scope === 'department') {
+      const d = await store.get('departments', clean(b.departmentId, 40));
+      if (!d) throw new HttpError(400, 'Choose the department this document is for.');
+      departmentId = d.id; facultyId = d.facultyId;
+    } else if (scope === 'faculty') {
+      const f = await store.get('faculties', clean(b.facultyId, 40));
+      if (!f) throw new HttpError(400, 'Choose the faculty this document is for.');
+      facultyId = f.id;
+    }
     if (link && !isHttp(link)) throw new HttpError(400, 'The link must start with http:// or https://.');
     const doc = { id: existing ? existing.id : newId(), title, course, kind, addedAt: existing ? existing.addedAt : Date.now(), pinned: bool(b.pinned), hidden: bool(b.hidden) };
+    if (scope !== 'course') { doc.scope = scope; if (departmentId) doc.departmentId = departmentId; if (facultyId) doc.facultyId = facultyId; }
     if (existing) ['by', 'byName', 'status', 'approvedAt', 'reason'].forEach((k) => { if (existing[k] !== undefined) doc[k] = existing[k]; });
-    readPaid(b, doc);
+    if (scope === 'course') readPaid(b, doc); // campus documents are always free
     if (note) doc.note = note;
     if (link) doc.link = link;
     let fileBuf = null; let dropFile = null;
@@ -383,22 +408,83 @@ module.exports = function registerAdmin({ route, store, send, push }) {
   });
   route('POST', '/api/admin/materials', A, async (req, res, ctx) => {
     const r = await readMaterial(ctx.body, null);
-    await requireCourse(r.doc.course);
+    if (!r.doc.scope) await requireCourse(r.doc.course);
     await saveMaterial(r);
-    if (!r.doc.hidden && ctx.body.notify !== false) notifyCourse(r.doc.course, 'materials', 'New ' + r.doc.course+ ' resource', r.doc.title);
+    if (!r.doc.hidden && ctx.body.notify !== false) {
+      if (r.doc.scope) notifyCampus(r.doc, 'New campus document', r.doc.title);
+      else notifyCourse(r.doc.course, 'materials', 'New ' + r.doc.course+ ' resource', r.doc.title);
+    }
     send(res, 200, { ok: true, id: r.doc.id });
   });
   route('PUT', '/api/admin/materials/:id', A, async (req, res, ctx) => {
     const m = await store.get('materials', ctx.params[0]);
     if (!m) throw new HttpError(404, 'Resource not found.');
     const r = await readMaterial(ctx.body, m);
-    if (r.doc.course !== m.course) await requireCourse(r.doc.course);
+    if (!r.doc.scope && r.doc.course !== m.course) await requireCourse(r.doc.course);
     await saveMaterial(r);
     send(res, 200, { ok: true });
   });
   route('DELETE', '/api/admin/materials/:id', A, async (req, res, ctx) => {
     const m = await store.get('materials', ctx.params[0]);
     if (m) { if (m.fileId) await store.delFile(m.fileId); await store.del('materials', m.id); }
+    send(res, 200, { ok: true });
+  });
+
+
+  /* ---------- sponsorship cards ---------- */
+  const SP_TYPES = { 'image/png': 1, 'image/jpeg': 1, 'image/webp': 1 };
+  async function readSponsor(b, existing) {
+    const name = clean(b.name, 60); const headline = clean(b.headline, 90); const text = clean(b.text, 220);
+    const buttonLabel = clean(b.buttonLabel, 24) || 'Learn more'; const link = clean(b.link, 500);
+    if (!name) throw new HttpError(400, 'Add the sponsor\'s name.');
+    if (!headline) throw new HttpError(400, 'Add a headline.');
+    if (link && !isHttp(link)) throw new HttpError(400, 'The link must start with http:// or https://.');
+    const placement = ['home', 'library', 'both'].includes(b.placement) ? b.placement : 'both';
+    const start = clean(b.start, 10); const end = clean(b.end, 10);
+    if ((start && !isDate(start)) || (end && !isDate(end))) throw new HttpError(400, 'Use real dates for start and end.');
+    if (start && end && end < start) throw new HttpError(400, 'The end date is before the start date.');
+    let departmentId = clean(b.departmentId, 40); let facultyId = clean(b.facultyId, 40); let level = Number(b.level) || 0;
+    if (departmentId) { const d = await store.get('departments', departmentId); if (!d) throw new HttpError(400, 'Choose a real department.'); facultyId = ''; }
+    else if (facultyId && !(await store.get('faculties', facultyId))) throw new HttpError(400, 'Choose a real faculty.');
+    if (level && !LEVELS_NUM.includes(level)) level = 0;
+    const doc = { id: existing ? existing.id : newId(), name, headline, text, buttonLabel, link, placement, start, end, departmentId, facultyId, level,
+      enabled: b.enabled === undefined ? (existing ? !!existing.enabled : true) : bool(b.enabled), createdAt: existing ? existing.createdAt : Date.now(),
+      views: existing ? existing.views || 0 : 0, clicks: existing ? existing.clicks || 0 : 0 };
+    let imgBuf = null; let dropImg = null;
+    if (existing && existing.imageId && !bool(b.removeImage)) { doc.imageId = existing.imageId; doc.imageType = existing.imageType; }
+    else if (existing && existing.imageId) dropImg = existing.imageId;
+    if (b.image && b.image.data) {
+      const type = String(b.image.type || '');
+      if (!SP_TYPES[type]) throw new HttpError(400, 'The logo must be a PNG, JPG or WebP picture.');
+      imgBuf = Buffer.from(String(b.image.data), 'base64');
+      if (!imgBuf.length || !looksLike(imgBuf, type)) throw new HttpError(400, 'That picture could not be read.');
+      if (imgBuf.length > 400 * 1024) throw new HttpError(400, 'The picture is over 400 KB. Use a smaller logo.');
+      if (doc.imageId) dropImg = doc.imageId;
+      doc.imageId = newId(); doc.imageType = type;
+    }
+    return { doc, imgBuf, dropImg };
+  }
+  async function saveSponsor({ doc, imgBuf, dropImg }) {
+    if (imgBuf) await store.putFile(doc.imageId, imgBuf);
+    await store.put('sponsors', doc);
+    if (dropImg) await store.delFile(dropImg);
+  }
+  route('GET', '/api/admin/sponsors', A, async (req, res) => {
+    const [list, master] = await Promise.all([store.list('sponsors'), store.get('settings', 'sponsorship')]);
+    send(res, 200, { on: !master || master.on !== false, list: list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)) });
+  });
+  route('PUT', '/api/admin/sponsors-master', A, async (req, res, ctx) => {
+    await store.put('settings', { id: 'sponsorship', on: bool(ctx.body.on), at: Date.now() });
+    send(res, 200, { ok: true });
+  });
+  route('POST', '/api/admin/sponsors', A, async (req, res, ctx) => { const r = await readSponsor(ctx.body, null); await saveSponsor(r); send(res, 200, { ok: true, id: r.doc.id }); });
+  route('PUT', '/api/admin/sponsors/:id', A, async (req, res, ctx) => {
+    const m = await store.get('sponsors', ctx.params[0]); if (!m) throw new HttpError(404, 'Sponsor card not found.');
+    await saveSponsor(await readSponsor(ctx.body, m)); send(res, 200, { ok: true });
+  });
+  route('DELETE', '/api/admin/sponsors/:id', A, async (req, res, ctx) => {
+    const m = await store.get('sponsors', ctx.params[0]);
+    if (m) { if (m.imageId) await store.delFile(m.imageId); await store.del('sponsors', m.id); }
     send(res, 200, { ok: true });
   });
 

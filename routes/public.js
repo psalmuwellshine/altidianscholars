@@ -43,11 +43,37 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
     return users.find((u) => u.username.toLowerCase() === name.toLowerCase()) || null;
   };
 
+  // A sponsor card is live when it is switched on, inside its dates, and matches who is looking.
+  const sponsorLive = (x, user) => {
+    if (!x.enabled) return false;
+    const today = D.lagosDate(Date.now());
+    if (x.start && today < x.start) return false;
+    if (x.end && today > x.end) return false;
+    if (x.departmentId) return !!user && user.departmentId === x.departmentId && (!x.level || Number(user.level) === x.level);
+    if (x.facultyId) return !!user && user.facultyId === x.facultyId && (!x.level || Number(user.level) === x.level);
+    if (x.level) return !!user && Number(user.level) === x.level;
+    return true;
+  };
+  const sponsorCount = (field) => async (req, res, ctx) => {
+    const x = await store.get('sponsors', ctx.params[0]);
+    if (x) { x[field] = (x[field] || 0) + 1; await store.put('sponsors', x); }
+    send(res, 200, { ok: true });
+  };
+  route('POST', '/api/sponsor/:id/seen', { limit: ['sponsor', 120, 60 * 60 * 1000] }, sponsorCount('views'));
+  route('POST', '/api/sponsor/:id/click', { limit: ['sponsor', 120, 60 * 60 * 1000] }, sponsorCount('clicks'));
+  route('GET', '/sponsor-img/:id', {}, async (req, res, ctx) => {
+    const id = ctx.params[0];
+    const x = (await store.list('sponsors')).find((s) => s.imageId === id);
+    const buf = x ? await store.getFile(id) : null;
+    if (!buf) return send(res, 404, 'Not found', { 'Content-Type': 'text/plain' });
+    send(res, 200, buf, { 'Content-Type': x.imageType, 'Cache-Control': 'public, max-age=2592000', 'Content-Security-Policy': 'sandbox' });
+  });
+
   /* ---------- everything the site needs to draw itself ---------- */
   route('GET', '/api/state', {}, async (req, res, ctx) => {
-    const [materials, quizzes, scores, events, users, notice, config, timetable, classnotes] = await Promise.all([
+    const [materials, quizzes, scores, events, users, notice, config, timetable, classnotes, sponsorsAll, sponsorMaster] = await Promise.all([
       store.list('materials'), store.list('quizzes'), store.list('scores'), store.list('events'),
-      store.list('users'), store.get('settings', 'notice'), D.loadConfig(store), store.list('timetable'), store.list('classnotes'),
+      store.list('users'), store.get('settings', 'notice'), D.loadConfig(store), store.list('timetable'), store.list('classnotes'), store.list('sponsors'), store.get('settings', 'sponsorship'),
     ]);
     const academics = await Ac.loadAcademics(store);
     const user = await userOf(req);
@@ -68,7 +94,9 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
       me = { points, done, best: rec.best || {}, nick: rec.nick || '', position: idx >= 0 ? idx + 1 : null, rank: D.rankInfo(points), missed };
     }
 
-    const visibleMaterials = materials.filter((m) => !m.hidden);
+    const visibleAll = materials.filter((m) => !m.hidden);
+    const visibleMaterials = visibleAll.filter((m) => !m.scope);
+    const campusAudience = (m) => m.scope === 'university' || (user && (m.scope === 'faculty' ? user.facultyId === m.facultyId : m.scope === 'department' && user.departmentId === m.departmentId));
     const visibleQuizzes = quizzes.filter((q) => !q.hidden);
     send(res, 200, {
       config: Object.assign({}, config, { paystack: Pay.enabled(config) }), academics, election: await Elec.summary(store, user),
@@ -84,6 +112,10 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
             ...(m.paid ? { paid: true, price: m.price, locked: !open } : {}),
           };
         }),
+      campus: visibleAll.filter((m) => m.scope && campusAudience(m)).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0))
+        .map((m) => ({ id: m.id, title: m.title, scope: m.scope, kind: m.kind, departmentId: m.departmentId || '', facultyId: m.facultyId || '', pinned: !!m.pinned, addedAt: m.addedAt, note: m.note || '', link: m.link || '', fileId: m.fileId || '', fileName: m.fileName || '' })),
+      sponsors: (sponsorMaster && sponsorMaster.on === false ? [] : sponsorsAll.filter((x) => sponsorLive(x, user))).slice(0, 6)
+        .map((x) => ({ id: x.id, name: x.name, headline: x.headline, text: x.text || '', buttonLabel: x.buttonLabel, link: x.link || '', placement: x.placement, imageId: x.imageId || '' })),
       quizzes: visibleQuizzes.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0)).map((q) => {
         const open = D.hasAccess(user, q);
         // A locked quiz keeps its title, price and question count, but no questions or answers.
