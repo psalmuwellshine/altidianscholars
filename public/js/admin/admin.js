@@ -28,6 +28,7 @@ const SECTIONS = [
   { id: 'timetable', label: 'Timetable and exams', icon: 'clock' },
   { id: 'notice', label: 'Announcement', icon: 'bell' },
   { id: 'sponsors', label: 'Sponsorship', icon: 'star' },
+  { id: 'packs', label: 'Semester packs', icon: 'lock' },
   { id: 'board', label: 'Leaderboard', icon: 'trophy' },
   { id: 'settings', label: 'Site settings', icon: 'settings' },
   { id: 'backup', label: 'Backup', icon: 'download' },
@@ -188,6 +189,15 @@ const views = {
         <td><div class="actions"><button class="btn ghost small icon" data-action="sp-toggle" data-id="${x.id}" type="button" title="${x.enabled ? 'Switch off' : 'Switch on'}" aria-label="${x.enabled ? 'Switch off' : 'Switch on'} ${x.name}">${icon(x.enabled ? 'eyeoff' : 'eye', 17)}</button>
         <button class="btn ghost small icon" data-action="sp-edit" data-id="${x.id}" type="button" title="Edit" aria-label="Edit ${x.name}">${icon('edit', 17)}</button>
         <button class="btn ghost small icon" data-action="sp-del" data-id="${x.id}" type="button" title="Delete" aria-label="Delete ${x.name}">${icon('trash', 17)}</button></div></td></tr>`; })}</tbody></table></div>` : empty('star', 'No sponsor cards yet', 'Add one when a business or school wants to reach your students.')}`;
+  },
+
+  async packs() {
+    await loadAcad(); const list = await api('GET', '/api/admin/packs'); A.cache.packs = list;
+    return html`${head('Semester packs', 'Bundle several paid notes and quizzes at one price, for example a 200L First Semester Pack.', html`<button class="btn primary" data-action="pk-new" type="button">${icon('plus', 18)} New pack</button>`)}
+      ${list.length ? html`<div class="tbl-wrap"><table><thead><tr><th>Pack</th><th>For</th><th class="num">Items</th><th class="num">Price</th><th class="num">Separately</th><th>Status</th><th></th></tr></thead><tbody>${list.map((x) => html`<tr><td><b>${x.name}</b><br><span class="tiny muted">${x.description || ''}</span></td><td>${x.departmentId ? dName(x.departmentId) : 'Everyone'}${x.level ? ' · ' + x.level + ' level' : ''}</td><td class="num">${x.itemIds.length}</td><td class="num">${naira(x.price)}</td><td class="num">${naira(x.value)}</td><td>${x.enabled ? html`<span class="chip good">On sale</span>` : html`<span class="chip grey">Off</span>`}</td>
+        <td><div class="actions"><button class="btn ghost small icon" data-action="pk-toggle" data-id="${x.id}" type="button" title="${x.enabled ? 'Take off sale' : 'Put on sale'}" aria-label="${x.enabled ? 'Take off sale' : 'Put on sale'} ${x.name}">${icon(x.enabled ? 'eyeoff' : 'eye', 17)}</button>
+        <button class="btn ghost small icon" data-action="pk-edit" data-id="${x.id}" type="button" title="Edit" aria-label="Edit ${x.name}">${icon('edit', 17)}</button>
+        <button class="btn ghost small icon" data-action="pk-del" data-id="${x.id}" type="button" title="Delete" aria-label="Delete ${x.name}">${icon('trash', 17)}</button></div></td></tr>`)}</tbody></table></div>` : empty('lock', 'No packs yet', 'Make a pack from your paid items so students can buy a whole semester at once.')}`;
   },
 
   async quizzes() {
@@ -482,6 +492,27 @@ function sponsorDialog(x) {
   box.querySelector('form').dataset.id = edit ? x.id : ''; box.querySelector('form').closeFn = close;
 }
 
+async function packDialog(x) {
+  const edit = !!x; const v = (k, d = '') => (edit && x[k] !== undefined && x[k] !== null ? x[k] : d);
+  const [mats, qzs] = await Promise.all([api('GET', '/api/admin/materials'), api('GET', '/api/admin/quizzes')]);
+  const paid = mats.filter((m) => m.paid && !m.scope).map((m) => ({ id: m.id, title: m.title, course: m.course, price: m.price, kind: 'Note' })).concat(qzs.filter((q) => q.paid).map((q) => ({ id: q.id, title: q.title, course: q.course, price: q.price, kind: 'Quiz' }))).sort((a, b) => (a.course + a.title).localeCompare(b.course + b.title));
+  const have = new Set(v('itemIds', []));
+  const { box, close } = dialog(html`<h3>${edit ? 'Edit pack' : 'New pack'}</h3><div class="msg alert bad" hidden role="alert"></div>
+    <form data-submit="pk-save" novalidate>
+      <label class="field"><span>Pack name</span><input name="name" maxlength="80" required value="${v('name')}" placeholder="200L First Semester Pack" autofocus></label>
+      <label class="field"><span>Short line (optional)</span><input name="description" maxlength="240" value="${v('description')}" placeholder="Every premium note and quiz for the semester"></label>
+      <div class="grid2"><label class="field"><span>Price in naira</span><input name="price" type="number" inputmode="numeric" min="1" step="1" value="${v('price')}"></label>
+      <label class="field"><span>Level (optional)</span><select name="level"><option value="">All levels</option>${[100, 200, 300, 400, 500, 600].map((l) => html`<option value="${l}" ${Number(v('level', 0)) === l ? raw('selected') : ''}>${l} level</option>`)}</select></label></div>
+      <label class="field"><span>Department (optional)</span><select name="departmentId"><option value="">Everyone</option>${A.acad.departments.map((d) => html`<option value="${d.id}" ${v('departmentId') === d.id ? raw('selected') : ''}>${d.name}</option>`)}</select></label>
+      <p class="small" style="margin:10px 0 6px"><b>Paid items in this pack</b> <span class="muted" id="pk-total"></span></p>
+      ${paid.length ? html`<div style="max-height:260px;overflow:auto;margin-bottom:12px">${paid.map((i) => html`<label class="check small" style="display:flex;margin-bottom:6px"><input type="checkbox" name="itemIds" value="${i.id}" data-price="${i.price || 0}" ${have.has(i.id) ? raw('checked') : ''}> <span>${i.title} <span class="muted">· ${i.course || ''} · ${i.kind} · ₦${Number(i.price || 0).toLocaleString('en-NG')}</span></span></label>`)}</div>` : html`<p class="small muted">There are no paid items yet. Mark some resources or quizzes as paid first.</p>`}
+      <label class="check" style="margin-bottom:16px"><input type="checkbox" name="enabled" ${!edit || x.enabled ? raw('checked') : ''}> On sale</label>
+      <div class="row end gap"><button class="btn ghost" data-close type="button">Cancel</button><button class="btn primary" type="submit">${edit ? 'Save changes' : 'Create pack'}</button></div></form>`, { wide: true });
+  const form = box.querySelector('form'); form.dataset.id = edit ? x.id : ''; form.closeFn = close;
+  const total = () => { const sel = [...form.querySelectorAll('[name=itemIds]:checked')]; const t = sel.reduce((a, c) => a + Number(c.dataset.price || 0), 0); box.querySelector('#pk-total').textContent = '· ' + sel.length + ' picked, ₦' + t.toLocaleString('en-NG') + ' if bought separately'; };
+  form.addEventListener('change', total); total();
+}
+
 /* ---------- dialogs: quizzes ---------- */
 let Q = null; // the quiz being edited
 function qEditor() {
@@ -690,6 +721,15 @@ const actions = {
 
   /* materials */
   'mat-new': () => materialDialog(null),
+  'pk-new': () => packDialog(null),
+  'pk-edit': (el) => packDialog(byId('packs', el.dataset.id)),
+  async 'pk-toggle'(el) { const x = byId('packs', el.dataset.id); await api('PUT', '/api/admin/packs/' + x.id, { ...x, enabled: !x.enabled }); toast(x.enabled ? 'Taken off sale.' : 'On sale.'); reload(); },
+  async 'pk-del'(el) { const x = byId('packs', el.dataset.id); if (!(await sure('Delete ' + x.name + '?', 'Students who already bought it keep their items.', 'Delete'))) return; await api('DELETE', '/api/admin/packs/' + x.id); toast('Deleted.'); reload(); },
+  'sp-new': () => sponsorDialog(null),
+  'sp-edit': (el) => sponsorDialog(byId('sponsors', el.dataset.id)),
+  async 'sp-toggle'(el) { const x = byId('sponsors', el.dataset.id); await api('PUT', '/api/admin/sponsors/' + x.id, { ...x, enabled: !x.enabled }); toast(x.enabled ? 'Switched off.' : 'Switched on.'); reload(); },
+  async 'sp-master'(el) { await api('PUT', '/api/admin/sponsors-master', { on: el.dataset.on === '1' }); toast(el.dataset.on === '1' ? 'Sponsor cards are on.' : 'All sponsor cards are off.'); reload(); },
+  async 'sp-del'(el) { const x = byId('sponsors', el.dataset.id); if (!(await sure('Delete ' + x.name + '?', 'The card and its view and click counts are removed.', 'Delete'))) return; await api('DELETE', '/api/admin/sponsors/' + x.id); toast('Deleted.'); reload(); },
   'mat-edit': (el) => materialDialog(byId('materials', el.dataset.id)),
   async 'mat-pin'(el) { const m = byId('materials', el.dataset.id); await api('PUT', '/api/admin/materials/' + m.id, { ...m, pinned: !m.pinned }); reload(); },
   async 'mat-hide'(el) { const m = byId('materials', el.dataset.id); await api('PUT', '/api/admin/materials/' + m.id, { ...m, hidden: !m.hidden }); toast(m.hidden ? 'Now visible to students.' : 'Hidden from students.'); reload(); },
@@ -784,11 +824,14 @@ const submits = {
   async 'stu-pw-save'(form) {
     await busy(form, async () => { await api('POST', `/api/admin/users/${form.dataset.id}/password`, { newPassword: val(form, 'pw') }); form.closeFn(); toast('Password updated.'); });
   },
-  'sp-new': () => sponsorDialog(null),
-  'sp-edit': (el) => sponsorDialog(byId('sponsors', el.dataset.id)),
-  async 'sp-toggle'(el) { const x = byId('sponsors', el.dataset.id); await api('PUT', '/api/admin/sponsors/' + x.id, { ...x, enabled: !x.enabled }); toast(x.enabled ? 'Switched off.' : 'Switched on.'); reload(); },
-  async 'sp-master'(el) { await api('PUT', '/api/admin/sponsors-master', { on: el.dataset.on === '1' }); toast(el.dataset.on === '1' ? 'Sponsor cards are on.' : 'All sponsor cards are off.'); reload(); },
-  async 'sp-del'(el) { const x = byId('sponsors', el.dataset.id); if (!(await sure('Delete ' + x.name + '?', 'The card and its view and click counts are removed.', 'Delete'))) return; await api('DELETE', '/api/admin/sponsors/' + x.id); toast('Deleted.'); reload(); },
+  async 'pk-save'(form) {
+    await busy(form, async () => {
+      const body = { name: val(form, 'name'), description: val(form, 'description'), price: val(form, 'price'), level: val(form, 'level'), departmentId: val(form, 'departmentId'), enabled: chk(form, 'enabled'), itemIds: Array.from(form.querySelectorAll('[name=itemIds]:checked')).map((c) => c.value) };
+      const id = form.dataset.id;
+      await api(id ? 'PUT' : 'POST', '/api/admin/packs' + (id ? '/' + id : ''), body);
+      form.closeFn(); toast(id ? 'Saved.' : 'Pack created.'); reload();
+    });
+  },
   async 'sp-save'(form) {
     await busy(form, async () => {
       const body = { name: val(form, 'name'), headline: val(form, 'headline'), text: val(form, 'text'), buttonLabel: val(form, 'buttonLabel'), link: val(form, 'link'), facultyId: val(form, 'facultyId'), departmentId: val(form, 'departmentId'), level: val(form, 'level'), placement: val(form, 'placement'), start: val(form, 'start'), end: val(form, 'end'), enabled: chk(form, 'enabled'), removeImage: chk(form, 'removeImage') };
@@ -919,15 +962,18 @@ Object.assign(actions, {
   },
   async 'stu-access'(el) {
     const u = (A.cache.students || []).find((x) => x.id === el.dataset.id); if (!u) return;
-    const [mats, qzs] = await Promise.all([api('GET', '/api/admin/materials'), api('GET', '/api/admin/quizzes')]);
+    const [mats, qzs, packs] = await Promise.all([api('GET', '/api/admin/materials'), api('GET', '/api/admin/quizzes'), api('GET', '/api/admin/packs')]);
+    A.cache.packsForAccess = packs;
     const paid = mats.map((m) => ({ id: m.id, title: m.title, course: m.course, price: m.price, paid: m.paid, kind: 'Note' })).concat(qzs.map((q) => ({ id: q.id, title: q.title, course: q.course, price: q.price, paid: q.paid, kind: 'Quiz' }))).filter((x) => x.paid);
     const have = new Set(u.unlocked || []);
     const end = (A.config && A.config.passEnds) || '';
     simpleDialog('Access for ' + u.username, html`<label class="field"><span>Semester pass valid until</span><input name="paidUntil" type="date" value="${u.paidUntil || ''}"><small>Leave empty for no pass. ${end ? 'This semester ends ' + end + '.' : 'Set the semester end date under Site settings.'}</small></label>
       ${end ? html`<p class="small"><button class="btn ghost small" data-action="stu-pass-fill" data-end="${end}" type="button">Give pass until ${end}</button> <button class="btn ghost small" data-action="stu-pass-clear" type="button">Remove pass</button></p>` : ''}
+      ${packs.length ? html`<label class="field" style="margin-top:12px"><span>Paid for a pack? Tick all its items</span><select data-change="stu-pack"><option value="">Choose a pack…</option>${packs.map((k) => html`<option value="${k.id}">${k.name}</option>`)}</select></label>` : ''}
       <p class="small" style="margin:14px 0 6px"><b>Single items this student has paid for</b></p>
       ${paid.length ? html`<div style="max-height:220px;overflow:auto">${paid.map((x) => html`<label class="check small" style="display:flex;margin-bottom:6px"><input type="checkbox" name="unlocked" value="${x.id}" ${have.has(x.id) ? raw('checked') : ''}> <span>${x.title} <span class="tiny muted">${x.kind} · ${x.course} · ${naira(x.price)}</span></span></label>`)}</div>` : html`<p class="muted small">No paid items yet. Mark a note or quiz as paid first.</p>`}`, 'stu-access-save', u.id);
   },
+  'stu-pack'(el) { const k = (A.cache.packsForAccess || []).find((x) => x.id === el.value); if (!k) return; const f = el.closest('form'); f.querySelectorAll('[name=unlocked]').forEach((c) => { if (k.itemIds.includes(c.value)) c.checked = true; }); toast('Ticked the items in this pack. Save to unlock them.'); },
   'stu-pass-fill'(el) { el.closest('form').querySelector('[name=paidUntil]').value = el.dataset.end; },
   'stu-pass-clear'(el) { el.closest('form').querySelector('[name=paidUntil]').value = ''; },
   async 'stu-avatar-del'(el) { await api('DELETE', `/api/admin/users/${el.dataset.id}/avatar`); toast('Picture removed.'); el.remove(); reload(); },
