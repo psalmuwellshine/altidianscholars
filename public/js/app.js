@@ -25,6 +25,8 @@ import * as more from './pages/more.js';
 import * as channels from './pages/channels.js';
 import { paid } from './pages/paid.js';
 import * as scan from './pages/scan.js';
+import * as campus from './pages/campus.js';
+import { sponsorActions } from './pages/shared.js';
 
 initTheme();
 
@@ -77,8 +79,8 @@ const PAGES = [
 ];
 const visiblePages = () => PAGES.filter((p) => p.id !== 'chat' || (S.state && S.state.config.chatEnabled));
 const ctxApi = { S, load, user, config, go, renderView: () => route() };
-const modules = [home, library, quizzes, board, events, election, account, viewer, pay, chat, timetable, share, pushask, saved, rep, notify, cgpa, report, more, channels, scan];
-const actions = Object.assign({}, ...modules.map((m) => m.actions || {}));
+const modules = [home, library, quizzes, board, events, election, account, viewer, pay, chat, timetable, share, pushask, saved, rep, notify, cgpa, report, more, channels, scan, campus];
+const actions = Object.assign({}, ...modules.map((m) => m.actions || {}), sponsorActions);
 
 /* ---------- chrome (header, notice, tabs, footer) ---------- */
 function renderChrome() {
@@ -123,7 +125,7 @@ function currentId() {
   if (hit) return hit.id;
   if (path.startsWith('/quiz/')) return 'quizzes';
   if (path === '/timetable') return 'events';
-  if (path === '/share' || path === '/saved') return 'library';
+  if (path === '/share' || path === '/saved' || path === '/campus') return 'library';
   if (path === '/cgpa' || path === '/election' || path === '/bookmarks' || path === '/groups' || path.startsWith('/group/') || path === '/receipts' || path === '/paid') return 'home';
   return '';
 }
@@ -146,6 +148,7 @@ async function route() {
   else if (path === '/timetable') page = timetable;
   else if (path === '/share') page = share;
   else if (path === '/saved') page = saved;
+  else if (path === '/campus') page = campus;
   else if (path === '/rep') page = rep;
   else if (path === '/cgpa') page = cgpa;
   else if (path === '/bookmarks') page = more.bookmarks;
