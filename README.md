@@ -13,6 +13,8 @@ full admin control panel.
 - **Materials**: add, edit, pin, hide, delete. Notes, past questions, slides, videos, links, files (12 MB).
 - **Campus documents** (v38.1): in Resources, choose *Who is this for?* to publish a file to a whole department (all levels), a whole faculty, or the whole university (brochure, handbook, CCMAS, course allocations). Students see them under Library, Campus documents. They are always free and are not tied to a course.
 - **Sponsorship** (v38.2): sponsored cards for the home page and Library. Each card has a sponsor name, headline, line, link, optional logo, optional start and end dates, and can be aimed at everyone, one faculty, one department and/or one level. Each can be switched on or off, and one button turns every card off. The page shows views and clicks per card.
+- **Semester packs** (v38.5): bundle several paid notes and quizzes at one price (optionally for one department and level). Students buy a pack online or by bank transfer; for transfers, open the student's Access and use *Paid for a pack?* to tick all its items.
+- **Student profile** (v38.5): badges, quiz scores and the new *Exam readiness by course* are collapsed, and only list quizzes for the student's own department. The PDF viewer has a *Listen* button for PDFs that contain text.
 - **Quizzes**: build or edit, hide as draft, paste many questions at once, see attempts and average score.
 - **Events**: add, edit, delete. Shown on the home page and the Events page.
 - **Announcement**: banner at the top of every page (info, important, good news).
