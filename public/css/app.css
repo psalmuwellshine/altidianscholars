@@ -590,3 +590,8 @@ body.has-tabs footer.foot { padding-bottom: calc(var(--tab-h) + 24px + env(safe-
 .sponsor .sp-body h3 { margin: 4px 0 2px; font-size: 17px; }
 .sponsor .sp-tag { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
 .sponsor .sp-go { flex: none; }
+
+/* receipt logo */
+.rcpt-head { text-align: center; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 3px solid var(--gold, #F4B400); }
+.rcpt-logo { display: block; width: 64px; height: auto; margin: 0 auto 8px; }
+@media print { .rcpt-head { border-bottom-color: #F4B400; -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
