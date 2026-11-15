@@ -194,8 +194,8 @@ export function squarePhoto(file) {
     r.readAsDataURL(file);
   });
 }
-export const kindLabel = { notes: 'Notes', pq: 'Past questions', slides: 'Slides', video: 'Video', other: 'Resource' };
-export const kindIcon = { notes: 'file', pq: 'quiz', slides: 'file', video: 'video', other: 'link' };
+export const kindLabel = { notes: 'Notes', pq: 'Past questions', slides: 'Slides', video: 'Video', official: 'Official document', other: 'Resource' };
+export const kindIcon = { notes: 'file', pq: 'quiz', slides: 'file', video: 'video', official: 'file', other: 'link' };
 export function debounce(fn, ms = 200) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
 export function readFile(file) {
   return new Promise((resolve, reject) => {
