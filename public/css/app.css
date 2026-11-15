@@ -581,3 +581,12 @@ body.has-tabs footer.foot { padding-bottom: calc(var(--tab-h) + 24px + env(safe-
 .pass-card{position:relative;padding-right:44px}.pass-x{position:absolute;top:8px;right:8px;width:30px;height:30px;border:0;border-radius:50%;background:transparent;color:var(--muted,#667);display:grid;place-items:center;cursor:pointer}.pass-x:hover{background:rgba(0,0,0,.07)}
 
 .cf-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line,#e4e6ee)}.cf-row .grow{flex:1 1 180px;min-width:0;word-break:break-word}
+
+/* sponsored card */
+.sponsor { margin: 16px 0; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; border-left: 4px solid var(--gold); }
+.sponsor .sp-logo { flex: none; width: 56px; height: 56px; border-radius: 12px; object-fit: contain; background: var(--surface-2); }
+.sponsor .sp-fallback { display: grid; place-items: center; font: 800 24px var(--f-display); color: var(--brand); }
+.sponsor .sp-body { flex: 1 1 200px; min-width: 0; }
+.sponsor .sp-body h3 { margin: 4px 0 2px; font-size: 17px; }
+.sponsor .sp-tag { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+.sponsor .sp-go { flex: none; }
