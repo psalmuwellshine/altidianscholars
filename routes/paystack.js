@@ -16,7 +16,7 @@ module.exports = function registerPaystack({ route, store, send, userOf, push })
     if (!user) throw new HttpError(401, 'Please log in first.');
     const cfg = await D.loadConfig(store);
     if (!P.enabled(cfg)) throw new HttpError(400, 'Online payment is not switched on yet. Please pay by bank transfer.');
-    const b = c.body; const kind = b.kind === 'pass' ? 'pass' : 'item';
+    const b = c.body; const kind = b.kind === 'pass' ? 'pass' : b.kind === 'pack' ? 'pack' : 'item'; let itemIds = [];
     const email = clean(b.email, 120).toLowerCase();
     if (!EMAIL_RE.test(email)) throw new HttpError(400, 'Enter a valid email address. Your receipt is sent there.');
     let amount; let title; let itemId = ''; let until = '';
@@ -25,6 +25,14 @@ module.exports = function registerPaystack({ route, store, send, userOf, push })
       if (!(amount > 0) || !until || until < D.lagosDate()) throw new HttpError(400, 'The semester pass is not on sale right now.');
       if (user.paidUntil && user.paidUntil >= until) throw new HttpError(400, 'You already have a semester pass.');
       title = 'Semester pass';
+    } else if (kind === 'pack') {
+      const pack = H.okId(b.itemId) ? await store.get('packs', String(b.itemId)) : null;
+      if (!pack || !pack.enabled) throw new HttpError(404, 'That pack was not found.');
+      const live = [];
+      for (const id of pack.itemIds) { const it = (await store.get('materials', id)) || (await store.get('quizzes', id)); if (it && it.paid && !it.hidden) live.push(it); }
+      if (live.length < 2) throw new HttpError(400, 'This pack is not available right now.');
+      if (live.every((it) => D.hasAccess(user, it))) throw new HttpError(400, 'You already have everything in this pack.');
+      amount = Math.round(Number(pack.price)); title = pack.name; itemId = pack.id; itemIds = live.map((it) => it.id);
     } else {
       const id = H.okId(b.itemId) ? String(b.itemId) : '';
       const item = id && ((await store.get('materials', id)) || (await store.get('quizzes', id)));
@@ -34,7 +42,7 @@ module.exports = function registerPaystack({ route, store, send, userOf, push })
       if (D.hasAccess(user, item)) throw new HttpError(400, 'You already have access to this.');
     }
     const reference = 'ALT' + Date.now().toString(36).toUpperCase() + newId().slice(0, 6).toUpperCase();
-    const pay = { id: reference, userId: user.id, username: user.username, kind, itemId, title, amount, until, email, status: 'pending', createdAt: Date.now() };
+    const pay = { id: reference, userId: user.id, username: user.username, kind, itemId, ...(itemIds.length ? { itemIds } : {}), title, amount, until, email, status: 'pending', createdAt: Date.now() };
     await store.put('payments', pay);
     let init;
     try {

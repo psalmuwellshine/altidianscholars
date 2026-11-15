@@ -488,6 +488,34 @@ module.exports = function registerAdmin({ route, store, send, push }) {
     send(res, 200, { ok: true });
   });
 
+  /* ---------- semester packs: several paid items sold together at one price ---------- */
+  async function readPack(b, existing) {
+    const name = clean(b.name, 80); const description = clean(b.description, 240);
+    const price = Math.round(Number(b.price));
+    if (!name) throw new HttpError(400, 'Give the pack a name, for example 200L First Semester Pack.');
+    if (!(price > 0) || price > 1000000) throw new HttpError(400, 'Set a price in naira.');
+    const ids = Array.isArray(b.itemIds) ? [...new Set(b.itemIds.map(String))] : [];
+    if (ids.length < 2) throw new HttpError(400, 'Pick at least two paid items for the pack.');
+    const [mats, qzs] = await Promise.all([store.list('materials'), store.list('quizzes')]);
+    const paid = new Map(mats.concat(qzs).filter((x) => x.paid && !x.scope).map((x) => [x.id, x]));
+    if (ids.some((id) => !paid.has(id))) throw new HttpError(400, 'Packs can only hold paid items. One of the picked items is free or no longer exists.');
+    let departmentId = clean(b.departmentId, 40); let level = Number(b.level) || 0;
+    if (departmentId && !(await store.get('departments', departmentId))) throw new HttpError(400, 'Choose a real department.');
+    if (level && !LEVELS_NUM.includes(level)) level = 0;
+    return { id: existing ? existing.id : newId(), name, description, price, itemIds: ids, departmentId, level, enabled: b.enabled === undefined ? true : bool(b.enabled), createdAt: existing ? existing.createdAt : Date.now() };
+  }
+  route('GET', '/api/admin/packs', A, async (req, res) => {
+    const [packs, mats, qzs] = await Promise.all([store.list('packs'), store.list('materials'), store.list('quizzes')]);
+    const price = new Map(mats.concat(qzs).map((x) => [x.id, x.price || 0]));
+    send(res, 200, packs.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map((p) => Object.assign({}, p, { value: p.itemIds.reduce((a, id) => a + (price.get(id) || 0), 0) })));
+  });
+  route('POST', '/api/admin/packs', A, async (req, res, ctx) => { const doc = await readPack(ctx.body, null); await store.put('packs', doc); send(res, 200, { ok: true, id: doc.id }); });
+  route('PUT', '/api/admin/packs/:id', A, async (req, res, ctx) => {
+    const m = await store.get('packs', ctx.params[0]); if (!m) throw new HttpError(404, 'Pack not found.');
+    await store.put('packs', await readPack(ctx.body, m)); send(res, 200, { ok: true });
+  });
+  route('DELETE', '/api/admin/packs/:id', A, async (req, res, ctx) => { await store.del('packs', ctx.params[0]); send(res, 200, { ok: true }); });
+
   /* ---------- quizzes ---------- */
   function readQuiz(b, existing) {
     const title = clean(b.title, 120);

@@ -71,9 +71,9 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
 
   /* ---------- everything the site needs to draw itself ---------- */
   route('GET', '/api/state', {}, async (req, res, ctx) => {
-    const [materials, quizzes, scores, events, users, notice, config, timetable, classnotes, sponsorsAll, sponsorMaster] = await Promise.all([
+    const [materials, quizzes, scores, events, users, notice, config, timetable, classnotes, sponsorsAll, sponsorMaster, packsAll] = await Promise.all([
       store.list('materials'), store.list('quizzes'), store.list('scores'), store.list('events'),
-      store.list('users'), store.get('settings', 'notice'), D.loadConfig(store), store.list('timetable'), store.list('classnotes'), store.list('sponsors'), store.get('settings', 'sponsorship'),
+      store.list('users'), store.get('settings', 'notice'), D.loadConfig(store), store.list('timetable'), store.list('classnotes'), store.list('sponsors'), store.get('settings', 'sponsorship'), store.list('packs'),
     ]);
     const academics = await Ac.loadAcademics(store);
     const user = await userOf(req);
@@ -116,6 +116,13 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
         .map((m) => ({ id: m.id, title: m.title, scope: m.scope, kind: m.kind, departmentId: m.departmentId || '', facultyId: m.facultyId || '', pinned: !!m.pinned, addedAt: m.addedAt, note: m.note || '', link: m.link || '', fileId: m.fileId || '', fileName: m.fileName || '' })),
       sponsors: (sponsorMaster && sponsorMaster.on === false ? [] : sponsorsAll.filter((x) => sponsorLive(x, user))).slice(0, 6)
         .map((x) => ({ id: x.id, name: x.name, headline: x.headline, text: x.text || '', buttonLabel: x.buttonLabel, link: x.link || '', placement: x.placement, imageId: x.imageId || '' })),
+      packs: packsAll.filter((x) => x.enabled && (!x.departmentId || (user && user.departmentId === x.departmentId)) && (!x.level || (user && Number(user.level) === x.level)))
+        .map((x) => {
+          const items = x.itemIds.map((id) => materials.find((m) => m.id === id) || quizzes.find((q) => q.id === id)).filter((m) => m && !m.hidden);
+          const have = (m) => D.hasAccess(user, m);
+          return { id: x.id, name: x.name, description: x.description || '', price: x.price, count: items.length, value: items.reduce((a, m) => a + (m.price || 0), 0), owned: items.length > 0 && items.every(have),
+            items: items.map((m) => ({ title: m.title, course: m.course || '' })) };
+        }).filter((x) => x.count >= 2),
       quizzes: visibleQuizzes.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0)).map((q) => {
         const open = D.hasAccess(user, q);
         // A locked quiz keeps its title, price and question count, but no questions or answers.
@@ -312,7 +319,15 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
     const board = D.buildBoard(new Map(users.map((u) => [u.id, u])), scores, new Set(quizzes.map((q) => q.id)));
     const rec = scores.find((s) => s.id === user.id) || null;
     const contributions = (await store.list('materials')).filter((m) => m.by === user.id && m.status === 'approved').length;
-    send(res, 200, D.buildProfile({ user, rec, quizzes, courses, board, now: Date.now(), contributions }));
+    const prof = D.buildProfile({ user, rec, quizzes, courses, board, now: Date.now(), contributions });
+    // Keep points and badges as they are, but only list quizzes that belong to this student's department (or to everyone), plus any they have already taken.
+    const mine = new Set(courses.filter((c) => !c.departmentIds || !c.departmentIds.length || c.departmentIds.includes(user.departmentId)).map((c) => c.code));
+    const known = new Set(courses.map((c) => c.code));
+    const rel = (code) => mine.has(code) || !known.has(code);
+    prof.quizzes = prof.quizzes.filter((q) => rel(q.course) || q.attempts > 0);
+    const keep = new Set(prof.quizzes.map((q) => q.course));
+    prof.courses = prof.courses.filter((c) => keep.has(c.code));
+    send(res, 200, prof);
   });
 
   /* ---------- profile picture ---------- */
