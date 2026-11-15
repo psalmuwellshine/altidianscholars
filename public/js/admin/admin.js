@@ -27,6 +27,7 @@ const SECTIONS = [
   { id: 'reports', label: 'Reports', icon: 'flag' },
   { id: 'timetable', label: 'Timetable and exams', icon: 'clock' },
   { id: 'notice', label: 'Announcement', icon: 'bell' },
+  { id: 'sponsors', label: 'Sponsorship', icon: 'star' },
   { id: 'board', label: 'Leaderboard', icon: 'trophy' },
   { id: 'settings', label: 'Site settings', icon: 'settings' },
   { id: 'backup', label: 'Backup', icon: 'download' },
@@ -169,12 +170,24 @@ const views = {
   async materials() {
     const list = await api('GET', '/api/admin/materials'); A.cache.materials = list;
     return html`${head('Resources', plural(list.length, 'resource') + '. Notes, past questions, slides, videos and links.', html`<button class="btn ghost" data-action="mat-bulk" type="button">${icon('upload', 18)} Bulk upload</button> <button class="btn primary" data-action="mat-new" type="button">${icon('plus', 18)} Add resource</button>`)}
-      ${list.length ? html`<div class="tbl-wrap"><table><thead><tr><th>Title</th><th>Course</th><th>Type</th><th>Status</th><th></th></tr></thead><tbody>${list.map((m) => html`<tr><td><b>${m.title}</b><br><span class="tiny muted">${m.fileName || m.link || 'Notes only'}</span></td><td><span class="chip">${m.course}</span></td><td>${kindLabel[m.kind] || m.kind}</td>
+      ${list.length ? html`<div class="tbl-wrap"><table><thead><tr><th>Title</th><th>For</th><th>Type</th><th>Status</th><th></th></tr></thead><tbody>${list.map((m) => html`<tr><td><b>${m.title}</b><br><span class="tiny muted">${m.fileName || m.link || 'Notes only'}</span></td><td><span class="chip">${m.scope === 'department' ? dName(m.departmentId) || 'Department' : m.scope === 'faculty' ? fName(m.facultyId) || 'Faculty' : m.scope === 'university' ? 'Whole university' : m.course}</span></td><td>${kindLabel[m.kind] || m.kind}</td>
         <td>${m.paid ? html`<span class="chip brand">${naira(m.price)}</span> ` : ''}${m.pinned ? html`<span class="chip brand">Pinned</span> ` : ''}${m.hidden ? html`<span class="chip grey">Hidden</span>` : html`<span class="chip good">Live</span>`}</td>
         <td><div class="actions"><button class="btn ghost small icon" data-action="mat-pin" data-id="${m.id}" type="button" title="${m.pinned ? 'Unpin' : 'Pin to top'}" aria-label="${m.pinned ? 'Unpin' : 'Pin'}">${icon('pin', 17)}</button>
         <button class="btn ghost small icon" data-action="mat-hide" data-id="${m.id}" type="button" title="${m.hidden ? 'Show' : 'Hide'}" aria-label="${m.hidden ? 'Show' : 'Hide'}">${icon(m.hidden ? 'eye' : 'eyeoff', 17)}</button>
         <button class="btn ghost small icon" data-action="mat-edit" data-id="${m.id}" type="button" title="Edit" aria-label="Edit ${m.title}">${icon('edit', 17)}</button>
         <button class="btn ghost small icon" data-action="mat-del" data-id="${m.id}" type="button" title="Delete" aria-label="Delete ${m.title}">${icon('trash', 17)}</button></div></td></tr>`)}</tbody></table></div>` : empty('book', 'No resources yet', 'Add your first study resource.')}`;
+  },
+
+  async sponsors() {
+    await loadAcad(); const d = await api('GET', '/api/admin/sponsors'); A.cache.sponsors = d.list;
+    const aud = (x) => (x.departmentId ? dName(x.departmentId) : x.facultyId ? fName(x.facultyId) : 'Everyone') + (x.level ? ' · ' + x.level + ' level' : '');
+    const today = todayKey(); const state = (x) => (!x.enabled ? ['grey', 'Off'] : x.start && today < x.start ? ['brand', 'Scheduled'] : x.end && today > x.end ? ['grey', 'Ended'] : ['good', 'Live']);
+    return html`${head('Sponsorship', 'Sponsored cards shown to students on the home page and the Library. You choose who sees each one.', html`<button class="btn ${d.on ? 'ghost' : 'primary'}" data-action="sp-master" data-on="${d.on ? '0' : '1'}" type="button">${d.on ? 'Turn all sponsor cards off' : 'Turn sponsor cards on'}</button> <button class="btn primary" data-action="sp-new" type="button">${icon('plus', 18)} Add sponsor card</button>`)}
+      ${d.on ? '' : html`<div class="alert warning" style="margin-bottom:14px">All sponsor cards are switched off, so students see none of them.</div>`}
+      ${d.list.length ? html`<div class="tbl-wrap"><table><thead><tr><th>Sponsor</th><th>Shown to</th><th>Where</th><th>Dates</th><th class="num">Views</th><th class="num">Clicks</th><th>Status</th><th></th></tr></thead><tbody>${d.list.map((x) => { const st = state(x); return html`<tr><td><b>${x.name}</b><br><span class="tiny muted">${x.headline}</span></td><td>${aud(x)}</td><td>${{ home: 'Home', library: 'Library', both: 'Home and Library' }[x.placement]}</td><td class="tiny">${x.start || 'now'} to ${x.end || 'no end'}</td><td class="num">${x.views || 0}</td><td class="num">${x.clicks || 0}${x.views ? html` <span class="tiny muted">(${Math.round(((x.clicks || 0) / x.views) * 100)}%)</span>` : ''}</td><td><span class="chip ${st[0]}">${st[1]}</span></td>
+        <td><div class="actions"><button class="btn ghost small icon" data-action="sp-toggle" data-id="${x.id}" type="button" title="${x.enabled ? 'Switch off' : 'Switch on'}" aria-label="${x.enabled ? 'Switch off' : 'Switch on'} ${x.name}">${icon(x.enabled ? 'eyeoff' : 'eye', 17)}</button>
+        <button class="btn ghost small icon" data-action="sp-edit" data-id="${x.id}" type="button" title="Edit" aria-label="Edit ${x.name}">${icon('edit', 17)}</button>
+        <button class="btn ghost small icon" data-action="sp-del" data-id="${x.id}" type="button" title="Delete" aria-label="Delete ${x.name}">${icon('trash', 17)}</button></div></td></tr>`; })}</tbody></table></div>` : empty('star', 'No sponsor cards yet', 'Add one when a business or school wants to reach your students.')}`;
   },
 
   async quizzes() {
@@ -424,24 +437,49 @@ const reload = () => route();
 /* ---------- dialogs: resources ---------- */
 const courseSelect = (sel) => html`<option value="">Choose a course</option>${A.acad.courses.map((c) => html`<option value="${c.code}" ${c.code === sel ? raw('selected') : ''}>${c.code}${c.name ? ' · ' + c.name : ''} (${c.level}${c.departmentIds.length ? '' : ', all depts'})</option>`)}${sel && !A.acad.courses.some((c) => c.code === sel) ? html`<option value="${sel}" selected>${sel} (not in Academics yet)</option>` : ''}`;
 function materialDialog(m) {
-  const edit = !!m;
+  const edit = !!m; const sc = edit && m.scope ? m.scope : 'course';
   const { box, close } = dialog(html`<h3>${edit ? 'Edit resource' : 'Add resource'}</h3><div class="msg alert bad" hidden role="alert"></div>
     <form data-submit="mat-save" novalidate>
       <label class="field"><span>Title</span><input name="title" maxlength="120" required value="${edit ? m.title : ''}" autofocus></label>
-      <div class="grid2"><label class="field"><span>Course</span><select name="course" required>${courseSelect(edit ? m.course : '')}</select></label>
+      <label class="field"><span>Who is this for?</span><select name="scope" data-change="mat-scope"><option value="course" ${sc === 'course' ? raw('selected') : ''}>Students of one course</option><option value="department" ${sc === 'department' ? raw('selected') : ''}>A whole department (all levels)</option><option value="faculty" ${sc === 'faculty' ? raw('selected') : ''}>A whole faculty (all its departments)</option><option value="university" ${sc === 'university' ? raw('selected') : ''}>The whole university (all faculties)</option></select><small>Department, faculty and university documents appear in Campus documents and are always free.</small></label>
+      <div data-sc="department" ${sc === 'department' ? '' : raw('hidden')}><label class="field"><span>Department</span><select name="departmentId"><option value="">Choose a department</option>${A.acad.departments.map((d) => html`<option value="${d.id}" ${edit && m.departmentId === d.id ? raw('selected') : ''}>${d.name} (${fName(d.facultyId)})</option>`)}</select></label></div>
+      <div data-sc="faculty" ${sc === 'faculty' ? '' : raw('hidden')}><label class="field"><span>Faculty</span><select name="facultyId"><option value="">Choose a faculty</option>${A.acad.faculties.map((f) => html`<option value="${f.id}" ${edit && m.facultyId === f.id ? raw('selected') : ''}>${f.name}</option>`)}</select></label></div>
+      <div class="grid2"><label class="field" data-sc="course" ${sc === 'course' ? '' : raw('hidden')}><span>Course</span><select name="course">${courseSelect(edit ? m.course : '')}</select></label>
       <label class="field"><span>Type</span><select name="kind">${Object.keys(kindLabel).map((k) => html`<option value="${k}" ${edit && m.kind === k ? raw('selected') : ''}>${kindLabel[k]}</option>`)}</select></label></div>
       <label class="field"><span>Notes (optional)</span><textarea name="note" maxlength="8000">${edit ? m.note || '' : ''}</textarea></label>
       <label class="field"><span>Link (optional)</span><input name="link" inputmode="url" placeholder="Paste a YouTube or Google Drive link, or any web link" value="${edit ? m.link || '' : ''}" data-input="mat-link"><small id="mat-link-hint"></small></label>
       <label class="field"><span>File (optional, up to 12 MB)</span><input type="file" name="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.webp,.csv,.txt"><small>${edit && m.fileName ? 'Current file: ' + m.fileName + '. Choose a new one to replace it.' : 'PDF, Word, PowerPoint, Excel, image, CSV or text.'}</small></label>
       ${edit && m.fileId ? html`<label class="check small" style="margin-bottom:14px"><input type="checkbox" name="removeFile"> Remove the current file</label>` : ''}
-      <div class="paid-box" style="margin-bottom:16px"><label class="check"><input type="checkbox" name="paid" ${edit && m.paid ? raw('checked') : ''}> Paid (students must pay to open this)</label>
+      <div class="paid-box" data-sc="course" ${sc === 'course' ? '' : raw('hidden')} style="margin-bottom:16px"><label class="check"><input type="checkbox" name="paid" ${edit && m.paid ? raw('checked') : ''}> Paid (students must pay to open this)</label>
         <label class="field" style="margin-top:8px"><span>Price in naira</span><input name="price" type="number" inputmode="numeric" min="1" step="1" placeholder="e.g. 500" value="${edit && m.paid ? m.price : ''}"><small>A file on a paid item must be a PDF or an image. Students can only view it, not download it.</small></label></div>
       <div class="row gap wrap-r" style="margin-bottom:16px"><label class="check"><input type="checkbox" name="pinned" ${edit && m.pinned ? raw('checked') : ''}> Pin to top</label><label class="check"><input type="checkbox" name="hidden" ${edit && m.hidden ? raw('checked') : ''}> Hidden from students</label></div>
-      ${edit ? '' : html`<label class="check small" style="margin-bottom:14px"><input type="checkbox" name="notify" checked> Send a notification to students of this course</label>`}
+      ${edit ? '' : html`<label class="check small" style="margin-bottom:14px"><input type="checkbox" name="notify" checked> Send a notification to the students this is for</label>`}
       <div class="row end gap"><button class="btn ghost" data-close type="button">Cancel</button><button class="btn primary" type="submit">${edit ? 'Save changes' : 'Add material'}</button></div></form>`, { wide: true });
   box.querySelector('form').dataset.id = edit ? m.id : '';
   box.querySelector('form').closeFn = close;
   const li = box.querySelector('[name=link]'); if (li) linkHint(li);
+}
+
+
+function sponsorDialog(x) {
+  const edit = !!x; const v = (k, d = '') => (edit && x[k] !== undefined && x[k] !== null ? x[k] : d);
+  const { box, close } = dialog(html`<h3>${edit ? 'Edit sponsor card' : 'Add sponsor card'}</h3><div class="msg alert bad" hidden role="alert"></div>
+    <form data-submit="sp-save" novalidate>
+      <div class="grid2"><label class="field"><span>Sponsor name</span><input name="name" maxlength="60" required value="${v('name')}" autofocus></label>
+      <label class="field"><span>Button text</span><input name="buttonLabel" maxlength="24" placeholder="Learn more" value="${v('buttonLabel')}"></label></div>
+      <label class="field"><span>Headline</span><input name="headline" maxlength="90" required value="${v('headline')}"></label>
+      <label class="field"><span>Short line (optional)</span><textarea name="text" maxlength="220" style="min-height:64px">${v('text')}</textarea></label>
+      <label class="field"><span>Link (optional)</span><input name="link" inputmode="url" placeholder="https://" value="${v('link')}"></label>
+      <label class="field"><span>Logo (optional, PNG, JPG or WebP, up to 400 KB)</span><input type="file" name="image" accept=".png,.jpg,.jpeg,.webp"></label>
+      ${edit && x.imageId ? html`<label class="check small" style="margin-bottom:14px"><input type="checkbox" name="removeImage"> Remove the current logo</label>` : ''}
+      <div class="grid2"><label class="field"><span>Show to faculty</span><select name="facultyId"><option value="">Everyone</option>${A.acad.faculties.map((f) => html`<option value="${f.id}" ${v('facultyId') === f.id ? raw('selected') : ''}>${f.name}</option>`)}</select></label>
+      <label class="field"><span>or one department</span><select name="departmentId"><option value="">Any department</option>${A.acad.departments.map((d) => html`<option value="${d.id}" ${v('departmentId') === d.id ? raw('selected') : ''}>${d.name}</option>`)}</select></label></div>
+      <div class="grid2"><label class="field"><span>Level</span><select name="level"><option value="">All levels</option>${[100, 200, 300, 400, 500, 600].map((l) => html`<option value="${l}" ${Number(v('level', 0)) === l ? raw('selected') : ''}>${l} level</option>`)}</select></label>
+      <label class="field"><span>Where it shows</span><select name="placement">${[['both', 'Home and Library'], ['home', 'Home page only'], ['library', 'Library only']].map(([k, l]) => html`<option value="${k}" ${v('placement', 'both') === k ? raw('selected') : ''}>${l}</option>`)}</select></label></div>
+      <div class="grid2"><label class="field"><span>Starts (optional)</span><input type="date" name="start" value="${v('start')}"></label><label class="field"><span>Ends (optional)</span><input type="date" name="end" value="${v('end')}"></label></div>
+      <label class="check" style="margin-bottom:16px"><input type="checkbox" name="enabled" ${!edit || x.enabled ? raw('checked') : ''}> Switched on</label>
+      <div class="row end gap"><button class="btn ghost" data-close type="button">Cancel</button><button class="btn primary" type="submit">${edit ? 'Save changes' : 'Add card'}</button></div></form>`, { wide: true });
+  box.querySelector('form').dataset.id = edit ? x.id : ''; box.querySelector('form').closeFn = close;
 }
 
 /* ---------- dialogs: quizzes ---------- */
@@ -746,9 +784,24 @@ const submits = {
   async 'stu-pw-save'(form) {
     await busy(form, async () => { await api('POST', `/api/admin/users/${form.dataset.id}/password`, { newPassword: val(form, 'pw') }); form.closeFn(); toast('Password updated.'); });
   },
+  'sp-new': () => sponsorDialog(null),
+  'sp-edit': (el) => sponsorDialog(byId('sponsors', el.dataset.id)),
+  async 'sp-toggle'(el) { const x = byId('sponsors', el.dataset.id); await api('PUT', '/api/admin/sponsors/' + x.id, { ...x, enabled: !x.enabled }); toast(x.enabled ? 'Switched off.' : 'Switched on.'); reload(); },
+  async 'sp-master'(el) { await api('PUT', '/api/admin/sponsors-master', { on: el.dataset.on === '1' }); toast(el.dataset.on === '1' ? 'Sponsor cards are on.' : 'All sponsor cards are off.'); reload(); },
+  async 'sp-del'(el) { const x = byId('sponsors', el.dataset.id); if (!(await sure('Delete ' + x.name + '?', 'The card and its view and click counts are removed.', 'Delete'))) return; await api('DELETE', '/api/admin/sponsors/' + x.id); toast('Deleted.'); reload(); },
+  async 'sp-save'(form) {
+    await busy(form, async () => {
+      const body = { name: val(form, 'name'), headline: val(form, 'headline'), text: val(form, 'text'), buttonLabel: val(form, 'buttonLabel'), link: val(form, 'link'), facultyId: val(form, 'facultyId'), departmentId: val(form, 'departmentId'), level: val(form, 'level'), placement: val(form, 'placement'), start: val(form, 'start'), end: val(form, 'end'), enabled: chk(form, 'enabled'), removeImage: chk(form, 'removeImage') };
+      const file = form.querySelector('[name=image]').files[0];
+      if (file) { if (file.size > 400 * 1024) throw new Error('The picture is over 400 KB. Use a smaller logo.'); body.image = await readFile(file); }
+      const id = form.dataset.id;
+      await api(id ? 'PUT' : 'POST', '/api/admin/sponsors' + (id ? '/' + id : ''), body);
+      form.closeFn(); toast(id ? 'Saved.' : 'Sponsor card added.'); reload();
+    });
+  },
   async 'mat-save'(form) {
     await busy(form, async () => {
-      const body = { title: val(form, 'title'), course: val(form, 'course').toUpperCase(), kind: val(form, 'kind'), note: val(form, 'note'), link: val(form, 'link'), paid: chk(form, 'paid'), price: val(form, 'price'), pinned: chk(form, 'pinned'), hidden: chk(form, 'hidden'), notify: chk(form, 'notify'), removeFile: chk(form, 'removeFile') };
+      const body = { title: val(form, 'title'), scope: val(form, 'scope'), departmentId: val(form, 'departmentId'), facultyId: val(form, 'facultyId'), course: (val(form, 'course') || '').toUpperCase(), kind: val(form, 'kind'), note: val(form, 'note'), link: val(form, 'link'), paid: chk(form, 'paid'), price: val(form, 'price'), pinned: chk(form, 'pinned'), hidden: chk(form, 'hidden'), notify: chk(form, 'notify'), removeFile: chk(form, 'removeFile') };
       const file = form.querySelector('[name=file]').files[0];
       if (file) { if (file.size > 12 * 1024 * 1024) throw new Error('That file is over 12 MB.'); body.file = await readFile(file); }
       const id = form.dataset.id;
@@ -840,6 +893,7 @@ const acadReload = async () => { await loadAcad(); reload(); };
 Object.assign(actions, {
   'place-fac': (el) => placeChange(fakeS(), el),
   'place-dep': (el) => placeChange(fakeS(), el),
+  'mat-scope': (el) => { const f = el.closest('form'); f.querySelectorAll('[data-sc]').forEach((n) => { n.hidden = n.dataset.sc !== el.value; }); },
   'stu-dept': (el) => { A.dept = el.value; const t = document.getElementById('stu-table'); if (t) t.innerHTML = studentTable(A.cache.students || []).s; },
   'stu-level': (el) => { A.level = el.value; const t = document.getElementById('stu-table'); if (t) t.innerHTML = studentTable(A.cache.students || []).s; },
   'crs-dept': (el) => { A.cdept = el.value; document.getElementById('crs-table').innerHTML = courseTable(A.acad).s; },
