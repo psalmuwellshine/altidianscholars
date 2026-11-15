@@ -157,7 +157,7 @@ export const actions = {
     if (emb) openVideo(m, emb);
   },
   'view-file'(el, ev, { S }) {
-    const m = S.state.materials.find((x) => x.id === el.dataset.id) || savedList().find((x) => x.id === el.dataset.id);
+    const m = S.state.materials.find((x) => x.id === el.dataset.id) || (S.state.campus || []).find((x) => x.id === el.dataset.id) || savedList().find((x) => x.id === el.dataset.id);
     if (m && m.fileId && !m.locked) openViewer(m);
   },
 };

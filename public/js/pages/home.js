@@ -1,5 +1,5 @@
 import { html, raw, icon, plural, esc, avatar, kindLabel, kindIcon, debounce } from '../core/ui.js';
-import { resourceCard, quizCard, eventTile, leaderRows, emptyState, inScope, hasPlace, placeLine } from './shared.js';
+import { resourceCard, quizCard, eventTile, leaderRows, emptyState, inScope, hasPlace, placeLine, sponsorSlot } from './shared.js';
 import { todayKey } from '../core/ui.js';
 import * as move from './transition.js';
 import { passCard } from './pay.js';
@@ -101,6 +101,7 @@ export async function render({ S, user, config }) {
       </div>
       <div class="hero-links"><button class="linkish" data-action="channels-open" type="button">${icon('users', 16)} Our channels</button><button class="linkish" data-action="support-open" type="button">${icon('mail', 16)} Contact support</button></div>
     </section>
+    ${sponsorSlot(S, 'home')}
     ${u ? more.qotdSlot() : ''}
     ${u && st.election ? html`<section class="sec"><a class="card election-card" href="#/election"><div><span class="chip gold">Student elections</span><h3>${st.election.title}</h3><p class="small">${st.election.count} candidate${st.election.count === 1 ? '' : 's'}${votingLine(st.election.votingDate) ? ' · ' + votingLine(st.election.votingDate) : ''}</p></div><span class="btn gold small">Meet the candidates ${icon('arrow', 16)}</span></a></section>` : ''}
     <section class="sec home-search">

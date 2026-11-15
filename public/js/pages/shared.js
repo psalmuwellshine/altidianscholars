@@ -103,3 +103,25 @@ export function scopeBar(S, user, action) {
   return html`<div class="filters" role="group" aria-label="Which courses to show"><button class="pill on" data-action="${action}" data-v="${cur}" type="button">${scopeLabel(cur, user)}</button><button class="pill" data-action="scope-menu" data-act="${action}" type="button" aria-label="Show other courses" title="More">${icon('more', 18)}</button></div>`;
 }
 export const scopeOptions = (user, cur, act) => ['mine', 'dept', 'others', 'all'].filter((k) => k !== cur).map((k) => ({ k, label: scopeLabel(k, user), act }));
+
+/* ---------- sponsored card (switched on, and aimed at who sees it, by the admin) ---------- */
+const seen = (() => { try { return new Set(JSON.parse(sessionStorage.getItem('sp-seen') || '[]')); } catch (e) { return new Set(); } })();
+function trackSeen(id) {
+  if (seen.has(id)) return; seen.add(id);
+  try { sessionStorage.setItem('sp-seen', JSON.stringify([...seen])); } catch (e) { /* fine */ }
+  fetch('/api/sponsor/' + encodeURIComponent(id) + '/seen', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => {});
+}
+export function sponsorSlot(S, place) {
+  const list = (S.state.sponsors || []).filter((x) => x.placement === 'both' || x.placement === place);
+  if (!list.length) return '';
+  const x = list[Math.floor(Date.now() / 3600000) % list.length]; // takes turns, so every sponsor gets a share
+  trackSeen(x.id);
+  return html`<section class="sec"><aside class="card sponsor" aria-label="Sponsored">
+    ${x.imageId ? html`<img class="sp-logo" src="/sponsor-img/${x.imageId}" alt="${x.name} logo" width="56" height="56" loading="lazy">` : html`<div class="sp-logo sp-fallback" aria-hidden="true">${(x.name || '?').slice(0, 1).toUpperCase()}</div>`}
+    <div class="sp-body"><span class="chip grey sp-tag">Sponsored</span><h3>${x.headline}</h3>${x.text ? html`<p class="small muted">${x.text}</p>` : ''}<p class="tiny muted">by ${x.name}</p></div>
+    ${x.link ? html`<a class="btn gold small sp-go" href="${x.link}" target="_blank" rel="noopener noreferrer sponsored" data-action="sp-click" data-id="${x.id}">${x.buttonLabel || 'Learn more'} ${icon('arrow', 15)}</a>` : ''}
+  </aside></section>`;
+}
+export const sponsorActions = {
+  'sp-click'(el) { fetch('/api/sponsor/' + encodeURIComponent(el.dataset.id) + '/click', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}', keepalive: true }).catch(() => {}); },
+};

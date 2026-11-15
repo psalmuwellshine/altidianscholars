@@ -2,7 +2,7 @@ import { fileBtn } from './viewer.js';
 import { listVoices, voiceId, chooseVoice, stop as stopSp, canSpeak, speak, pause as pauseSpeech, resume as resumeSpeech, speechState, nextRate, rateLabel, noVoiceHelp } from '../core/speech.js';
 import { html, icon, dialog, kindLabel, debounce, mount, toast } from '../core/ui.js';
 import { stop as stopSpeech } from '../core/speech.js';
-import { resourceCard, emptyState, scopeBar, inScope, currentScope, scopeState, courseIndex } from './shared.js';
+import { sponsorSlot, resourceCard, emptyState, scopeBar, inScope, currentScope, scopeState, courseIndex } from './shared.js';
 
 const F = { q: '', course: '', kind: '' };
 function voiceDialog() {
@@ -31,7 +31,8 @@ export async function render({ S, user }) {
   const kinds = [...new Set(pool.map((m) => m.kind))];
   return html`
     <div class="sec-head"><div><h2>Library</h2><p>${pool.length} resources: notes, past questions, slides and videos.</p></div>
-      <div class="row gap-s wrap-r">${u && S.state.config.contribEnabled ? html`<a class="btn gold small" href="#/share">${icon('upload', 16)} Share a note</a>` : ''}<a class="btn ghost small" href="#/saved">${icon('download', 16)} Saved offline</a></div></div>
+      <div class="row gap-s wrap-r">${u && S.state.config.contribEnabled ? html`<a class="btn gold small" href="#/share">${icon('upload', 16)} Share a note</a>` : ''}${(S.state.campus || []).length ? html`<a class="btn ghost small" href="#/campus">${icon('file', 16)} Campus documents</a>` : ''}<a class="btn ghost small" href="#/saved">${icon('download', 16)} Saved offline</a></div></div>
+    ${sponsorSlot(S, 'library')}
     ${scopeBar(S, u, 'lib-scope')}
     <div class="row gap wrap-r" style="margin-bottom:14px"><label class="searchbox">${icon('search', 18)}<span class="sr">Search</span><input type="search" placeholder="Search by title or course" value="${F.q}" data-input="lib-search"></label></div>
     <div class="filters" id="lib-courses"><button class="pill ${F.course ? '' : 'on'}" data-action="lib-course" data-v="" type="button">All courses</button>${courses.map((c) => html`<button class="pill ${F.course === c ? 'on' : ''}" data-action="lib-course" data-v="${c}" type="button">${c}</button>`)}</div>

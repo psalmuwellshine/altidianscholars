@@ -139,7 +139,14 @@ export const actions = {
   'place-fac': (el, ev, { S }) => placeChange(S, el),
   'place-dep': (el, ev, { S }) => placeChange(S, el),
   'place-lvl': () => {},
-  'goto-settings'(el, ev) { ev.preventDefault(); const d = document.getElementById('settings'); d.open = true; d.scrollIntoView({ behavior: 'smooth' }); },
+  'goto-settings'(el, ev) {
+    ev.preventDefault();
+    const open = () => { const d = document.getElementById('settings'); if (!d) return false; d.open = true; d.scrollIntoView({ behavior: 'smooth' }); return true; };
+    if (open()) return;
+    // Not on the profile page yet (for example the home page banner): go there, then open the settings once it has drawn.
+    location.hash = '#/profile';
+    let tries = 0; const t = setInterval(() => { if (open() || ++tries > 25) clearInterval(t); }, 120);
+  },
   'avatar-pick'() { document.getElementById('avatar-file').click(); },
   async 'avatar-file'(el, ev, { load, renderView }) {
     const file = el.files[0]; if (!file) return;
