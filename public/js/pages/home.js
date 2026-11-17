@@ -65,16 +65,17 @@ function resultsHtml(S, u, q) {
 export async function render({ S, user, config }) {
   const st = S.state; const c = config(); const u = user();
   const upcoming = st.events.filter((e) => e.date >= todayKey()).slice(0, 3);
-  let pool = st.materials.filter((m) => inScope(S, u, 'mine', m.course));
-  if (!pool.length) pool = st.materials;
+  // Only this student's own class. If it has nothing yet, say so; never fall back to every department.
+  const pool = st.materials.filter((m) => inScope(S, u, 'mine', m.course));
   const sorted = pool.slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
-  let quizPool = st.quizzes.filter((q) => inScope(S, u, 'mine', q.course));
-  if (!quizPool.length) quizPool = st.quizzes;
+  const quizPool = st.quizzes.filter((q) => inScope(S, u, 'mine', q.course));
   const best = (st.me && st.me.best) || {};
   const exams = u ? upcomingExams(st) : []; const today = u ? classesToday(st) : [];
   const counts = new Map(); pool.forEach((m) => counts.set(m.course, (counts.get(m.course) || 0) + 1));
   const chips = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([code]) => code);
   const searching = Q.trim().length >= 2;
+  // Under the class sections: look at other courses, or share something with the class.
+  const belowFolds = html`<div class="row gap-s wrap-r" style="justify-content:center;margin-top:12px"><a class="btn ghost small" href="#/library">Browse other courses ${icon('arrow', 15)}</a>${u && c.contribEnabled ? html`<a class="btn gold small" href="#/share">${icon('upload', 16)} Upload something</a>` : ''}</div>`;
   // Everything starts minimised. A student taps a heading to open it.
   const fold = (ic, title, total, cards, seeAllHref) => html`<details class="fold">
     <summary><span class="ico-box">${icon(ic, 20)}</span><span class="grow"><b>${title}</b></span><span class="chip grey">${total}</span></summary>
@@ -122,7 +123,7 @@ export async function render({ S, user, config }) {
       ${today.length ? html`<div class="card flat" style="margin-top:12px"><p class="muted small" style="margin-bottom:6px">Today's classes</p>${today.map((x) => html`<div class="slot"><b>${x.start}${x.end ? ' – ' + x.end : ''}</b><span>${x.title}${x.venue ? html` <span class="tiny muted">· ${x.venue}</span>` : ''}</span></div>`)}</div>` : ''}</section>` : ''}
 
     <section class="sec"><div class="sec-head"><div><h2>Fresh for you</h2><p>${hasPlace(u) ? 'For ' + placeLine(S, u) + '. Tap a heading to open it.' : 'Pinned and newest resources. Tap a heading to open it.'}</p></div><a class="btn ghost small" href="#/library">See all</a></div>
-      ${groups.length ? html`<div class="folds">${groups}</div>` : emptyState('book', 'Nothing here yet', 'New study resources will show up here as soon as they are added.')}</section>
+      ${groups.length ? html`<div class="folds">${groups}</div>${belowFolds}` : html`${emptyState('book', 'Nothing for your class yet', hasPlace(u) ? 'New resources for ' + placeLine(S, u) + ' will show up here as soon as they are added.' : 'New study resources will show up here as soon as they are added.')}${belowFolds}`}</section>
 
     <section class="sec"><div class="sec-head"><div><h2>Coming up</h2><p>Notices and events from ${c.siteName}.</p></div><a class="btn ghost small" href="#/events">All events</a></div>
       ${upcoming.length ? html`<div class="cards">${upcoming.map(eventTile)}</div>` : emptyState('calendar', 'No upcoming events', 'Check back soon.')}</section>

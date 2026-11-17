@@ -5,6 +5,7 @@ import { canSave, isSaved } from '../core/offline.js';
 import { reportButton } from './report.js';
 import { embedOf } from '../core/video.js';
 import { passButton } from './pay.js';
+import { receiptSheet, printSheet } from './receipt.js';
 
 const nairaOf = (n) => '₦' + Number(n || 0).toLocaleString('en-NG');
 
@@ -243,27 +244,12 @@ export const actions = {
   },
   async 'rcpt-view'(el) {
     const r = RC.find((x) => x.id === el.dataset.id); if (!r) return;
-    const via = r.via === 'online' ? 'Paid online with Paystack' + (r.channel ? ' (' + (CH[r.channel] || r.channel) + ')' : '') : 'Unlocked by an Altidian admin';
-    const U = { username: WHO };
-    dialog(html`<div class="rcpt-sheet"><div class="rcpt-head"><img class="rcpt-logo" src="/logo.png" alt="" width="64" height="74"><h2 style="margin:0">Altidian</h2><p class="tiny muted" style="margin:2px 0 0">Payment receipt</p></div>
-      <table class="rcpt-tbl"><tbody>
-        <tr><th>Receipt no.</th><td class="mono">${r.no}</td></tr>
-        <tr><th>For</th><td>${r.title}${r.until ? html` (until ${r.until})` : ''}</td></tr>
-        <tr><th>Amount</th><td><b>${r.amount ? nairaOf(r.amount) : '—'}</b></td></tr>
-        <tr><th>Date</th><td>${fmtDate(r.at, { day: 'numeric', month: 'long', year: 'numeric', hour: 'numeric', minute: '2-digit' })}</td></tr>
-        <tr><th>Method</th><td>${via}</td></tr>
-        ${r.pref ? html`<tr><th>Reference</th><td class="mono">${r.pref}</td></tr>` : ''}
-        ${U.username ? html`<tr><th>Student</th><td>${U.username}</td></tr>` : ''}
-      </tbody></table>
-      <p class="tiny muted" style="margin-top:12px;text-align:center">Thank you for learning with Altidian. Rise to your highest point.</p></div>
-      <div class="row gap-s" style="justify-content:flex-end;margin-top:14px"><button class="btn ghost" data-close type="button">Close</button><button class="btn primary" data-action="rcpt-print" type="button">Print / save as PDF</button></div>`);
+    dialog(html`${receiptSheet(r, WHO)}
+      <div class="row gap-s" style="justify-content:flex-end;margin-top:14px"><button class="btn ghost" data-close type="button">Close</button><button class="btn primary" data-action="rcpt-print" type="button">${icon('file', 16)} Print / save as PDF</button></div>`);
   },
   async 'rcpt-print'(el) {
-    const sheet = el.closest('.modal').querySelector('.rcpt-sheet'); if (!sheet) return;
-    const w = document.createElement('div'); w.className = 'rcpt-print'; w.appendChild(sheet.cloneNode(true)); document.body.appendChild(w);
-    document.body.classList.add('printing');
-    const done = () => { document.body.classList.remove('printing'); w.remove(); window.removeEventListener('afterprint', done); };
-    window.addEventListener('afterprint', done); setTimeout(() => window.print(), 50);
+    const sheet = el.closest('.modal').querySelector('.rc-sheet'); if (!sheet) return;
+    printSheet(sheet);
   },
   async 'grp-copy'(el) {
     const text = 'Join my study group "' + el.dataset.name + '" on Altidian. Code: ' + el.dataset.code + ' — ' + siteOrigin() + '/#/groups';
