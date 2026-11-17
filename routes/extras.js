@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const H = require('../lib/helpers');
 const D = require('../lib/domain');
 const Ac = require('../lib/academics');
+const R = require('../lib/receipts');
 
 const { HttpError, clean, newId, isDate, isTime, bool } = H;
 const DAY = 86400000;
@@ -126,7 +127,8 @@ module.exports = function registerExtras({ route, store, send, userOf, push, sta
     const [quizzes, acad] = await Promise.all([store.list('quizzes'), Ac.loadAcademics(store)]);
     const codes = new Set(acad.courses.filter((c) => Ac.courseApplies(c, user)).map((c) => c.code));
     let pool = quizzes.filter((q) => !q.hidden && q.questions.length && D.hasAccess(user, q));
-    const mine = pool.filter((q) => codes.has(q.course)); if (mine.length) pool = mine;
+    // Only the student's own class. No question is better than one from another department.
+    pool = pool.filter((q) => codes.has(q.course));
     pool.sort((a, b) => String(a.id).localeCompare(String(b.id)));
     const flat = []; pool.forEach((q) => q.questions.forEach((_, i) => flat.push([q, i])));
     if (!flat.length) return null;
@@ -265,8 +267,25 @@ module.exports = function registerExtras({ route, store, send, userOf, push, sta
     const u = await need(req); const today = D.lagosDate();
     const [mats, qzs] = await Promise.all([store.list('materials'), store.list('quizzes')]);
     const all = mats.map((m) => ({ ...m, what: 'resource' })).concat(qzs.map((q) => ({ ...q, what: 'quiz' })));
+    // Receipts from before the verification code existed get one the first time they are listed.
+    if (Array.isArray(u.receipts) && u.receipts.some((r) => !r.code)) {
+      u.receipts.forEach((r) => { if (!r.code) r.code = R.makeCode(r.no); });
+      try { await store.put('users', u); } catch (e) { /* the list still shows; the codes are made again next time */ }
+    }
     const receipts = (Array.isArray(u.receipts) ? u.receipts : []).slice().sort((a, b) => b.at - a.at);
     const items = (Array.isArray(u.unlocked) ? u.unlocked : []).map((id) => all.find((x) => x.id === id)).filter(Boolean).map((x) => ({ id: x.id, title: x.title, course: x.course, what: x.what }));
     send(res, 200, { username: u.username || '', paidUntil: u.paidUntil || '', passActive: !!u.paidUntil && u.paidUntil >= today, items, receipts });
+  });
+
+  /* Anyone with the code (printed on the receipt, or scanned from its QR) can check that a receipt is genuine.
+     It shows what was bought and a masked name, and never an email, phone number or the payment reference. */
+  route('GET', '/api/verify/:code', { limit: ['verify', 30, 10 * 60 * 1000] }, async (req, res, { params }) => {
+    const code = R.normaliseCode(params[0]);
+    const missing = () => { throw new HttpError(404, 'We cannot find this receipt.'); };
+    if (!R.CODE_RE.test(code)) return missing();
+    const users = await store.list('users'); let owner = null; let rc = null;
+    for (const u of users) { const hit = (Array.isArray(u.receipts) ? u.receipts : []).find((r) => r.code === code); if (hit) { owner = u; rc = hit; break; } }
+    if (!rc) return missing();
+    send(res, 200, { ok: true, no: rc.no, code: rc.code, title: rc.title, amount: rc.amount || 0, at: rc.at, until: rc.until || '', online: rc.via === 'online', count: rc.itemCount || 0, by: R.maskName(owner.username) });
   });
 };

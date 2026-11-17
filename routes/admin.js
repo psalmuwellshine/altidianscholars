@@ -3,6 +3,7 @@
 const H = require('../lib/helpers');
 const D = require('../lib/domain');
 const Ac = require('../lib/academics');
+const R = require('../lib/receipts');
 const { FILE_TYPES, MAX_FILE_BYTES, looksLike } = require('../lib/files');
 
 const { HttpError, clean, okCourse, isHttp, newId, isDate, isTime, bool } = H;
@@ -169,8 +170,8 @@ module.exports = function registerAdmin({ route, store, send, push }) {
     const cfg = await D.loadConfig(store); const byId = new Map(mats.concat(qzs).map((x) => [x.id, x]));
     const now = Date.now(); user.receipts = Array.isArray(user.receipts) ? user.receipts : [];
     const no = () => 'ALT-' + H.sha(newId() + now).slice(0, 8).toUpperCase(); const gained = [];
-    user.unlocked.filter((id) => !hadItems.has(id)).forEach((id) => { const x = byId.get(id); user.receipts.push({ id: newId(), no: no(), kind: 'item', ref: id, title: x.title, amount: x.price || 0, at: now }); gained.push(x.title); });
-    if (until && until !== prevUntil && until >= D.lagosDate(now)) { user.receipts.push({ id: newId(), no: no(), kind: 'pass', title: 'Semester pass', amount: cfg.passPrice || 0, until, at: now }); gained.push('Semester pass'); }
+    user.unlocked.filter((id) => !hadItems.has(id)).forEach((id) => { const x = byId.get(id); const n1 = no(); user.receipts.push({ id: newId(), no: n1, code: R.makeCode(n1), kind: 'item', ref: id, title: x.title, amount: x.price || 0, at: now }); gained.push(x.title); });
+    if (until && until !== prevUntil && until >= D.lagosDate(now)) { { const n2 = no(); user.receipts.push({ id: newId(), no: n2, code: R.makeCode(n2), kind: 'pass', title: 'Semester pass', amount: cfg.passPrice || 0, until, at: now }); } gained.push('Semester pass'); }
     user.receipts = user.receipts.slice(-100);
     await store.put('users', user);
     if (gained.length) push.later({ audience: { uid: user.id }, type: 'direct', title: 'Access unlocked', body: gained.slice(0, 3).join(', ') + (gained.length > 3 ? ' and more' : ''), url: '/#/receipts' });
