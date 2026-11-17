@@ -30,6 +30,9 @@ const REDIRECTS = { '/login': '/#/login', '/login.html': '/#/login', '/profile':
 const etags = new Map();
 function serveStatic(req, res, pathname) {
   if (REDIRECTS[pathname]) return send(res, 302, '', { Location: REDIRECTS[pathname] });
+  // A scanned receipt code (altidian.com.ng/verify/ALT-…) opens the app's check page.
+  if (pathname === '/verify') return send(res, 302, '', { Location: '/#/verify' });
+  { const m = /^\/verify\/([A-Za-z0-9-]{4,40})$/.exec(pathname); if (m) return send(res, 302, '', { Location: '/#/verify/' + m[1] }); }
   const rel = PAGES[pathname] || pathname;
   let file = path.normalize(path.join(PUBLIC_DIR, rel));
   // The photo reader (tesseract.js) comes from npm (node_modules) when its files were not copied into public/vendor/tesseract/.
