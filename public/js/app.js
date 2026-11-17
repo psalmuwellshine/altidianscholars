@@ -26,6 +26,7 @@ import * as channels from './pages/channels.js';
 import { paid } from './pages/paid.js';
 import * as scan from './pages/scan.js';
 import * as campus from './pages/campus.js';
+import * as verify from './pages/verify.js';
 import { sponsorActions } from './pages/shared.js';
 
 initTheme();
@@ -79,7 +80,7 @@ const PAGES = [
 ];
 const visiblePages = () => PAGES.filter((p) => p.id !== 'chat' || (S.state && S.state.config.chatEnabled));
 const ctxApi = { S, load, user, config, go, renderView: () => route() };
-const modules = [home, library, quizzes, board, events, election, account, viewer, pay, chat, timetable, share, pushask, saved, rep, notify, cgpa, report, more, channels, scan, campus];
+const modules = [home, library, quizzes, board, events, election, account, viewer, pay, chat, timetable, share, pushask, saved, rep, notify, cgpa, report, more, channels, scan, campus, verify];
 const actions = Object.assign({}, ...modules.map((m) => m.actions || {}), sponsorActions);
 
 /* ---------- chrome (header, notice, tabs, footer) ---------- */
@@ -149,6 +150,7 @@ async function route() {
   else if (path === '/share') page = share;
   else if (path === '/saved') page = saved;
   else if (path === '/campus') page = campus;
+  else if (path === '/verify' || path.startsWith('/verify/')) { page = verify; params = { code: path.slice(8) }; }
   else if (path === '/rep') page = rep;
   else if (path === '/cgpa') page = cgpa;
   else if (path === '/bookmarks') page = more.bookmarks;
@@ -162,7 +164,8 @@ async function route() {
   else page = null;
 
   const isAuthPage = ['/login', '/register', '/forgot'].includes(path);
-  if (!user() && !isAuthPage) { // logged-out visitors always land on the login page first
+  const isPublic = path === '/verify' || path.startsWith('/verify/'); // anyone may check a receipt
+  if (!user() && !isAuthPage && !isPublic) { // logged-out visitors always land on the login page first
     go(path === '/' ? '/login' : '/login?next=' + encodeURIComponent(full));
     return;
   }
