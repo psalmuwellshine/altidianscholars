@@ -101,13 +101,7 @@ function renderChrome() {
     ${S.offline && u ? html`<div class="notice info" role="status"><div class="wrap">${icon("refresh", 19)}<span>You are offline. Saved notes and your timetable still work. <a href="#/saved">Open saved notes</a></span></div></div>` : ''}
     ${S.state.notice && u ? html`<div class="notice ${S.state.notice.level}" role="status"><div class="wrap">${icon('bell', 19)}<span>${S.state.notice.text}</span></div></div>` : ''}
     <main id="view" class="wrap" tabindex="-1"></main>
-    <footer class="foot"><div class="wrap in">
-      <div><b>${c.siteName}</b> ${c.tagline ? html`· ${c.tagline}` : ''}<br>${c.motto ? html`<span class="motto">${c.motto}</span><br>` : ''}<span class="tiny">${c.footerText}</span></div>
-      <div class="links">
-        <a href="#" data-action="channels-open">Our channels</a>
-        <a href="#" data-action="support-open">Contact support</a>
-      </div>
-    </div></footer>
+    <button class="fab-support" data-action="support-open" type="button" aria-label="Contact support">${icon('help', 22)}<span>Support</span></button>
     ${u ? html`<nav class="tabbar" aria-label="Main">${visiblePages().map((p) => html`<a class="tab ${cur === p.id ? 'on' : ''}" href="#${p.path}">${icon(p.icon, 22)}<span>${p.label}</span></a>`)}</nav>` : ''}`);
   if (oldView) document.getElementById('view').replaceWith(oldView); // keep the page the student is on
   document.body.classList.toggle('has-tabs', !!u);
@@ -189,6 +183,7 @@ async function route() {
   window.scrollTo(0, 0);
   const inQuiz = path.startsWith('/quiz/');
   document.body.classList.toggle('has-tabs', !inQuiz && !!user());
+  document.body.classList.toggle('no-fab', inQuiz || path.startsWith('/chat/')); // keep the support button off quizzes and chat rooms, where it would cover buttons
 }
 
 /* ---------- global events ---------- */
