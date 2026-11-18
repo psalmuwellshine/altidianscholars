@@ -169,8 +169,8 @@ const views = {
   },
 
   async materials() {
-    const list = await api('GET', '/api/admin/materials'); A.cache.materials = list;
-    return html`${head('Resources', plural(list.length, 'resource') + '. Notes, past questions, slides, videos and links.', html`<button class="btn ghost" data-action="mat-bulk" type="button">${icon('upload', 18)} Bulk upload</button> <button class="btn primary" data-action="mat-new" type="button">${icon('plus', 18)} Add resource</button>`)}
+    await loadAcad(); const list = await api('GET', '/api/admin/materials'); A.cache.materials = list;
+    return html`${head('Resources',plural(list.length, 'resource') + '. Notes, past questions, slides, videos and links.', html`<button class="btn ghost" data-action="mat-bulk" type="button">${icon('upload', 18)} Bulk upload</button> <button class="btn primary" data-action="mat-new" type="button">${icon('plus', 18)} Add resource</button>`)}
       ${list.length ? html`<div class="tbl-wrap"><table><thead><tr><th>Title</th><th>For</th><th>Type</th><th>Status</th><th></th></tr></thead><tbody>${list.map((m) => html`<tr><td><b>${m.title}</b><br><span class="tiny muted">${m.fileName || m.link || 'Notes only'}</span></td><td><span class="chip">${m.scope === 'department' ? dName(m.departmentId) || 'Department' : m.scope === 'faculty' ? fName(m.facultyId) || 'Faculty' : m.scope === 'university' ? 'Whole university' : m.course}</span></td><td>${kindLabel[m.kind] || m.kind}</td>
         <td>${m.paid ? html`<span class="chip brand">${naira(m.price)}</span> ` : ''}${m.pinned ? html`<span class="chip brand">Pinned</span> ` : ''}${m.hidden ? html`<span class="chip grey">Hidden</span>` : html`<span class="chip good">Live</span>`}</td>
         <td><div class="actions"><button class="btn ghost small icon" data-action="mat-pin" data-id="${m.id}" type="button" title="${m.pinned ? 'Unpin' : 'Pin to top'}" aria-label="${m.pinned ? 'Unpin' : 'Pin'}">${icon('pin', 17)}</button>
