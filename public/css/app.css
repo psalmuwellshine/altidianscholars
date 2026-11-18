@@ -71,6 +71,7 @@ a.avatar-link { text-decoration: none; display: inline-flex; border-radius: 999p
 .tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; border-radius: 12px; text-decoration: none; color: var(--muted); font-size: 11.5px; font-weight: 700; }
 .tab.on { color: var(--brand-ink); } .tab.on .ic { stroke-width: 2.6; }
 body.has-tabs main { padding-bottom: calc(var(--tab-h) + 28px + env(safe-area-inset-bottom)); }
+@media (min-width: 880px) { body.has-tabs main { padding-bottom: 28px; } }
 
 /* ---------- buttons, fields ---------- */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 20px; border-radius: 999px; border: 2px solid transparent; font: 700 15.5px var(--f-body); cursor: pointer; text-decoration: none; transition: transform .12s, box-shadow .12s, background .12s; }
@@ -597,49 +598,51 @@ body.has-tabs footer.foot { padding-bottom: calc(var(--tab-h) + 24px + env(safe-
 
 /* ---------- phones: a little more compact (desktop and tablets are unchanged) ---------- */
 @media (max-width: 640px) {
-  :root { --nav-h: 56px; --tab-h: 58px; --r: 14px; }
-  body { font-size: 15px; line-height: 1.5; }
-  .wrap { width: min(1120px, 100% - 28px); }
-  h1 { font-size: clamp(24px, 7vw, 30px); } h2 { font-size: 21px; } h3 { font-size: 16.5px; } h4 { font-size: 15px; }
-  .small { font-size: 13px; } .tiny { font-size: 12px; }
+  :root { --nav-h: 52px; --tab-h: 54px; --r: 13px; }
+  body { font-size: 14px; line-height: 1.45; }
+  .wrap { width: min(1120px, 100% - 24px); }
+  h1 { font-size: clamp(22px, 6.4vw, 27px); } h2 { font-size: 19px; } h3 { font-size: 15.5px; } h4 { font-size: 14px; }
+  .small { font-size: 12.5px; } .tiny { font-size: 11.5px; }
   .topbar .in { gap: 12px; }
-  .brand { font-size: 17px; gap: 8px; } .brand img { width: 32px; height: 32px; }
-  .icon-btn { width: 38px; height: 38px; } .avatar { width: 38px; height: 38px; font-size: 15px; }
-  .btn { min-height: 40px; padding: 8px 16px; font-size: 14.5px; gap: 6px; }
-  .btn.small { min-height: 34px; padding: 5px 12px; font-size: 13px; }
-  input, select, textarea { min-height: 42px; padding: 9px 12px; } /* text stays 16px so phones do not zoom in on tap */
-  .card { padding: 14px; }
-  .sec { margin-top: 26px; } .sec-head { margin-bottom: 12px; }
-  .page { padding-block: 16px 40px; }
-  .cards { gap: 12px; }
-  .hero { border-radius: 22px; padding: 20px 18px; margin-top: 14px; }
-  .hero h1 { font-size: 25px; max-width: none; } .hero p { margin-top: 8px; font-size: 14.5px; }
-  .hero .tag { margin-bottom: 10px; padding: 4px 11px; font-size: 12px; }
-  .hero-actions { gap: 8px; margin-top: 14px; } .hero-actions .btn { flex: 1 1 auto; padding: 8px 12px; font-size: 14px; white-space: nowrap; }
-  .hero-links { margin-top: 10px; gap: 14px; }
-  .alert { padding: 9px 12px; font-size: 14px; margin-bottom: 10px; }
-  .notice { font-size: 14px; padding: 8px 0; }
-  .pill { padding: 6px 12px; font-size: 13px; } .filters { gap: 6px; margin-bottom: 12px; }
+  .brand { font-size: 16px; gap: 7px; } .brand img { width: 28px; height: 28px; }
+  .icon-btn { width: 34px; height: 34px; } .avatar { width: 34px; height: 34px; font-size: 14px; }
+  .btn { min-height: 37px; padding: 7px 14px; font-size: 13.5px; gap: 6px; }
+  .btn.small { min-height: 31px; padding: 4px 10px; font-size: 12.5px; }
+  input, select, textarea { min-height: 40px; padding: 8px 11px; } /* text stays 16px so phones do not zoom in on tap */
+  .card { padding: 12px; }
+  .sec { margin-top: 20px; } .sec-head { margin-bottom: 9px; }
+  .page { padding-block: 12px 32px; }
+  .cards { gap: 10px; }
+  .hero { border-radius: 20px; padding: 16px 15px; margin-top: 10px; }
+  .hero h1 { font-size: 22px; max-width: none; } .hero p { margin-top: 6px; font-size: 13.5px; }
+  .hero .tag { margin-bottom: 8px; padding: 3px 10px; font-size: 11px; }
+  .hero-actions { gap: 7px; margin-top: 11px; } .hero-actions .btn { flex: 1 1 auto; padding: 7px 10px; font-size: 13px; white-space: nowrap; }
+  .hero-links { margin-top: 8px; gap: 12px; font-size: 13px; }
+  .alert { padding: 8px 11px; font-size: 13px; margin-bottom: 9px; }
+  .notice { font-size: 13px; padding: 6px 0; }
+  .pill { padding: 5px 11px; font-size: 12.5px; } .filters { gap: 6px; margin-bottom: 10px; }
   .chip { font-size: 11.5px; padding: 2px 9px; }
-  .res { gap: 8px; } .res h3 { font-size: 16px; } .res .note { font-size: 13.5px; }
+  .res { gap: 7px; } .res h3 { font-size: 15px; } .res .note { font-size: 12.5px; }
   .folds { gap: 8px; }
-  .fold > summary { min-height: 48px; padding: 10px 14px; gap: 10px; } .fold > summary b { font-size: 15px; } .fold-body { padding: 2px 12px 14px; }
-  .ico-box { width: 36px; height: 36px; }
-  .stat { padding: 12px; } .stats { gap: 8px; }
-  .count-pill { padding: 9px 12px; } .count-pill b { font-size: 26px; }
-  .tabbar { padding: 4px 6px calc(4px + env(safe-area-inset-bottom)); } .tab { font-size: 11px; padding: 4px 2px; }
-  .hs-form .searchbox input { min-height: 44px; } .hs-form .btn { min-height: 44px; }
-  .sponsor { margin: 12px 0; gap: 10px; } .sponsor .sp-logo { width: 46px; height: 46px; }
-  .empty { padding: 26px 16px; }
-  .p-head { padding: 18px; border-radius: 22px; gap: 12px; }
-  .q-text { font-size: 19px; margin: 12px 0 14px; } .opt { padding: 10px 12px; gap: 10px; font-size: 15.5px; min-height: 48px; border-radius: 12px; } .opt .l { width: 30px; height: 30px; }
-  .avatar.md { width: 52px; height: 52px; font-size: 22px; } .avatar.big { width: 68px; height: 68px; font-size: 30px; }
-  .move { margin-top: 12px; padding: 14px; border-radius: 18px; gap: 10px; }
+  .fold > summary { min-height: 44px; padding: 8px 12px; gap: 9px; } .fold > summary b { font-size: 14px; } .fold-body { padding: 2px 11px 12px; }
+  .ico-box { width: 32px; height: 32px; }
+  .stat { padding: 10px; } .stats { gap: 7px; }
+  .count-pill { padding: 8px 11px; } .count-pill b { font-size: 23px; }
+  .tabbar { padding: 4px 6px calc(4px + env(safe-area-inset-bottom)); } .tab { font-size: 10.5px; padding: 3px 2px; }
+  .hs-form .searchbox input { min-height: 40px; } .hs-form .btn { min-height: 40px; }
+  .sponsor { margin: 10px 0; gap: 9px; } .sponsor .sp-logo { width: 40px; height: 40px; }
+  .empty { padding: 20px 14px; }
+  .p-head { padding: 15px; border-radius: 20px; gap: 10px; }
+  .q-text { font-size: 17.5px; margin: 10px 0 12px; } .opt { padding: 8px 11px; gap: 9px; font-size: 14.5px; min-height: 44px; border-radius: 11px; } .opt .l { width: 27px; height: 27px; }
+  .avatar.md { width: 46px; height: 46px; font-size: 20px; } .avatar.big { width: 60px; height: 60px; font-size: 27px; }
+  .move { margin-top: 10px; padding: 12px; border-radius: 16px; gap: 9px; }
   .move h2 { margin: 8px 0 4px; font-size: 1.12rem; } .move p { font-size: .85rem; line-height: 1.4; }
   .move-tag { font-size: .68rem; padding: 3px 9px; }
   .move-count { padding: 8px 12px; gap: 6px; border-radius: 12px; } .move-count b { font-size: 1.6rem; } .move-count small { font-size: .76rem; }
+  footer.foot { padding: 14px 0 20px; font-size: 13px; }
+  footer.foot .in { justify-content: center; }
 }
-@media (max-width: 400px) { .hero-actions .btn { font-size: 13.5px; padding: 8px 10px; } .hero-actions .btn .ic { display: none; } }
+@media (max-width: 400px) { .hero-actions .btn { font-size: 12.5px; padding: 7px 9px; } .hero-actions .btn .ic { display: none; } }
 /* the two links under the hero were dark blue on a dark blue banner */
 .hero .linkish { color: #fff; opacity: .92; }
 
@@ -696,3 +699,18 @@ body.has-tabs footer.foot { padding-bottom: calc(var(--tab-h) + 24px + env(safe-
 .vf-rows > div { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 14px; color: var(--muted); }
 .vf-rows > div:last-child { border: 0; } .vf-rows b { text-align: right; font-weight: 600; color: var(--ink, inherit); }
 .vf-form { text-align: left; display: grid; gap: 12px; margin-top: 12px; }
+
+/* Browse other courses + Upload something: always side by side */
+.below-folds { display: flex; flex-wrap: nowrap; justify-content: center; align-items: center; gap: 8px; margin-top: 12px; }
+.below-folds .btn { flex: 0 1 auto; white-space: nowrap; min-width: 0; }
+@media (max-width: 640px) { .below-folds .btn { padding: 6px 11px; font-size: 12.5px; min-height: 34px; } }
+@media (max-width: 400px) { .below-folds .btn { padding: 6px 9px; } .below-folds .btn .ic { display: none; } }
+
+/* Floating support button (replaces the footer) */
+.fab-support { position: fixed; z-index: 40; right: 14px; bottom: calc(16px + env(safe-area-inset-bottom)); display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 16px 0 13px; border: 0; border-radius: 999px; background: var(--brand, #1F4DB8); color: var(--on-brand, #fff); font: 700 14px var(--f-body, inherit); box-shadow: 0 6px 18px rgba(15, 27, 61, .28); cursor: pointer; }
+.fab-support:active { transform: scale(.97); }
+body.has-tabs .fab-support { bottom: calc(var(--tab-h) + 14px + env(safe-area-inset-bottom)); }
+@media (min-width: 880px) { body.has-tabs .fab-support { bottom: 20px; right: 22px; } }
+body.no-fab .fab-support { display: none; }
+@media (max-width: 640px) { .fab-support { min-height: 40px; padding: 0 13px 0 11px; font-size: 13px; right: 12px; } .fab-support .ic { width: 20px; height: 20px; } }
+@media print { .fab-support { display: none !important; } }
