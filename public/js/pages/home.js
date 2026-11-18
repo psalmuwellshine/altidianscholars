@@ -75,7 +75,7 @@ export async function render({ S, user, config }) {
   const chips = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([code]) => code);
   const searching = Q.trim().length >= 2;
   // Under the class sections: look at other courses, or share something with the class.
-  const belowFolds = html`<div class="row gap-s wrap-r" style="justify-content:center;margin-top:12px"><a class="btn ghost small" href="#/library">Browse other courses ${icon('arrow', 15)}</a>${u && c.contribEnabled ? html`<a class="btn gold small" href="#/share">${icon('upload', 16)} Upload something</a>` : ''}</div>`;
+  const belowFolds = html`<div class="below-folds"><a class="btn ghost small" href="#/library">Browse other courses ${icon('arrow', 15)}</a>${u && c.contribEnabled ? html`<a class="btn gold small" href="#/share">${icon('upload', 16)} Upload something</a>` : ''}</div>`;
   // Everything starts minimised. A student taps a heading to open it.
   const fold = (ic, title, total, cards, seeAllHref) => html`<details class="fold">
     <summary><span class="ico-box">${icon(ic, 20)}</span><span class="grow"><b>${title}</b></span><span class="chip grey">${total}</span></summary>
