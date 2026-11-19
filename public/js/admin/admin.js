@@ -24,6 +24,7 @@ const SECTIONS = [
   { id: 'uploads', label: 'Student uploads', icon: 'upload' },
   { id: 'transfers', label: 'Transfers and levels', icon: 'refresh' },
   { id: 'payments', label: 'Online payments', icon: 'lock' },
+  { id: 'ask', label: 'Ask Altidian', icon: 'spark' },
   { id: 'reports', label: 'Reports', icon: 'flag' },
   { id: 'timetable', label: 'Timetable and exams', icon: 'clock' },
   { id: 'notice', label: 'Announcement', icon: 'bell' },
@@ -271,6 +272,35 @@ const views = {
       ${d.recent.length ? html`<h3 style="margin:24px 0 10px">Recently reviewed</h3><div class="card" style="padding:0;overflow:hidden">${d.recent.map((m) => row(m, false))}</div>` : ''}`;
   },
 
+  async ask() {
+    const d = await api('GET', '/api/admin/ai'); const s = d.settings;
+    const k = (ic, n, l, sub) => html`<div class="kpi">${icon(ic, 22)}<b>${n}</b><span>${l}</span>${sub ? html`<div class="tiny muted">${sub}</div>` : ''}</div>`;
+    const used = s.capUsd > 0 ? Math.min(100, Math.round((d.spentUsd / s.capUsd) * 100)) : 100;
+    const state = !d.keySet ? ['bad', 'Not connected', 'Add ANTHROPIC_API_KEY on Render (Environment) to switch it on. Students do not see the button until then.']
+      : d.killed ? ['bad', 'Switched off on Render', 'AI_ENABLED is 0 on Render. Remove it or set it to 1 to turn Ask Altidian on.']
+      : !s.enabled ? ['bad', 'Switched off here', 'Tick “Ask Altidian is on” below and save to turn it back on.']
+      : d.restingNow ? ['bad', 'Resting until next month', 'This month’s spending cap has been reached. Raise the cap below if you want it back now.']
+      : ['good', 'On', 'Students can ask questions about the notes they open.'];
+    const fbRow = (f) => html`<div class="cm"><div class="cm-top"><span class="chip ${f.rating === 'report' ? 'bad' : 'grey'}">${f.rating === 'report' ? 'Reported' : 'Not helpful'}</span><b>${f.title || 'A note'}</b><span class="tiny muted">by ${f.username} · ${ago(f.at)}</span></div>
+      <p class="small"><b>Question:</b> ${f.question}</p><details><summary class="small">See the answer</summary><p class="small muted" style="white-space:pre-wrap">${f.answer}</p></details>${f.note ? html`<p class="why">${f.note}</p>` : ''}
+      <div class="actions"><button class="btn ghost small" data-action="ask-fb-del" data-id="${f.id}" type="button">Dismiss</button></div></div>`;
+    return html`${head('Ask Altidian', 'The study assistant inside every PDF note. It answers from the pages a student is reading.')}
+      <div class="card" style="max-width:760px;margin-bottom:16px"><span class="chip ${state[0]}">${state[1]}</span> <span class="small muted">${state[2]}</span></div>
+      <div class="k-grid">${k('chat', d.questions.toLocaleString('en-NG'), 'Questions this month', d.month)}${k('chart', '$' + d.spentUsd.toFixed(2), 'Spent this month', 'of $' + s.capUsd + ' cap (' + used + '%)')}${k('users', d.today.students, 'Students today', d.today.questions + ' questions')}${k('thumbup', d.feedback.up, 'Thumbs up', d.feedback.down + ' down · ' + d.feedback.report + ' reported')}</div>
+      <div class="card" style="max-width:760px;margin:16px 0"><h3 style="margin-bottom:4px">Settings</h3><p class="muted small" style="margin-bottom:12px">Changes work straight away. Model: <b>${d.model}</b>. Anthropic’s own billing page shows the real bill; trust it over the estimate here.</p>
+        <div class="msg alert bad" hidden role="alert"></div>
+        <form data-submit="ask-save" novalidate>
+          <label class="check" style="margin-bottom:12px"><input type="checkbox" name="enabled" ${s.enabled ? raw('checked') : ''}> Ask Altidian is on</label>
+          <div class="grid2"><label class="field"><span>Questions a day: students with a semester pass</span><input name="passDaily" type="number" inputmode="numeric" min="1" max="200" value="${s.passDaily}"></label>
+          <label class="field"><span>Questions a day: students who bought a note or pack</span><input name="buyerDaily" type="number" inputmode="numeric" min="0" max="200" value="${s.buyerDaily}"><small>Anyone who has bought any paid item, but has no semester pass.</small></label>
+          <label class="field"><span>Free questions a day: everyone else</span><input name="freeDaily" type="number" inputmode="numeric" min="0" max="50" value="${s.freeDaily}"><small>0 means only pass holders can ask. A few free questions is a taste that sells the pass.</small></label></div>
+          <label class="field"><span>Monthly spending cap (US dollars)</span><input name="capUsd" type="number" inputmode="decimal" min="0" max="1000" step="0.5" value="${s.capUsd}"><small>It rests by itself when this month’s spend reaches the cap, and comes back next month.</small></label>
+          <label class="check small" style="margin-bottom:14px"><input type="checkbox" name="paidNotes" ${s.paidNotes ? raw('checked') : ''}> Let students use it on paid notes they can open</label>
+          <button class="btn primary" type="submit">Save settings</button></form></div>
+      <h3 style="margin:24px 0 10px">Answers students rated badly</h3>
+      <div class="card" style="padding:0;overflow:hidden">${d.feedback.recent.length ? d.feedback.recent.map(fbRow) : html`<div style="padding:8px">${empty('check', 'Nothing to check', 'Thumbs-down votes and reports on answers appear here.')}</div>`}</div>`;
+  },
+
   async payments() {
     const d = await api('GET', '/api/admin/payments');
     const label = { paid: ['Paid', 'brand'], pending: ['Waiting', 'grey'], failed: ['Failed', 'grey'], cancelled: ['Not completed', 'grey'], mismatch: ['Check amount', 'grey'] };
@@ -385,7 +415,8 @@ const views = {
           <label class="field"><span>Extra note for students (optional)</span><input name="payNote" maxlength="300" placeholder="e.g. Send proof within 24 hours" value="${c.payNote || ''}"></label></div>
         <div class="card" style="margin-top:16px"><h3 style="margin-bottom:6px">Semester pass</h3><p class="muted small" style="margin-bottom:12px">One payment that unlocks every paid note and quiz until the last day below. Mark items as paid, with their own prices, under Materials and Quizzes.</p>
           <div class="grid2"><label class="field"><span>Pass price (naira)</span><input name="passPrice" type="number" inputmode="numeric" min="0" step="1" placeholder="e.g. 2000" value="${c.passPrice || ''}"></label>
-          <label class="field"><span>Pass lasts until</span><input name="passEnds" type="date" value="${c.passEnds || ''}"></label></div></div>
+          <label class="field"><span>Pass lasts until</span><input name="passEnds" type="date" value="${c.passEnds || ''}"></label></div>
+          <label class="field"><span>Offer the pass only to classes with at least this many paid items</span><input name="passMin" type="number" inputmode="numeric" min="1" max="200" step="1" value="${c.passMin || 6}"><small>Paid notes and quizzes in the student’s own department and level. Classes below this number see single notes and packs only.</small></label></div>
         <div class="card" style="margin-top:16px"><h3 style="margin-bottom:6px">Contact support: WhatsApp admins</h3><p class="muted small" style="margin-bottom:12px">Students see one WhatsApp button for each admin under “Contact support”, so either of you can reply. Type the phone number (like 0815 117 9933) or paste a WhatsApp link. Leave both blank to hide WhatsApp there.</p>
           <div class="grid2"><label class="field"><span>Admin 1 name</span><input name="support1Name" maxlength="40" placeholder="e.g. Samuel" value="${c.support1Name || ''}"></label><label class="field"><span>Admin 1 WhatsApp</span><input name="support1Wa" inputmode="tel" placeholder="0815 117 9933" value="${c.support1Wa || ''}"></label>
           <label class="field"><span>Admin 2 name</span><input name="support2Name" maxlength="40" placeholder="e.g. Glorious" value="${c.support2Name || ''}"></label><label class="field"><span>Admin 2 WhatsApp</span><input name="support2Wa" inputmode="tel" placeholder="0803 000 0000" value="${c.support2Wa || ''}"></label></div></div>
@@ -630,6 +661,7 @@ const actions = {
     const { box, close } = dialog(html`<h3>Mark as fixed</h3><label class="field"><span>Short note for the student (optional)</span><input name="note" maxlength="200" placeholder="e.g. Corrected the answer, thanks" autofocus></label><div class="row end gap-s" style="margin-top:14px"><button class="btn ghost" type="button" data-close>Cancel</button><button class="btn primary" type="button" data-yes>Mark fixed</button></div>`);
     box.querySelector('[data-yes]').addEventListener('click', async () => { try { await api('POST', `/api/admin/reports/${el.dataset.id}/resolve`, { note: box.querySelector('[name=note]').value }); close(); toast('Marked as fixed.'); reload(); } catch (e) { toast(e.message, 'bad'); } });
   },
+  async 'ask-fb-del'(el) { await api('DELETE', '/api/admin/ai/feedback/' + encodeURIComponent(el.dataset.id)); reload(); },
   async 'rp-del'(el) { await api('DELETE', `/api/admin/reports/${el.dataset.id}`); reload(); },
 
   /* uploads, timetable, reps, push */
@@ -883,6 +915,9 @@ const submits = {
     await busy(form, async () => { await api('PUT', '/api/admin/election', { on: chk(form, 'on'), title: val(form, 'title'), departmentId: val(form, 'departmentId'), votingDate: val(form, 'votingDate'), note: val(form, 'note') }); toast('Saved.'); });
   },
 
+  async 'ask-save'(form) {
+    await busy(form, async () => { await api('PUT', '/api/admin/ai', { enabled: chk(form, 'enabled'), passDaily: Number(val(form, 'passDaily')), buyerDaily: Number(val(form, 'buyerDaily')), freeDaily: Number(val(form, 'freeDaily')), capUsd: Number(val(form, 'capUsd')), paidNotes: chk(form, 'paidNotes') }); toast('Saved.'); reload(); });
+  },
   async 'notice-save'(form) {
     await busy(form, async () => { await api('PUT', '/api/admin/notice', { text: val(form, 'text'), level: val(form, 'level'), push: chk(form, 'push') }); toast('Announcement published.'); });
   },
@@ -909,7 +944,7 @@ const submits = {
   async 'settings-save'(form) {
     await busy(form, async () => {
       const body = { siteName: val(form, 'siteName'), tagline: val(form, 'tagline'), motto: val(form, 'motto'), heroTitle: val(form, 'heroTitle'), heroText: val(form, 'heroText'), footerText: val(form, 'footerText'),
-        registrationOpen: chk(form, 'registrationOpen'), requireLogin: chk(form, 'requireLogin'), leaderboardEnabled: chk(form, 'leaderboardEnabled'), chatEnabled: chk(form, 'chatEnabled'), dmEnabled: chk(form, 'dmEnabled'), contribEnabled: chk(form, 'contribEnabled'), contribPoints: val(form, 'contribPoints'), moveOn: chk(form, 'moveOn'), paystackOn: chk(form, 'paystackOn'), moveCount: chk(form, 'moveCount'), moveEnds: val(form, 'moveEnds'), moveTitle: val(form, 'moveTitle'), moveText: val(form, 'moveText'), payBank: val(form, 'payBank'), payAccountNumber: val(form, 'payAccountNumber'), payAccountName: val(form, 'payAccountName'), payNote: val(form, 'payNote'), passPrice: val(form, 'passPrice'), passEnds: val(form, 'passEnds'),
+        registrationOpen: chk(form, 'registrationOpen'), requireLogin: chk(form, 'requireLogin'), leaderboardEnabled: chk(form, 'leaderboardEnabled'), chatEnabled: chk(form, 'chatEnabled'), dmEnabled: chk(form, 'dmEnabled'), contribEnabled: chk(form, 'contribEnabled'), contribPoints: val(form, 'contribPoints'), moveOn: chk(form, 'moveOn'), paystackOn: chk(form, 'paystackOn'), moveCount: chk(form, 'moveCount'), moveEnds: val(form, 'moveEnds'), moveTitle: val(form, 'moveTitle'), moveText: val(form, 'moveText'), payBank: val(form, 'payBank'), payAccountNumber: val(form, 'payAccountNumber'), payAccountName: val(form, 'payAccountName'), payNote: val(form, 'payNote'), passPrice: val(form, 'passPrice'), passMin: val(form, 'passMin'), passEnds: val(form, 'passEnds'),
         support1Name: val(form, 'support1Name'), support1Wa: val(form, 'support1Wa'), support2Name: val(form, 'support2Name'), support2Wa: val(form, 'support2Wa'),
         links: { whatsapp: val(form, 'whatsapp'), telegram: val(form, 'telegram'), youtube: val(form, 'youtube'), instagram: val(form, 'instagram'), tiktok: val(form, 'tiktok'), facebook: val(form, 'facebook'), x: val(form, 'x'), website: val(form, 'website'), email: val(form, 'email') } };
       A.config = await api('PUT', '/api/admin/config', body); toast('Settings saved. The site is updated.');
