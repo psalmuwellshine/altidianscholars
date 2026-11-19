@@ -262,3 +262,21 @@ Admin > Site settings > Move-over banner. Shows a banner with a countdown on the
 
 ### v38: bare address
 Altidian's main address is now `https://altidian.com.ng` (no www). Share links, Paystack return links and the old-address redirect use it. On Render, make the bare domain the main one under Custom Domains (www then redirects to it), and set the Paystack webhook to `https://altidian.com.ng/api/paystack/webhook`. To use another address, set `CANONICAL_URL` on Render.
+
+## Semester pass, packs and single notes (v2.4)
+The semester pass is offered to a student only when their own department and level has at least **passMin** paid notes and quizzes (Admin → Settings → Semester pass, default 6). Classes below that see single notes and packs only, so nobody pays for a pass that is not worth it. The server checks this again before an online pass payment starts. Giving a pass by hand under Students → Access always works.
+
+## Ask Altidian (optional)
+Students reading a PDF note get an **Ask Altidian** button. They type a question (or tap Key points, Explain simply, Quiz me) and Claude answers from the pages on screen. The phone reads the page text, so scanned-picture PDFs cannot be used.
+
+**Who can use it:** students with a live semester pass get up to 10 questions a day (also on paid notes they can open). A student who has bought any paid note, quiz or pack gets 5 a day. Everyone else gets 2 free questions a day, then sees an offer to buy a note or get the pass. All of these numbers are set on the admin **Ask Altidian** page, not in code. A student can also rate an answer (thumbs up or down) or report a wrong one; reports appear on that page.
+
+**Set up**
+1. Create an account at console.anthropic.com, add a small amount of credit (for example $10) and make an API key.
+2. In Render, add `ANTHROPIC_API_KEY` with that key. Never put it in the code or a chat. With no key, the button never appears.
+3. Log in as admin, open **Ask Altidian**, check the daily limits and the monthly cap (default $10; the feature rests by itself when the month's spend reaches it and returns next month). Changes work straight away.
+4. Optional: `AI_MODEL` (default `claude-haiku-5-5`, the cheapest), `AI_ENABLED=0` to switch it off at once, `AI_PRICE_IN` / `AI_PRICE_OUT` (USD per million tokens, only if you change the model). `AI_DAILY_LIMIT`, `AI_FREE_DAILY`, `AI_MONTHLY_CAP_USD` and `AI_PAID_NOTES=0` are still read as starting values.
+
+Anthropic's console shows the real bill; trust it over the estimate on the admin page. Question text and the note's page text are sent to Anthropic to get an answer; the sheet says so.
+
+**Files:** `lib/ai.js` (the Claude call, counters, settings), `routes/ai.js` (rules and limits), `public/js/pages/ask.js` (the button and sheet, inside the viewer code). Run `node scripts/build.js` after changing it.

@@ -88,6 +88,7 @@ async function main() {
   require('./routes/chat')({ route, store, send, userOf, push });
   require('./routes/community')({ route, store, send, userOf, push });
   require('./routes/extras')({ route, store, send, userOf, push, stats });
+  require('./routes/ai')({ route, store, send, userOf });
   require('./routes/election')({ route, store, send, userOf });
   require('./routes/transfers')({ route, store, send, userOf, push });
   require('./routes/paystack')({ route, store, send, userOf, push });

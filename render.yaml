@@ -14,3 +14,6 @@ services:
         sync: false # your Paystack secret key (sk_test_… or sk_live_…); never put it in the code
       - key: SESSION_SECRET
         generateValue: true
+      - key: ANTHROPIC_API_KEY
+        sync: false # Ask Altidian (optional). Create it at console.anthropic.com; leave empty to keep the feature off. Limits and the monthly cap are set on the admin Ask Altidian page
+
