@@ -67,6 +67,10 @@ const P = {
   flag: 'M5 21V4M5 4h11l-2 4 2 4H5',
   warning: 'M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0zM12 9v4M12 17h.01',
   refresh: 'M20 11a8 8 0 10-2.3 5.7M20 4v7h-7',
+  spark: 'M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4zM19 16l.9 2.1L22 19l-2.1.9L19 22l-.9-2.1L16 19l2.1-.9z',
+  copy: 'M9 9h11v11H9zM5 15V4h11',
+  thumbup: 'M7 22V11M7 11l4-8a2 2 0 012 2v4h6a2 2 0 012 2l-1 7a2 2 0 01-2 2H7',
+  thumbdown: 'M17 2v11M17 13l-4 8a2 2 0 01-2-2v-4H5a2 2 0 01-2-2l1-7a2 2 0 012-2h12',
 };
 export const icon = (name, size = 20) =>
   new Raw(`<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${P[name] || P.star}"/></svg>`);
