@@ -641,6 +641,7 @@ module.exports = function registerAdmin({ route, store, send, push }) {
       payAccountNumber: (() => { const n = String(b.payAccountNumber || '').replace(/\s+/g, ''); if (n && !/^\d{10}$/.test(n)) throw new HttpError(400, 'The account number must be 10 digits.'); return n; })(),
       paystackOn: bool(b.paystackOn),
       passPrice: wholeNaira(b.passPrice, 'semester pass price', true),
+      passMin: (() => { if (b.passMin === undefined || b.passMin === '') return cur.passMin || 6; const n = Number(b.passMin); if (!Number.isInteger(n) || n < 1 || n > 200) throw new HttpError(400, 'The pass minimum must be a whole number from 1 to 200.'); return n; })(),
       passEnds: (() => { const d = String(b.passEnds || '').trim(); if (d && !isDate(d)) throw new HttpError(400, 'Pick a valid last day for the semester pass.'); return d; })(),
       levelOpen: cur.levelOpen, levelEnds: cur.levelEnds,
       moveOn: bool(b.moveOn), moveCount: bool(b.moveCount),

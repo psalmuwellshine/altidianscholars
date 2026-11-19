@@ -99,7 +99,7 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
     const campusAudience = (m) => m.scope === 'university' || (user && (m.scope === 'faculty' ? user.facultyId === m.facultyId : m.scope === 'department' && user.departmentId === m.departmentId));
     const visibleQuizzes = quizzes.filter((q) => !q.hidden);
     send(res, 200, {
-      config: Object.assign({}, config, { paystack: Pay.enabled(config) }), academics, election: await Elec.summary(store, user),
+      config: Object.assign({}, config, { paystack: Pay.enabled(config), passReady: D.passReady(config, user, academics.courses, materials.concat(quizzes)) }), academics, election: await Elec.summary(store, user),
       notice: user && notice && notice.text ? { text: notice.text, level: notice.level || 'info' } : null,
       materials: visibleMaterials
         .sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0))

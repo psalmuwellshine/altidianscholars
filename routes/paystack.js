@@ -24,6 +24,8 @@ module.exports = function registerPaystack({ route, store, send, userOf, push })
       amount = Math.round(Number(cfg.passPrice)); until = cfg.passEnds || '';
       if (!(amount > 0) || !until || until < D.lagosDate()) throw new HttpError(400, 'The semester pass is not on sale right now.');
       if (user.paidUntil && user.paidUntil >= until) throw new HttpError(400, 'You already have a semester pass.');
+      const acad = await require('../lib/academics').loadAcademics(store);
+      if (!D.passReady(cfg, user, acad.courses, (await store.list('materials')).concat(await store.list('quizzes')))) throw new HttpError(400, 'The semester pass is not open for your class yet. Please buy the notes or packs you need.');
       title = 'Semester pass';
     } else if (kind === 'pack') {
       const pack = H.okId(b.itemId) ? await store.get('packs', String(b.itemId)) : null;
