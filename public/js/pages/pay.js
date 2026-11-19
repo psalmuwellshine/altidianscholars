@@ -14,10 +14,10 @@ async function copy(text) {
 }
 
 // The semester pass is offered only while it is on sale and the student does not have it.
-const passOn = (c, u) => {
+export const passOn = (c, u) => {
   const price = Number(c.passPrice) > 0 ? Number(c.passPrice) : 0;
   const canPay = !!(c.paystack || (c.payBank && c.payAccountNumber));
-  if (!u || !price || !canPay || !c.passEnds || c.passEnds < todayKey()) return 0;
+  if (!u || !price || !canPay || !c.passReady || !c.passEnds || c.passEnds < todayKey()) return 0;
   if (u.paidUntil && u.paidUntil >= todayKey()) return 0;
   return price;
 };
@@ -44,7 +44,7 @@ export const actions = {
     const passOnly = !el.dataset.id && !pack;
     const item = pack ? { id: pack.id, title: pack.name, price: pack.price } : passOnly ? { title: 'Semester pass', price: 0 } : S.state.materials.concat(S.state.quizzes).find((x) => x.id === el.dataset.id);
     if (!item) return;
-    const passPrice = Number(c.passPrice) > 0 ? Number(c.passPrice) : 0;
+    const passPrice = c.passReady && Number(c.passPrice) > 0 ? Number(c.passPrice) : 0;
     if (passOnly && !passPrice) return;
     const ready = !!(c.payBank && c.payAccountNumber);
     const online = !!c.paystack;

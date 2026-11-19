@@ -5,6 +5,7 @@
 import { html, icon, toast, esc } from '../core/ui.js';
 import { embedOf } from '../core/video.js';
 import { list as savedList } from '../core/offline.js';
+import { addAsk } from './ask.js';
 import { canSpeak, speak, stop as stopSpeech, pause as pauseSpeech, resume as resumeSpeech, speechState, noVoiceHelp } from '../core/speech.js';
 
 const PDFJS = '/vendor/pdfjs/';
@@ -96,7 +97,7 @@ function addListen(pdf, body) {
   });
 }
 
-async function showPdf(buf, body) {
+async function showPdf(buf, body, m, S) {
   const pdfjs = await loadPdfjs();
   const task = pdfjs.getDocument({ data: new Uint8Array(buf), standardFontDataUrl: PDFJS + 'standard_fonts/', useWasm: false });
   current.task = task; // closing the task frees the document and its worker
@@ -127,6 +128,7 @@ async function showPdf(buf, body) {
   const io = new IntersectionObserver((entries) => entries.forEach((e) => { if (e.isIntersecting) draw(e.target).catch(() => { e.target.textContent = 'This page could not be shown.'; }); }), { root: body, rootMargin: '600px 0px' });
   current.io = io; slots.forEach((s) => io.observe(s));
   addListen(pdf, body);
+  if (m && m.fileId && S && current) addAsk({ root: current.root, body, pdf, m, S, close: closeViewer });
 }
 
 async function showImage(buf, type, body) {
@@ -140,7 +142,7 @@ async function showImage(buf, type, body) {
   const slot = document.createElement('div'); slot.className = 'v-page'; slot.appendChild(canvas); body.appendChild(slot);
 }
 
-async function openViewer(m) {
+async function openViewer(m, S) {
   const reuse = claimHistory();
   const root = document.createElement('div'); root.className = 'viewer'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-label', m.title);
   root.innerHTML = '<div class="v-bar"><div class="grow"><b class="v-title"></b><span class="v-count tiny"></span></div><button class="btn ghost small v-close" type="button">Close</button></div><div class="v-body"><p class="v-msg">Opening…</p></div>';
@@ -159,7 +161,7 @@ async function openViewer(m) {
     const buf = await res.arrayBuffer();
     if (!current || current.root !== root) return; // closed while loading
     body.textContent = '';
-    if (type === 'application/pdf') await showPdf(buf, body);
+    if (type === 'application/pdf') await showPdf(buf, body, m, S);
     else if (type.startsWith('image/')) await showImage(buf, type, body);
     else throw new Error('This file type cannot be viewed here.');
   } catch (e) {
@@ -192,6 +194,6 @@ export const actions = {
   },
   'view-file'(el, ev, { S }) {
     const m = S.state.materials.find((x) => x.id === el.dataset.id) || (S.state.campus || []).find((x) => x.id === el.dataset.id) || savedList().find((x) => x.id === el.dataset.id);
-    if (m && m.fileId && !m.locked) openViewer(m);
+    if (m && m.fileId && !m.locked) openViewer(m, S);
   },
 };
