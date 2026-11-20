@@ -9,7 +9,7 @@ export function parseBulk(text) {
       let m;
       if ((m = line.match(/^(?:Q(?:uestion)?\s*\d*\s*[:.)-]|\d+\s*[.)])\s*(.+)$/i))) { q = m[1]; last = 'q'; }
       else if ((m = line.match(/^\(?([A-D])\s*[.)\]:]\s*(.+)$/i))) { o[m[1].toUpperCase()] = m[2]; last = m[1].toUpperCase(); }
-      else if ((m = line.match(/^(?:Answer|Ans|Correct)\s*[:=-]?\s*\(?([A-D])\)?/i))) { a = 'ABCD'.indexOf(m[1].toUpperCase()); last = 'a'; }
+      else if ((m = line.match(/^(?:Answer|Ans|Correct(?:\s+(?:option|answer))?)\s*[:=-]?\s*\(?([A-D])\)?/i))) { a = 'ABCD'.indexOf(m[1].toUpperCase()); last = 'a'; }
       else if ((m = line.match(/^(?:Why|Explanation|Reason)\s*[:=-]\s*(.+)$/i))) { e = m[1]; last = 'e'; }
       else if (last === 'q') q += ' ' + line;
       else if (last === 'e') e += ' ' + line;
