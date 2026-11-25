@@ -85,7 +85,7 @@ export async function api(method, url, body) {
   let data = null;
   try { data = await res.json(); } catch (e) { /* not JSON */ }
   if (!res.ok) throw new ApiError(res.status, (data && data.error) || 'Something went wrong. Please try again.');
-  if (/^\/api\/(login|register|user\/reset-password|admin\/login)$/.test(url)) idle.touch(true);
+  if (/^\/api\/(login|register|user\/reset-password|admin\/login|passkey\/login\/verify)$/.test(url)) idle.touch(true);
   if (/^\/api\/(login|register|logout)$/.test(url)) { try { sessionStorage.removeItem('alt-push-asked'); } catch (e) { /* ignore */ } }
   return data;
 }

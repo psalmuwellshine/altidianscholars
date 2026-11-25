@@ -57,7 +57,7 @@ export function parseTimetable(text, { kind = 'class', year = new Date().getFull
     let k = /\bexam/.test(lower) ? 'exam' : /\b(test|quiz|ca\b|assessment)/.test(lower) ? 'test' : kind;
     if (k === 'class' && !day && date) k = 'exam';
     const v = line.match(VENUE);
-    let rest = line.replace(RANGE, ' ').replace(COURSE, ' ').replace(VENUE, ' ').replace(/\b(mon|tues?|wed(?:nes)?|thu(?:rs?)?|fri|sat(?:ur)?|sun)(?:day)?\b/ig, ' ').replace(/[|@,;:–—-]+/g, ' ').replace(/\s+/g, ' ').trim();
+    let rest = line.replace(/\b\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}\b/g, ' ').replace(RANGE, ' ').replace(COURSE, ' ').replace(VENUE, ' ').replace(/\b(mon|tues?|wed(?:nes)?|thu(?:rs?)?|fri|sat(?:ur)?|sun)(?:day)?\b/ig, ' ').replace(/[|@,;:–—-]+/g, ' ').replace(/\s+/g, ' ').trim();
     if (rest.length > 50) rest = rest.slice(0, 50).trim();
     const code = c ? (c[1] + c[2]).toUpperCase() : '';
     rows.push({ kind: k, day: k === 'class' ? (d || day || 0) : 0, date: k === 'class' ? '' : (dt || date || ''), start: r ? r.start : '', end: r ? r.end : '', course: code, title: code ? (code + (rest ? ' ' + rest : '')) : (rest || 'Class'), venue: v ? v[1].replace(/\s+/g, ' ').trim() : '' });
