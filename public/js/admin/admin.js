@@ -6,6 +6,7 @@ import { placeFields, placeChange } from '../pages/shared.js';
 import { reasonLabel } from '../pages/report.js';
 import { openScan, actions as scanActions } from '../pages/scan.js';
 import * as idle from '../core/idle.js';
+import * as pk from '../core/passkey.js';
 import { openCourseImport, openDeptImport, actions as importActions } from '../pages/import.js';
 
 initTheme();
@@ -49,6 +50,7 @@ function loginView(configured) {
     <div class="msg alert bad" hidden role="alert"></div>
     <form data-submit="login" novalidate><label class="field"><span>Password</span><input type="password" name="password" autocomplete="current-password" required autofocus></label>
     <button class="btn primary block" type="submit" ${configured ? '' : raw('disabled')}>Sign in</button></form>
+    ${configured ? pk.loginButton('admin') : ''}
     <p style="text-align:center;margin-top:16px"><a class="small" href="/">← Back to the site</a></p></div>`);
 }
 
@@ -380,7 +382,7 @@ const views = {
         <ul class="small" style="padding-left:18px;line-height:1.7"><li>These files contain student names, matric numbers, scores and password codes. Do not share them or post them in groups.</li><li>Store them somewhere private, such as your own Google Drive or a computer only you use.</li><li>Download a data backup at least once a week, and before any big change.</li></ul></div>`;
   },
   async settings() {
-    const [c, ps] = await Promise.all([api('GET', '/api/admin/config'), api('GET', '/api/admin/paystack').catch(() => ({ keyPresent: false }))]); A.config = c; const L = c.links;
+    const [c, ps, pks] = await Promise.all([api('GET', '/api/admin/config'), api('GET', '/api/admin/paystack').catch(() => ({ keyPresent: false })), pk.supported() ? api('GET', '/api/passkey/list?scope=admin').catch(() => ({ list: [] })) : { list: [] }]); A.config = c; const L = c.links;
     const tg = (name, on, title, sub) => html`<label class="toggle-row"><input type="checkbox" name="${name}" ${on ? raw('checked') : ''}><span><b>${title}</b><small class="muted" style="display:block">${sub}</small></span></label>`;
     return html`${head('Site settings', 'Everything students see on the site, in one place.')}
       <form data-submit="settings-save" novalidate style="max-width:760px"><div class="msg alert bad" hidden role="alert"></div>
@@ -426,7 +428,8 @@ const views = {
           <label class="field"><span>TikTok link</span><input name="tiktok" inputmode="url" placeholder="https://" value="${L.tiktok || ''}"></label><label class="field"><span>Facebook link</span><input name="facebook" inputmode="url" placeholder="https://" value="${L.facebook || ''}"></label>
           <label class="field"><span>X (Twitter) link</span><input name="x" inputmode="url" placeholder="https://" value="${L.x || ''}"></label><label class="field"><span>Website</span><input name="website" inputmode="url" placeholder="https://" value="${L.website}"></label></div>
           <label class="field"><span>Support email (leave blank to use support@altidian.com.ng)</span><input name="email" type="email" placeholder="support@altidian.com.ng" value="${L.email}"></label></div>
-        <div style="margin-top:18px"><button class="btn primary" type="submit">Save settings</button></div></form>`;
+        <div style="margin-top:18px"><button class="btn primary" type="submit">Save settings</button></div></form>
+      ${pk.card(pks.list, 'admin')}`;
   },
 };
 
@@ -646,6 +649,9 @@ const linkHint = (el) => {
   h.style.color = 'var(--good)';
 };
 const actions = {
+  async 'pk-admin-login'(el) { try { await pk.signIn('admin'); start(); } catch (e) { warn(el.closest('.login-box'), e.message); } },
+  async 'pk-admin-add'() { await pk.addFlow('admin'); reload(); },
+  async 'pk-admin-remove'(el) { if (await pk.removeFlow('admin', el.dataset.id)) reload(); },
   'nav-toggle'() { setMenu(!document.querySelector('.adm.open')); },
   'nav-close'() { setMenu(false); },
   'mat-link': linkHint,
@@ -1089,7 +1095,7 @@ Object.assign(actions, scanActions, importActions, {
   'crs-import'() { openCourseImport({ acad: A.acad, done: reload }); },
   'dep-import'() { openDeptImport({ acad: A.acad, done: reload }); },
   'tt-scan'() {
-    openScan({ target: 'admin', done: reload,
+    openScan({ target: 'admin', courses: ((A.acad && A.acad.courses) || []).map((c) => c.code), done: reload,
       scopeHtml: html`<div class="grid2"><label class="field"><span>Department</span><select name="scope-dept"><option value="">Everyone</option>${A.acad.departments.map((d) => html`<option value="${d.id}">${d.name}</option>`)}</select></label>
         <label class="field"><span>Level</span><select name="scope-level"><option value="">All levels</option>${[100, 200, 300, 400, 500, 600].map((l) => html`<option value="${l}">${l} level</option>`)}</select></label></div>`,
       scope: (box) => { const o = {}; const d = box.querySelector('[name=scope-dept]').value; const l = box.querySelector('[name=scope-level]').value; if (d) o.departmentId = d; if (l) o.level = Number(l); return o; } });
