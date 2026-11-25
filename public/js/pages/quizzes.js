@@ -1,4 +1,4 @@
-import { html, mount, icon, api, toast, pct, esc, dialog, siteOrigin } from '../core/ui.js';
+import { html, mount, icon, api, toast, pct, esc, dialog, siteOrigin, ago } from '../core/ui.js';
 import { reportButton } from './report.js';
 import { canSpeak, speak, stop as stopSpeech, speechState, nextRate, rateLabel, noVoiceHelp } from '../core/speech.js';
 import { markBtn, weakCard } from './more.js';
@@ -24,6 +24,51 @@ export async function render({ S, user, config }) {
 
 /* ---------- quiz runner: normal, timed exam, or practising old mistakes ---------- */
 let run = null;
+let pending = null; // a saved run waiting for "Continue" or "Start over"
+
+/* ---------- keeping a quiz in progress ----------
+   Phones drop a page from memory when the student switches apps. The place and answers are saved on the phone
+   after every move, so the quiz can be picked up again. */
+const RUN_DAYS = 3;
+let who = 'guest';
+const runKey = (quizId, mode) => 'alt-run:' + who + ':' + quizId + ':' + mode;
+const clearRun = (quizId, mode) => { try { localStorage.removeItem(runKey(quizId, mode)); } catch (e) { /* ignore */ } };
+function saveRun() {
+  if (!run || run.result || run.sending) return;
+  const n = run.mode === 'cards' ? run.total - new Set(run.queue).size : run.answers.filter((a) => a !== null).length + run.i;
+  if (!n) return clearRun(run.quiz.id, run.mode);
+  const d = { v: 1, t: Date.now(), nq: run.quiz.questions.length, mode: run.mode, list: run.list, perm: run.perm, i: run.i, answers: run.answers, flags: Array.from(run.flags), endAt: run.endAt };
+  if (run.mode === 'cards') Object.assign(d, { queue: run.queue, again: Array.from(run.again), total: run.total });
+  try { localStorage.setItem(runKey(run.quiz.id, run.mode), JSON.stringify(d)); } catch (e) { /* storage full or blocked: the quiz still works */ }
+}
+function loadRun(quiz, mode) {
+  try {
+    const d = JSON.parse(localStorage.getItem(runKey(quiz.id, mode)) || 'null');
+    const nq = quiz.questions.length;
+    const okIdx = (a) => Array.isArray(a) && a.every((x) => Number.isInteger(x) && x >= 0 && x < nq);
+    if (!d || d.v !== 1 || d.mode !== mode || d.nq !== nq || Date.now() - d.t > RUN_DAYS * 86400000) { clearRun(quiz.id, mode); return null; }
+    if (!okIdx(d.list) || !d.list.length || !Array.isArray(d.answers) || d.answers.length !== nq || !d.perm || d.list.some((qi) => !Array.isArray(d.perm[qi]))) { clearRun(quiz.id, mode); return null; }
+    if (!Number.isInteger(d.i) || d.i < 0 || d.i >= d.list.length) { clearRun(quiz.id, mode); return null; }
+    if (mode === 'cards' && (!okIdx(d.queue) || !okIdx(d.again))) { clearRun(quiz.id, mode); return null; }
+    return d;
+  } catch (e) { return null; }
+}
+function restoreRun(quiz, d) {
+  stopTimer();
+  run = { quiz, mode: d.mode, list: d.list, perm: d.perm, i: d.i, answers: d.answers, flags: new Set(d.flags || []), picked: null, result: null, endAt: d.mode === 'exam' ? Number(d.endAt) || 0 : 0, tick: null };
+  run.picked = d.mode === 'exam' ? null : run.answers[run.list[run.i]];
+  if (d.mode === 'cards') { run.queue = d.queue; run.again = new Set(d.again); run.show = false; run.total = d.total; }
+}
+function resumeCard() {
+  const { quiz, mode, saved: d } = pending;
+  const done = mode === 'cards' ? d.total - new Set(d.queue).size : d.answers.filter((a) => a !== null).length;
+  const total = mode === 'cards' ? d.total : d.list.length;
+  const over = mode === 'exam' && d.endAt && Date.now() > d.endAt;
+  return html`<div class="card" style="max-width:520px;margin:24px auto;text-align:center"><span class="ico-box brand">${icon('quiz', 24)}</span>
+    <h2 style="margin:10px 0 6px">${over ? 'Your exam time ended' : 'Pick up where you stopped?'}</h2>
+    <p class="muted">${quiz.title}: ${over ? 'the time ran out while you were away. Your answers are kept and will be submitted.' : done + ' of ' + total + ' ' + (mode === 'cards' ? 'cards done' : 'questions answered') + '. Saved ' + ago(d.t) + '.'}</p>
+    <div class="row gap" style="margin-top:16px;justify-content:center"><button class="btn primary" data-action="qz-resume" type="button">${over ? 'Submit my answers' : 'Continue'}</button>${over ? '' : html`<button class="btn ghost" data-action="qz-fresh" type="button">Start over</button>`}</div></div>`;
+}
 const L = ['A', 'B', 'C', 'D'];
 import { raw } from '../core/ui.js';
 const raw0 = raw;
@@ -39,7 +84,7 @@ const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) {
 const ORDER_BOUND = /\b(all|none|both|neither)\b[^.]{0,20}\b(of\s+)?(the\s+)?(above|these|those|options?)\b|\b(both|neither)\s+\(?[a-e]\)?\s+(and|nor)\s+\(?[a-e]\)?\b|\b(option|choice)s?\s+\(?[a-e]\)?\b|\b(a|b|c|d)\s+(and|&)\s+(a|b|c|d)\b/i;
 const optionOrder = (q) => { const idx = q.o.map((_, i) => i); return q.o.some((o) => ORDER_BOUND.test(String(o))) ? idx : shuffle(idx); };
 function start(quiz, mode, missed) {
-  stopTimer();
+  stopTimer(); clearRun(quiz.id, mode);
   const all = quiz.questions.map((_, i) => i);
   const list = shuffle(mode === 'practice' ? missed.slice() : all);
   // perm[qi][shownPosition] = original option index. Answers are always stored as the ORIGINAL index, so scoring and mistakes stay correct.
@@ -184,7 +229,7 @@ function autoStep() {
   r.show = false; draw();
   startSpeech(q.q, () => wait(1800, () => { r.show = true; draw(); startSpeech(answerText(q), () => wait(1600, () => { r.queue.shift(); r.show = false; autoStep(); })); }));
 }
-const draw = () => { mount(document.getElementById('runner'), run.result ? resultScreen() : screen()); beginClock(); };
+const draw = () => { if (run && run.result) clearRun(run.quiz.id, run.mode); else saveRun(); mount(document.getElementById('runner'), run.result ? resultScreen() : screen()); beginClock(); };
 
 let ctxRef = null;
 async function submit() {
@@ -214,10 +259,12 @@ export const runner = {
     let mode = query && query.get('mode');
     if (mode === 'practice' && !missed.length) mode = 'full';
     if (mode !== 'exam' && mode !== 'practice' && mode !== 'cards') mode = 'full';
-    start(quiz, mode, missed);
+    who = ctx.user() ? ctx.user().id : 'guest';
+    const saved = loadRun(quiz, mode);
+    if (saved) { pending = { quiz, mode, saved }; run = null; } else { pending = null; start(quiz, mode, missed); }
     return html`<div class="runner ${quiz.paid ? 'no-copy' : ''}" id="runner"></div>`;
   },
-  after() { if (run) draw(); },
+  after() { if (pending) mount(document.getElementById('runner'), resumeCard()); else if (run) draw(); },
 };
 runner.needsLogin.displayName = 'needsLogin';
 
@@ -259,6 +306,8 @@ export const actions = {
     run.picked = v; run.answers[qi] = v; draw();
     const nx = document.querySelector('[data-action="qz-next"]'); if (nx) nx.focus();
   },
+  'qz-resume'() { if (!pending) return; restoreRun(pending.quiz, pending.saved); pending = null; draw(); window.scrollTo(0, 0); },
+  'qz-fresh'(el, ev, ctx) { if (!pending) return; const { quiz, mode } = pending; pending = null; const missed = ((ctx.S.state.me && ctx.S.state.me.missed) || {})[quiz.id] || []; start(quiz, mode, missed); draw(); window.scrollTo(0, 0); },
   'qz-time'(el) { if (!run || run.endAt) return; run.endAt = Date.now() + Number(el.dataset.min) * 60000; draw(); window.scrollTo(0, 0); },
   'qz-card-show'() { autoOff(); run.show = true; draw(); },
   'sp-card'() {
@@ -302,5 +351,5 @@ export const actions = {
   'qz-mistakes'() { start(run.quiz, 'practice', run.result.missed); draw(); window.scrollTo(0, 0); },
   'qz-practice-again'() { start(run.quiz, 'practice', run.result.left); draw(); window.scrollTo(0, 0); },
   'qz-review'() { const b = document.getElementById('review'); b.innerHTML = reviewHtml().s; b.scrollIntoView({ behavior: 'smooth' }); },
-  'qz-quit'(el, ev, { go }) { if (run.result || run.mode === 'cards' || (run.mode === 'exam' && !run.endAt) || (run.mode !== 'exam' && run.picked === null && run.i === 0) || confirm('Leave this quiz? Your progress will be lost.')) { stopTimer(); go('/quizzes'); } },
+  'qz-quit'(el, ev, { go }) { if (run.result || run.mode === 'cards' || (run.mode === 'exam' && !run.endAt) || true) { stopTimer(); if (!run.result) saveRun(); go('/quizzes'); } },
 };

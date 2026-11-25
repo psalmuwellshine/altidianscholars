@@ -106,7 +106,8 @@ async function showPdf(buf, body, m, S) {
   const first = await pdf.getPage(1); const v1 = first.getViewport({ scale: 1 });
   const ratio = v1.height / v1.width;
   const dpr = Math.min(window.devicePixelRatio || 1, 3);
-  const scale = Math.min(dpr, 2400 / cssW); // sharp when zoomed, without using too much memory
+  // Draw about 1.8 times sharper than the screen needs, so a pinch-zoom on small print stays crisp (about 1700 px wide, capped).
+  const scale = Math.max(dpr, Math.min(dpr * 1.8, 4, 1700 / cssW));
   const slots = [];
   for (let i = 1; i <= pdf.numPages; i++) {
     const slot = document.createElement('div'); slot.className = 'v-page'; slot.dataset.n = String(i);
@@ -125,7 +126,9 @@ async function showPdf(buf, body, m, S) {
     slot.style.height = canvas.style.height; slot.textContent = ''; slot.appendChild(canvas);
   };
   // Pages are drawn as they scroll into view, so long PDFs stay light on a phone.
-  const io = new IntersectionObserver((entries) => entries.forEach((e) => { if (e.isIntersecting) draw(e.target).catch(() => { e.target.textContent = 'This page could not be shown.'; }); }), { root: body, rootMargin: '600px 0px' });
+  // Sharper pages are bigger in memory, so a page far off screen is cleared and drawn again when it comes back.
+  const release = (slot) => { const c = slot.querySelector('canvas'); if (!c) return; c.width = 0; c.height = 0; c.remove(); delete slot.dataset.done; };
+  const io = new IntersectionObserver((entries) => entries.forEach((e) => { if (e.isIntersecting) draw(e.target).catch(() => { e.target.textContent = 'This page could not be shown.'; }); else if (e.target.dataset.done) release(e.target); }), { root: body, rootMargin: '1400px 0px' });
   current.io = io; slots.forEach((s) => io.observe(s));
   addListen(pdf, body);
   if (m && m.fileId && S && current) addAsk({ root: current.root, body, pdf, m, S, close: closeViewer });

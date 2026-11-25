@@ -4,6 +4,7 @@ import * as move from './transition.js';
 import * as more from './more.js';
 import { emptyState, placeFields, placeChange, hasPlace, deptName, facultyName, acad } from './shared.js';
 import { passButton } from './pay.js';
+import * as pk from '../core/passkey.js';
 
 let nextPath = '/';
 const safeNext = (n) => (n && n.startsWith('/') && !n.startsWith('//') ? n : '/');
@@ -51,6 +52,7 @@ async function authBody({ S, user, config, go }, { mode }, query) {
         ${pw('login-pass', 'Password')}
         <div class="row between" style="margin:-6px 0 14px"><label class="check small"><input type="checkbox" data-change="show-pw"> Show password</label><a class="link-btn" href="#/forgot${q}">Forgot password?</a></div>
         <button class="btn primary block" type="submit">Log in</button></form>
+      ${pk.loginButton('user')}
       ${c.registrationOpen ? html`<p class="muted small" style="text-align:center;margin-top:18px">New here? <a href="#/register${q}">Create a free account</a></p>` : ''}</div>`;
   }
 }
@@ -69,6 +71,7 @@ export const profile = {
   async render({ S, user, config }) {
     const p = await api('GET', '/api/profile');
     S.profile = p;
+    const pks = pk.supported() ? await api('GET', '/api/passkey/list').catch(() => ({ list: [] })) : { list: [] };
     const r = p.rank; const earned = p.badges.filter((b) => b.earned).length;
     return html`
       ${!hasPlace(p.user) ? html`<div class="alert warning" role="status">Add your department and level in <a href="#settings" data-action="goto-settings">account settings</a> so you see the right courses.</div>` : ''}
@@ -103,6 +106,7 @@ export const profile = {
         ${user().rep ? html`<a class="card flat q gold" href="#/rep">${icon('shield', 22)}<b>Class rep panel</b><span>Review notes and post for your class</span></a>` : ''}</div></section>
       ${notifyMod.section()}
       ${more.transferSection()}
+      <section class="sec">${pk.card(pks.list, 'user')}</section>
 
       <section class="sec folds"><details class="fold"><summary><span class="ico-box">${icon('medal', 20)}</span><span class="grow"><b>Badges</b><br><span class="tiny muted">${earned} of ${p.badges.length} unlocked</span></span></summary><div class="fold-body">
         <div class="badges">${p.badges.map((b) => html`<div class="badge ${b.earned ? '' : 'off'}"><div class="ico-box">${icon(b.earned ? 'medal' : 'lock', 24)}</div><b>${b.name}</b><span>${b.desc}</span>${b.earned ? '' : html`<div class="bar" style="margin-top:8px"><i style="width:${pct(b.progress.current, b.progress.target)}%"></i></div>`}</div>`)}</div></div></details></section>
@@ -169,8 +173,17 @@ export const actions = {
       const username = String(f.get('username')).trim(); const password = String(f.get('login-pass'));
       if (!username || !password) throw new Error('Enter your username and password.');
       await api('POST', '/api/login', { username, password, deviceId: S.device });
-      await load(); toast('Welcome back!'); go(nextPath);
+      await load(); toast('Welcome back!'); go(nextPath); pk.offerAfterLogin();
     });
+  },
+  async 'pk-login'(el, ev, { load, go }) {
+    try { await pk.signIn('user'); await load(); toast('Welcome back!'); go(nextPath); } catch (e) { showBox('auth-msg', e.message); }
+  },
+  async 'pk-add'(el, ev, { renderView }) {
+    try { await pk.addFlow('user'); renderView(); } catch (e) { toast(e.message, 'bad'); }
+  },
+  async 'pk-remove'(el, ev, { renderView }) {
+    try { if (await pk.removeFlow('user', el.dataset.id)) renderView(); } catch (e) { toast(e.message, 'bad'); }
   },
   'do-register'(form, ev, { S, load, go }) {
     return sendForm(form, async () => {

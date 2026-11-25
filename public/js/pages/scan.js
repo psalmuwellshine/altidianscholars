@@ -1,6 +1,7 @@
 // Add a whole timetable at once: take a photo (or paste the text), check what was read, save.
 import { html, raw, icon, api, toast, dialog } from '../core/ui.js';
 import { parseTimetable, missing } from '../core/ttparse.js';
+import { layoutText, fixCodes } from '../core/ttgrid.js';
 import { DAYS } from './timetable.js';
 
 const ENGINE = '/vendor/tesseract/';
@@ -17,6 +18,58 @@ export async function readPhoto(file, onProgress) {
   const ok = await loadEngine(); if (!ok) return null;
   const worker = await window.Tesseract.createWorker('eng', 1, { workerPath: ENGINE + 'worker.min.js', corePath: ENGINE, langPath: ENGINE + 'lang', workerBlobURL: false, logger: (m) => { if (m.status === 'recognizing text') onProgress(Math.round(m.progress * 100)); } });
   try { const { data } = await worker.recognize(file); return data.text || ''; } finally { await worker.terminate(); }
+}
+
+/* ---------- reading a timetable photo ----------
+   Table lines are removed first (they confuse the reader), the picture is enlarged and made grey, and the reader is told to
+   look for scattered text. Each word comes back with its position, and layoutText() rebuilds the rows and columns from that. */
+function otsu(gray) {
+  const h = new Uint32Array(256); for (let i = 0; i < gray.length; i += 7) h[gray[i]]++;
+  let total = 0; for (let i = 0; i < 256; i++) total += h[i];
+  let sum = 0; for (let i = 0; i < 256; i++) sum += i * h[i];
+  let sb = 0, wb = 0, best = 0, th = 150;
+  for (let t = 0; t < 256; t++) { wb += h[t]; if (!wb) continue; const wf = total - wb; if (!wf) break; sb += t * h[t]; const mb = sb / wb, mf = (sum - sb) / wf; const v = wb * wf * (mb - mf) * (mb - mf); if (v > best) { best = v; th = t; } }
+  return Math.min(190, Math.max(110, th));
+}
+export async function prepTimetable(file) {
+  try {
+    const bmp = await createImageBitmap(file); const big = Math.max(bmp.width, bmp.height);
+    const k = Math.min(3000 / big, Math.max(1, 2400 / big)); const W = Math.round(bmp.width * k), H = Math.round(bmp.height * k);
+    const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d', { willReadFrequently: true });
+    g.fillStyle = '#fff'; g.fillRect(0, 0, W, H); g.drawImage(bmp, 0, 0, W, H);
+    const img = g.getImageData(0, 0, W, H); const d = img.data; const gray = new Uint8Array(W * H);
+    for (let i = 0, j = 0; i < d.length; i += 4, j++) gray[j] = (d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11) | 0;
+    const th = otsu(gray); const mask = new Uint8Array(W * H);
+    const markRuns = (len, at, setM, min) => { let run = 0; for (let t = 0; t <= len; t++) { const dark = t < len && gray[at(t)] < th; if (dark) run++; else { if (run >= min) for (let q = t - run; q < t; q++) setM(at(q)); run = 0; } } };
+    const minH = Math.max(60, Math.round(0.1 * W)); const minV = Math.max(60, Math.round(0.1 * H));
+    for (let y = 0; y < H; y++) markRuns(W, (x) => y * W + x, (i) => { mask[i] = 1; }, minH);
+    for (let x = 0; x < W; x++) markRuns(H, (y) => y * W + x, (i) => { mask[i] = 1; }, minV);
+    // widen the removed lines a little so their soft edges go too
+    const grown = new Uint8Array(mask);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (mask[y * W + x]) { for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const yy = y + dy, xx = x + dx; if (yy >= 0 && yy < H && xx >= 0 && xx < W) grown[yy * W + xx] = 1; } }
+    for (let j = 0; j < gray.length; j++) { const v = grown[j] ? 255 : gray[j]; d[j * 4] = d[j * 4 + 1] = d[j * 4 + 2] = v; d[j * 4 + 3] = 255; }
+    g.putImageData(img, 0, 0);
+    return await new Promise((r) => c.toBlob((b) => r(b || file), 'image/png'));
+  } catch (e) { return file; }
+}
+const wordsOf = (data) => {
+  const out = [];
+  const add = (w) => { const b = w.bbox || w; if (w.text && b && b.x1 > b.x0) out.push({ text: w.text, x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 }); };
+  if (Array.isArray(data.words) && data.words.length) data.words.forEach(add);
+  else if (typeof data.tsv === 'string') data.tsv.split('\n').forEach((l) => { const c = l.split('\t'); if (c[0] === '5' && c.length >= 12 && c[11].trim()) add({ text: c[11].trim(), x0: +c[6], y0: +c[7], x1: +c[6] + +c[8], y1: +c[7] + +c[9] }); });
+  else (data.blocks || []).forEach((b) => (b.paragraphs || []).forEach((p) => (p.lines || []).forEach((l) => (l.words || []).forEach(add))));
+  return out;
+};
+export async function readTimetablePhoto(file, onProgress, courses) {
+  const ok = await loadEngine(); if (!ok) return null;
+  const worker = await window.Tesseract.createWorker('eng', 1, { workerPath: ENGINE + 'worker.min.js', corePath: ENGINE, langPath: ENGINE + 'lang', workerBlobURL: false, logger: (m) => { if (m.status === 'recognizing text') onProgress(Math.round(m.progress * 100)); } });
+  try {
+    try { await worker.setParameters({ tessedit_pageseg_mode: '11', preserve_interword_spaces: '1' }); } catch (e) { /* the default mode still works */ }
+    const { data } = await worker.recognize(file, {}, { text: true, tsv: true, blocks: true });
+    const words = wordsOf(data);
+    const text = (words.length && layoutText(words)) || data.text || '';
+    return fixCodes(text, courses);
+  } finally { await worker.terminate(); }
 }
 // Phone photos are huge; a smaller copy reads just as well and is much faster.
 export async function shrink(file, max = 1800, min = 0) {
@@ -70,7 +123,7 @@ export const actions = {
     try {
       if (file) {
         status.textContent = 'Reading the photo… 0%';
-        const small = await shrink(file); const t = await readPhoto(small, (p) => { status.textContent = 'Reading the photo… ' + p + '%'; });
+        status.textContent = 'Cleaning the picture…'; const small = await prepTimetable(file); const t = await readTimetablePhoto(small, (p) => { status.textContent = 'Reading the photo… ' + p + '%'; }, S.opts.courses);
         if (t === null) { if (!text.trim()) throw new Error('Photo reading is not switched on yet. Paste or type the timetable text instead.'); } else { text = text.trim() ? text + '\n' + t : t; f('text').value = text; }
       }
       if (!text.trim()) throw new Error('Add a photo or some text first.');

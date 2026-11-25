@@ -56,7 +56,7 @@ export async function render({ S }) {
 export function after() { /* nothing to attach */ }
 
 export const actions = {
-  'tt-scan'(el, ev, { S, load, renderView }) { openScan({ target: 'mine', done: async () => { await load(); renderView(); } }); },
+  'tt-scan'(el, ev, { S, load, renderView }) { openScan({ target: 'mine', courses: S.state.academics.courses.map((c) => c.code), done: async () => { await load(); renderView(); } }); },
   'tt-kind'(el) { const f = el.closest('form'); const c = el.value === 'class'; f.querySelector('.tt-day').hidden = !c; f.querySelector('.tt-date').hidden = c; },
   'tt-add'(el, ev, { S }) {
     const courses = S.state.academics.courses.map((c) => c.code);
