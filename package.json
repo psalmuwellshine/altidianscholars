@@ -1,6 +1,6 @@
 {
   "name": "altidian",
-  "version": "2.5.1",
+  "version": "2.5.2",
   "private": true,
   "description": "Altidian: study library, quizzes, leaderboard and student profiles by faculty, department and level",
   "main": "server.js",

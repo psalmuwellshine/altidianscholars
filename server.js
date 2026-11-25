@@ -93,6 +93,7 @@ async function main() {
   require('./routes/transfers')({ route, store, send, userOf, push });
   require('./routes/paystack')({ route, store, send, userOf, push });
   require('./routes/backup')({ route, store, send });
+  require('./routes/passkey')({ route, store, send, userOf });
 
   // The old Render address (…onrender.com) sends visitors to Altidian's own address, on the same page they asked for.
   const CANONICAL = (process.env.CANONICAL_URL || 'https://altidian.com.ng').replace(/\/+$/, '');
