@@ -57,7 +57,7 @@ export const actions = {
       <h3>${m.title}</h3><div class="${m.paid ? 'no-copy' : ''}" style="white-space:pre-line;margin:12px 0 20px;line-height:1.65">${m.note || ''}</div>
       ${canSpeak() && m.note ? html`<div class="row gap-s listen-row" style="margin:-6px 0 14px"><button class="btn ghost small" data-action="sp-note" data-id="${m.id}" type="button">${icon('volume', 16)} <span>Listen</span></button><button class="btn ghost small sp-rate" data-action="sp-rate" type="button" title="Reading speed">${rateLabel()}</button><button class="btn ghost small" data-action="sp-voice" type="button">Voice</button></div>` : ''}
       <div class="row end gap-s wrap-r">${m.fileId ? fileBtn(m) : ''}
-      ${m.link ? html`<a class="btn ghost small" href="${m.link}" target="_blank" rel="noopener noreferrer">${icon('link', 16)} Open link</a>` : ''}
+      ${m.link ? html`<a class="btn ghost small" href="${m.link}" data-track="${m.id}" target="_blank" rel="noopener noreferrer">${icon('link', 16)} Open link</a>` : ''}
       <button class="btn ghost small" data-close type="button" autofocus>Close</button></div>`, { wide: true, onClose: () => stopSpeech() });
   },
   'sp-note'(el, ev, { S }) {

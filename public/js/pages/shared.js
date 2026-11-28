@@ -18,7 +18,7 @@ export function resourceCard(m) {
     ${m.locked ? html`<div class="go"><button class="btn gold small" data-action="unlock" data-id="${m.id}" type="button">${icon('lock', 16)} Unlock</button></div>` : html`<div class="go row wrap-r gap-s">
       ${m.fileId ? fileBtn(m) : ''}
       ${m.link && embedOf(m.link) ? html`<button class="btn primary small" data-action="play-video" data-id="${m.id}" type="button">${icon('video', 16)} Watch</button>` : ''}
-      ${m.link && !embedOf(m.link) ? html`<a class="btn ${m.fileId ? 'ghost' : 'primary'} small" href="${m.link}" target="_blank" rel="noopener noreferrer">${icon(m.kind === 'video' ? 'video' : 'link', 16)} ${m.kind === 'video' ? 'Watch' : 'Open link'}</a>` : ''}
+      ${m.link && !embedOf(m.link) ? html`<a class="btn ${m.fileId ? 'ghost' : 'primary'} small" href="${m.link}" data-track="${m.id}" target="_blank" rel="noopener noreferrer">${icon(m.kind === 'video' ? 'video' : 'link', 16)} ${m.kind === 'video' ? 'Watch' : 'Open link'}</a>` : ''}
       ${!m.fileId && !m.link && m.note ? html`<button class="btn primary small" data-action="read" data-id="${m.id}" type="button">Read notes</button>` : ''}
       <button class="icon-btn small-ic more-btn" data-action="more-res" data-id="${m.id}" type="button" aria-label="More options" title="More">${icon('more', 18)}</button>
     </div>`}

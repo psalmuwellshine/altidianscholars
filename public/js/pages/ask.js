@@ -21,9 +21,9 @@ const FOLLOW = [
   ['Quiz me on this', 'Quiz me on this with 3 questions, with the answers at the end.'],
 ];
 
-const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+export const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
 
-async function call(method, url, body) {
+export async function call(method, url, body) {
   let res;
   try { res = await fetch(url, { method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined, credentials: 'same-origin' }); }
   catch (e) { const err = new Error('Could not reach the server. Check your connection and try again.'); err.status = 0; throw err; }
@@ -34,9 +34,13 @@ async function call(method, url, body) {
 
 /* ---- the answer, with light formatting (bullets, numbers, **bold**) built safely from text ---- */
 function inline(parent, text) {
-  text.split(/\*\*(.+?)\*\*/g).forEach((part, i) => { if (!part) return; if (i % 2) parent.appendChild(el('b', '', part)); else parent.appendChild(document.createTextNode(part)); });
+  text.split(/\*\*(.+?)\*\*/g).forEach((part, i) => {
+    if (!part) return;
+    if (i % 2) { parent.appendChild(el('b', '', part)); return; }
+    part.split(/\*([^*\n]+)\*/g).forEach((bit, j) => { if (!bit) return; if (j % 2) parent.appendChild(el('i', '', bit)); else parent.appendChild(document.createTextNode(bit)); }); // *italic*
+  });
 }
-function format(text) {
+export function format(text) {
   const box = el('div', 'ask-text');
   let list = null; let kind = '';
   const flush = () => { list = null; kind = ''; };
@@ -114,8 +118,8 @@ export function addAsk({ root, body, pdf, m, S, close }) { // S = the app's stat
 
   const showLeft = () => {
     if (!st.left || !st.info) return;
-    const i = st.info; st.left.textContent = i.state === 'upsell' || i.state === 'limit' || i.state === 'resting' ? '' : i.remaining + ' left today';
-    st.left.className = 'ask-left' + (i.remaining <= 1 ? ' low' : '');
+    const i = st.info; st.left.textContent = i.state === 'upsell' || i.state === 'limit' || i.state === 'resting' ? '' : i.left + (i.units ? ' left' : ' left today');
+    st.left.className = 'ask-left' + (i.left <= 1 ? ' low' : '');
   };
   const scroll = () => { st.log.scrollTop = st.log.scrollHeight; };
 
@@ -174,6 +178,9 @@ export function addAsk({ root, body, pdf, m, S, close }) { // S = the app's stat
           const b = el('button', 'btn gold block', 'See paid notes and packs'); b.type = 'button'; b.addEventListener('click', () => { close(); setTimeout(() => { location.hash = '#/library'; }, 300); }); box.appendChild(b);
         } else box.appendChild(el('p', '', 'Your questions come back tomorrow.'));
       }
+      if (i.state !== 'resting' && config().paystack && (i.packs || []).length) {
+        const u = el('button', 'btn ghost block', 'Get units (never expire)'); u.type = 'button'; u.addEventListener('click', () => { close(); setTimeout(() => { location.hash = '#/ask'; }, 300); }); box.appendChild(u);
+      }
       st.foot.appendChild(box); st.input = null; return;
     }
     const form = el('form', 'ask-form'); const inp = el('input'); inp.type = 'text'; inp.maxLength = 500; inp.placeholder = 'Ask about this note…'; inp.enterKeyHint = 'send'; inp.autocomplete = 'off';
@@ -187,7 +194,7 @@ export function addAsk({ root, body, pdf, m, S, close }) { // S = the app's stat
   }
 
   async function ask(q) {
-    if (st.busy || !st.info || !(st.info.remaining > 0)) return;
+    if (st.busy || !st.info || !(st.info.left > 0)) return;
     st.busy = true; if (st.send) st.send.disabled = true; if (st.input) st.input.disabled = true;
     clearFollow(); const w = st.log.querySelector('.ask-welcome'); if (w) w.remove();
     bubble('q').textContent = q;
@@ -199,10 +206,10 @@ export function addAsk({ root, body, pdf, m, S, close }) { // S = the app's stat
       const out = await call('POST', '/api/ai/ask', { file: m.fileId, title: m.title, question: q, context: ctx.text, history: st.history.slice(-3) });
       wait.remove(); answerBubble(out.answer, q);
       st.history.push({ q, a: out.answer });
-      st.info.remaining = out.remaining; st.info.plan = out.plan; if (out.remaining <= 0) st.info.state = st.info.plan === 'pass' ? 'limit' : 'upsell';
+      Object.assign(st.info, { remaining: out.remaining, units: out.units, left: out.left, plan: out.plan }); if (out.left <= 0) st.info.state = st.info.plan === 'pass' ? 'limit' : 'upsell';
     } catch (e) {
       wait.remove();
-      if (e.status === 429 && e.data && (e.data.reason === 'upsell' || e.data.reason === 'limit')) { st.info.remaining = 0; st.info.state = e.data.reason; }
+      if (e.status === 429 && e.data && (e.data.reason === 'upsell' || e.data.reason === 'limit')) { Object.assign(st.info, { remaining: 0, units: 0, left: 0, state: e.data.reason }); }
       else if (e.status === 503 && /resting/i.test(e.message)) { st.info.state = 'resting'; st.info.message = e.message; }
       else { const d = bubble('err'); d.textContent = e.message || 'Something went wrong. Please try again.'; }
     }

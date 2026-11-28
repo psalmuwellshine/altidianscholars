@@ -14,7 +14,7 @@ function card(S, m) {
     ${m.note ? html`<p class="note">${m.note}</p>` : ''}
     <div class="go row wrap-r gap-s">
       ${m.fileId ? fileBtn(m) : ''}
-      ${m.link ? html`<a class="btn ${m.fileId ? 'ghost' : 'primary'} small" href="${m.link}" target="_blank" rel="noopener noreferrer">${icon('link', 16)} Open link</a>` : ''}
+      ${m.link ? html`<a class="btn ${m.fileId ? 'ghost' : 'primary'} small" href="${m.link}" data-track="${m.id}" target="_blank" rel="noopener noreferrer">${icon('link', 16)} Open link</a>` : ''}
       ${!m.fileId && !m.link && m.note ? html`<button class="btn primary small" data-action="campus-read" data-id="${m.id}" type="button">Read</button>` : ''}
     </div></article>`;
 }

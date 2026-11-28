@@ -171,6 +171,15 @@ function screen() {
     ${exam ? html`${navigator()}<div style="margin-top:14px;text-align:center"><button class="btn gold" data-action="qz-submit" type="button">Submit exam</button></div>` : ''}`;
 }
 
+// After a quiz: what happens to the missed questions, and where to work next.
+function recapHtml(r) {
+  const c = r.recap; if (!c) return '';
+  const weak = (c.weak || []).slice(0, 3);
+  if (!c.reviewTomorrow && !weak.length) return '';
+  return html`<div class="card flat" style="margin-top:16px;text-align:left">
+    ${c.reviewTomorrow ? html`<p class="small"><b>${icon('refresh', 15)} ${c.reviewTomorrow} missed question${c.reviewTomorrow === 1 ? '' : 's'} will come back for review tomorrow</b>, then again after a few days, until they stick. <a href="#/review">Open Review</a></p>` : ''}
+    ${weak.length ? html`<p class="small" style="margin-top:${c.reviewTomorrow ? '10px' : '0'}"><b>Where to work next</b></p><div class="row gap-s wrap-r" style="margin-top:6px">${weak.map((w) => html`<a class="chip bad" href="#/quiz/${w.id}">${w.title} · ${w.pct}%</a>`)}</div>` : ''}</div>`;
+}
 function resultScreen() {
   const { quiz, result: r } = run;
   if (run.mode === 'practice') {
@@ -190,6 +199,7 @@ function resultScreen() {
     <p style="margin-top:12px">${r.improved ? html`<span class="chip good">${icon('star', 13)} New best score</span>` : html`<span class="chip grey">Your best score stays the same</span>`} ${r.rank ? html`<span class="chip brand">${r.rank} · ${r.points} pts</span>` : ''}</p>
     ${r.newBadges && r.newBadges.length ? html`<div class="alert warning" style="margin-top:16px">${icon('medal', 18)} New badge${r.newBadges.length > 1 ? 's' : ''} unlocked: <b>${r.newBadges.join(', ')}</b></div>` : ''}
     ${r.guest ? html`<div class="alert info" style="margin-top:16px">Create an account to keep your scores safe. <a href="#/register">Sign up</a></div>` : ''}
+    ${recapHtml(r)}
     <div class="row gap wrap-r" style="justify-content:center;margin-top:20px">
       ${nm && !r.guest ? html`<button class="btn primary" data-action="qz-mistakes" type="button">${icon('refresh', 17)} Practise my ${nm} mistake${nm > 1 ? 's' : ''}</button>` : ''}
       <button class="btn ${nm && !r.guest ? 'ghost' : 'primary'}" data-action="qz-again" type="button">${icon('refresh', 17)} Try again</button>

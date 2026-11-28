@@ -62,6 +62,27 @@ function resultsHtml(S, u, q) {
     ${group('Events', 'calendar', r.evs, 'e', eventTile)}`;
 }
 
+
+/* ---------- today's study plan: review due, the nearest exams (with the weakest quiz for each), and quizzes to fix ---------- */
+function studyPlan(S, exams) {
+  const st = S.state; const me = st.me || {}; const best = me.best || {};
+  const pctOf = (id) => { const b = best[id]; return b && b.total ? Math.round((b.correct / b.total) * 100) : -1; };
+  const seen = new Set(); const tasks = [];
+  exams.filter((x) => x.course && daysTo(x.date) <= 45).slice(0, 2).forEach((x) => {
+    const qs = st.quizzes.filter((q) => q.course === x.course && !q.locked && q.count > 0).sort((a, b) => pctOf(a.id) - pctOf(b.id));
+    const q = qs.find((z) => pctOf(z.id) < 100) || null; if (q) seen.add(q.id);
+    tasks.push({ x, q, pct: q ? pctOf(q.id) : -1 });
+  });
+  const weak = (me.weak || []).filter((w) => !seen.has(w.id)).slice(0, 2);
+  const due = (me.review && me.review.due) || 0;
+  return { due, later: (me.review && me.review.later) || 0, tasks, weak, show: due > 0 || tasks.length > 0 || weak.length > 0 };
+}
+const planCard = (p) => html`<section class="sec"><div class="card plan-card"><div class="sec-head" style="margin:0 0 10px"><div><h2 style="font-size:1.1rem">Today’s plan</h2><p class="small muted">What to do next, worked out from your exams and the questions you missed.</p></div></div>
+  ${p.due > 0 ? html`<div class="plan-row"><span class="ico-box">${icon('refresh', 18)}</span><span class="grow"><b>Review ${p.due} question${p.due === 1 ? '' : 's'} you missed</b><br><span class="tiny muted">Takes about ${Math.max(2, Math.ceil(Math.min(p.due, 10) * 0.4))} minutes</span></span><a class="btn gold small" href="#/review">Start</a></div>` : ''}
+  ${p.tasks.map((t) => html`<div class="plan-row"><span class="ico-box">${icon('calendar', 18)}</span><span class="grow"><b>${t.x.course} ${t.x.kind === 'test' ? 'test' : 'exam'} ${countdown(daysTo(t.x.date))}</b><br><span class="tiny muted">${t.q ? (t.pct < 0 ? 'Start with ' + t.q.title + ' (not tried yet)' : 'Weakest here: ' + t.q.title + ' (' + t.pct + '%)') : 'No quiz for this course yet. Read your notes.'}</span></span>${t.q ? html`<a class="btn primary small" href="#/quiz/${t.q.id}">Practise</a>` : html`<a class="btn ghost small" href="#/library">Notes</a>`}</div>`)}
+  ${p.weak.map((w) => html`<div class="plan-row"><span class="ico-box">${icon('quiz', 18)}</span><span class="grow"><b>Needs work: ${w.title}</b><br><span class="tiny muted">${w.course} · you scored ${w.pct}%</span></span><a class="btn ghost small" href="#/quiz/${w.id}">Practise</a></div>`)}
+</div></section>`;
+
 export async function render({ S, user, config }) {
   const st = S.state; const c = config(); const u = user();
   const upcoming = st.events.filter((e) => e.date >= todayKey()).slice(0, 3);
@@ -71,6 +92,7 @@ export async function render({ S, user, config }) {
   const quizPool = st.quizzes.filter((q) => inScope(S, u, 'mine', q.course));
   const best = (st.me && st.me.best) || {};
   const exams = u ? upcomingExams(st) : []; const today = u ? classesToday(st) : [];
+  const plan = u && st.me ? studyPlan(S, exams) : null;
   const counts = new Map(); pool.forEach((m) => counts.set(m.course, (counts.get(m.course) || 0) + 1));
   const chips = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([code]) => code);
   const searching = Q.trim().length >= 2;
@@ -117,6 +139,7 @@ export async function render({ S, user, config }) {
       <div><p class="muted small">Welcome back</p><h3>${u.username}</h3><p class="small"><span class="chip brand">${st.me.rank.title}</span> ${st.me.points} points${st.me.position ? ' · #' + st.me.position + ' on the board' : ''}</p></div></div>
       <a class="btn gold" href="#/profile">View my profile ${icon('arrow', 17)}</a></div></section>` : ''}
 
+    ${plan && plan.show ? planCard(plan) : ''}
     ${u && (exams.length || today.length || (st.classNotes || []).length) ? html`<section class="sec"><div class="sec-head"><div><h2>Your plan</h2><p>Countdowns, today's classes and updates from your class.</p></div><a class="btn ghost small" href="#/timetable">Timetable ${icon('arrow', 15)}</a></div>
       ${(st.classNotes || []).length ? html`<div class="notes-strip">${st.classNotes.slice(0, 3).map((n) => n.kind === 'summary' ? html`<div class="alert info"><span class="chip">${n.course}</span> <b>Today in class</b> · ${n.by}<br>${n.text}</div>` : html`<div class="alert info"><b>${n.by}:</b> ${n.text}</div>`)}</div>` : ''}
       ${exams.length ? html`<div class="count-row">${exams.slice(0, 3).map((x) => html`<a class="count-pill ${daysTo(x.date) <= 1 ? 'soon' : ''}" href="#/timetable"><b>${daysTo(x.date)}</b><span>${daysTo(x.date) === 1 ? 'day' : 'days'}</span><i>${x.course || x.title} ${x.kind}</i></a>`)}</div>` : ''}
