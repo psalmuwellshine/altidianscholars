@@ -10,6 +10,8 @@ import * as account from './pages/account.js';
 import * as viewer from './pages/viewer.js';
 import * as pay from './pages/pay.js';
 import * as chat from './pages/chat.js';
+import { tutor } from './pages/tutor.js';
+import * as reviewPg from './pages/review.js';
 import * as timetable from './pages/timetable.js';
 import * as share from './pages/share.js';
 import * as pushask from './pages/pushask.js';
@@ -28,8 +30,10 @@ import * as scan from './pages/scan.js';
 import * as campus from './pages/campus.js';
 import * as verify from './pages/verify.js';
 import { sponsorActions } from './pages/shared.js';
+import { watchOpens } from './core/track.js';
 
 initTheme();
+watchOpens();
 
 /* ---------- shared state ---------- */
 export const S = { state: null, device: '', profile: null };
@@ -76,11 +80,12 @@ const PAGES = [
   { id: 'quizzes', path: '/quizzes', label: 'Quizzes', icon: 'quiz', mod: quizzes },
   { id: 'board', path: '/board', label: 'Ranks', icon: 'trophy', mod: board },
   { id: 'events', path: '/events', label: 'Events', icon: 'calendar', mod: events },
+  { id: 'ask', path: '/ask', label: 'AI', icon: 'spark', mod: tutor },
   { id: 'chat', path: '/chat', label: 'Chat', icon: 'chat', mod: chat },
 ];
-const visiblePages = () => PAGES.filter((p) => p.id !== 'chat' || (S.state && S.state.config.chatEnabled));
+const visiblePages = () => PAGES.filter((p) => p.id === 'chat' ? !!(S.state && S.state.config.chatEnabled) : p.id === 'ask' ? !!(S.state && S.state.config.aiOn) : true);
 const ctxApi = { S, load, user, config, go, renderView: () => route() };
-const modules = [home, library, quizzes, board, events, election, account, viewer, pay, chat, timetable, share, pushask, saved, rep, notify, cgpa, report, more, channels, scan, campus, verify];
+const modules = [reviewPg, home, library, quizzes, board, events, election, account, viewer, pay, chat, timetable, share, pushask, saved, rep, notify, cgpa, report, more, channels, scan, campus, verify];
 const actions = Object.assign({}, ...modules.map((m) => m.actions || {}), sponsorActions);
 
 /* ---------- chrome (header, notice, tabs, footer) ---------- */
@@ -121,7 +126,7 @@ function currentId() {
   if (path.startsWith('/quiz/')) return 'quizzes';
   if (path === '/timetable') return 'events';
   if (path === '/share' || path === '/saved' || path === '/campus') return 'library';
-  if (path === '/cgpa' || path === '/election' || path === '/bookmarks' || path === '/groups' || path.startsWith('/group/') || path === '/receipts' || path === '/paid') return 'home';
+  if (path === '/cgpa' || path === '/election' || path === '/bookmarks' || path === '/groups' || path.startsWith('/group/') || path === '/receipts' || path === '/paid' || path === '/review') return 'home';
   return '';
 }
 
@@ -152,6 +157,8 @@ async function route() {
   else if (path.startsWith('/group/')) { page = more.group; params = { id: path.slice(7) }; }
   else if (path === '/receipts') page = more.receipts;
   else if (path === '/paid') page = paid;
+  else if (path === '/ask') page = tutor;
+  else if (path === '/review') page = reviewPg.review;
   else if (path === '/chat' || path.startsWith('/chat/')) { page = chat; params = { room: path.slice(6) }; }
   else if (path === '/profile') page = account.profile;
   else if (['/login', '/register', '/forgot'].includes(path)) { page = account.auth; params = { mode: path.slice(1) }; }
@@ -183,7 +190,7 @@ async function route() {
   window.scrollTo(0, 0);
   const inQuiz = path.startsWith('/quiz/');
   document.body.classList.toggle('has-tabs', !inQuiz && !!user());
-  document.body.classList.toggle('no-fab', inQuiz || path.startsWith('/chat/')); // keep the support button off quizzes and chat rooms, where it would cover buttons
+  document.body.classList.toggle('no-fab', inQuiz || path.startsWith('/chat/') || path === '/ask'); // keep the support button off quizzes and chat rooms, where it would cover buttons
 }
 
 /* ---------- global events ---------- */
