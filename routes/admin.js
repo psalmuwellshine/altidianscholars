@@ -70,7 +70,8 @@ module.exports = function registerAdmin({ route, store, send, push }) {
     ]);
     const now = Date.now();
     const stats = D.quizStats(scores, quizzes);
-    const attempts = Object.values(stats).reduce((a, s) => a + s.attempts, 0);
+    const useStats = await store.list('stats'); // the same attempts number as the Analytics page: quizzes that still exist and are showing
+    const attempts = quizzes.filter((q) => !q.hidden).reduce((a, q) => a + ((useStats.find((x) => x.id === 'quiz:' + q.id) || {}).attempts || 0), 0);
     const today = new Date(now + 3600000).toISOString().slice(0, 10);
     const top = quizzes.map((q) => ({ id: q.id, title: q.title, course: q.course, ...stats[q.id] })).sort((a, b) => b.attempts - a.attempts).slice(0, 5);
     const newest = users.slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 6).map((u) => ({ id: u.id, username: u.username, createdAt: u.createdAt || null }));

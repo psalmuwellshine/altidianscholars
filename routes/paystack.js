@@ -3,6 +3,7 @@
 const H = require('../lib/helpers');
 const D = require('../lib/domain');
 const P = require('../lib/paystack');
+const Units = require('../lib/units');
 
 const { HttpError, clean, newId } = H;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -16,7 +17,7 @@ module.exports = function registerPaystack({ route, store, send, userOf, push })
     if (!user) throw new HttpError(401, 'Please log in first.');
     const cfg = await D.loadConfig(store);
     if (!P.enabled(cfg)) throw new HttpError(400, 'Online payment is not switched on yet. Please pay by bank transfer.');
-    const b = c.body; const kind = b.kind === 'pass' ? 'pass' : b.kind === 'pack' ? 'pack' : 'item'; let itemIds = [];
+    const b = c.body; const kind = b.kind === 'pass' ? 'pass' : b.kind === 'pack' ? 'pack' : b.kind === 'units' ? 'units' : 'item'; let itemIds = []; let unitCount = 0;
     const email = clean(b.email, 120).toLowerCase();
     if (!EMAIL_RE.test(email)) throw new HttpError(400, 'Enter a valid email address. Your receipt is sent there.');
     let amount; let title; let itemId = ''; let until = '';
@@ -27,6 +28,10 @@ module.exports = function registerPaystack({ route, store, send, userOf, push })
       const acad = await require('../lib/academics').loadAcademics(store);
       if (!D.passReady(cfg, user, acad.courses, (await store.list('materials')).concat(await store.list('quizzes')))) throw new HttpError(400, 'The semester pass is not open for your class yet. Please buy the notes or packs you need.');
       title = 'Semester pass';
+    } else if (kind === 'units') {
+      const up = (await Units.packs(store)).find((x) => x.id === String(b.itemId));
+      if (!up) throw new HttpError(404, 'That unit pack was not found.');
+      amount = up.price; unitCount = up.units; itemId = up.id; title = up.name + ' pack · ' + up.units + ' units';
     } else if (kind === 'pack') {
       const pack = H.okId(b.itemId) ? await store.get('packs', String(b.itemId)) : null;
       if (!pack || !pack.enabled) throw new HttpError(404, 'That pack was not found.');
@@ -44,7 +49,7 @@ module.exports = function registerPaystack({ route, store, send, userOf, push })
       if (D.hasAccess(user, item)) throw new HttpError(400, 'You already have access to this.');
     }
     const reference = 'ALT' + Date.now().toString(36).toUpperCase() + newId().slice(0, 6).toUpperCase();
-    const pay = { id: reference, userId: user.id, username: user.username, kind, itemId, ...(itemIds.length ? { itemIds } : {}), title, amount, until, email, status: 'pending', createdAt: Date.now() };
+    const pay = { id: reference, userId: user.id, username: user.username, kind, itemId, ...(itemIds.length ? { itemIds } : {}), title, amount, until, email, ...(unitCount ? { units: unitCount } : {}), status: 'pending', createdAt: Date.now() };
     await store.put('payments', pay);
     let init;
     try {

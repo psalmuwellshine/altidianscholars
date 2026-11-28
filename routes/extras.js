@@ -234,31 +234,65 @@ module.exports = function registerExtras({ route, store, send, userOf, push, sta
   });
 
   /* ================= analytics ================= */
-  route('POST', '/api/track', { limit: ['track', 400, 60 * 60 * 1000] }, async (req, res, ctx) => {
-    await need(req); const id = H.str(ctx.body.id, 40);
-    if (H.okId(id) && await store.get('materials', id)) stats.open(id);
+  // One open per person per resource per day. Guests count too (by the id of their device).
+  const seenToday = new Map(); let seenDay = '';
+  route('POST', '/api/track', { limit: ['track', 600, 60 * 60 * 1000] }, async (req, res, ctx) => {
+    const user = await userOf(req); const id = H.str(ctx.body.id, 40); const locked = ctx.body.locked === true;
+    if (!H.okId(id)) return send(res, 200, { ok: true });
+    const who = user ? user.id : H.okDevice(ctx.body.device) ? String(ctx.body.device) : '';
+    const day = D.lagosDate(); if (seenDay !== day) { seenDay = day; seenToday.clear(); }
+    const key = (who || req.socket.remoteAddress || '') + '|' + id + '|' + (locked ? 'l' : 'o');
+    if (seenToday.has(key) || seenToday.size > 200000) return send(res, 200, { ok: true });
+    if (await store.get('materials', id)) { seenToday.set(key, 1); stats.open(id, user, locked); }
     send(res, 200, { ok: true });
   });
   route('GET', '/api/admin/analytics', A, async (req, res) => {
-    const [mats, quizzes, st, groups, users] = await Promise.all([store.list('materials'), store.list('quizzes'), store.list('stats'), store.list('groups'), store.list('users')]);
+    const [mats, quizzes, st, groups, users, depts, facs, pays] = await Promise.all([store.list('materials'), store.list('quizzes'), store.list('stats'), store.list('groups'), store.list('users'), store.list('departments'), store.list('faculties'), store.list('payments')]);
     const by = new Map(st.map((s) => [s.id, s])); const since = D.lagosDate(Date.now() - 13 * DAY);
+    const dName = new Map(depts.map((d) => [d.id, d.name])); const fName = new Map(facs.map((f) => [f.id, f.name]));
+    // Where a resource belongs: its course, or the department, faculty or university it was shared with.
+    const place = (m) => m.course || (m.scope === 'department' ? dName.get(m.departmentId) : m.scope === 'faculty' ? fName.get(m.facultyId) : '') || 'University-wide';
+    const paidDirect = new Map(); const paidPack = new Map();
+    pays.filter((p) => p.status === 'paid').forEach((p) => {
+      if (p.kind === 'item') { const x = paidDirect.get(p.itemId) || { n: 0, naira: 0 }; x.n++; x.naira += p.amount || 0; paidDirect.set(p.itemId, x); }
+      if (p.kind === 'pack') (p.itemIds || []).forEach((i) => paidPack.set(i, (paidPack.get(i) || 0) + 1));
+    });
     const resources = mats.filter((m) => !m.hidden && m.status !== 'pending').map((m) => {
       const s = by.get('mat:' + m.id) || {}; const recent = Object.entries(s.days || {}).filter(([d]) => d >= since).reduce((a, [, n]) => a + n, 0);
-      return { id: m.id, title: m.title, course: m.course, kind: m.kind, opens: s.opens || 0, recent };
+      const d = paidDirect.get(m.id) || { n: 0, naira: 0 };
+      return { id: m.id, title: m.title, course: place(m), kind: m.kind, opens: s.opens || 0, recent, paid: !!m.paid, tries: s.tries || 0, sold: d.n, naira: d.naira, inPacks: paidPack.get(m.id) || 0 };
     });
+    const liveQuizzes = quizzes.filter((q) => !q.hidden);
     const questions = [];
     quizzes.forEach((q) => {
-      const s = by.get('quiz:' + q.id); if (!s) return;
-      q.questions.forEach((x, i) => { const h = qHash(x); const seen = (s.seen || {})[h] || 0; if (seen >= 3) questions.push({ quizId: q.id, title: q.title, course: q.course, n: i + 1, q: x.q.slice(0, 140), seen, miss: Math.round((((s.wrong || {})[h] || 0) / seen) * 100) }); });
+      const s = by.get('quiz:' + q.id); if (!s || q.hidden) return;
+      q.questions.forEach((x, i) => { const h = qHash(x); const seen = (s.seen || {})[h] || 0; if (seen >= 2) questions.push({ quizId: q.id, title: q.title, course: q.course, n: i + 1, q: x.q.slice(0, 140), seen, miss: Math.round((((s.wrong || {})[h] || 0) / seen) * 100) }); });
     });
     const cs = new Map(); const row = (c) => { if (!cs.has(c)) cs.set(c, { course: c, resources: 0, opens: 0, quizzes: 0, attempts: 0, correct: 0, total: 0 }); return cs.get(c); };
     resources.forEach((r) => { const x = row(r.course); x.resources++; x.opens += r.opens; });
-    quizzes.filter((q) => !q.hidden).forEach((q) => { const x = row(q.course); const s = by.get('quiz:' + q.id) || {}; x.quizzes++; x.attempts += s.attempts || 0; x.correct += s.correct || 0; x.total += s.total || 0; });
+    liveQuizzes.forEach((q) => { const x = row(q.course || 'University-wide'); const s = by.get('quiz:' + q.id) || {}; x.quizzes++; x.attempts += s.attempts || 0; x.correct += s.correct || 0; x.total += s.total || 0; });
+    // The one attempts number used everywhere: quizzes that still exist and are showing.
+    const attempts = liveQuizzes.reduce((a, q) => a + ((by.get('quiz:' + q.id) || {}).attempts || 0), 0);
+
+    // The last 30 days, and how many different students were active in the last 7.
+    const trend = []; const week = new Set();
+    for (let i = 29; i >= 0; i--) {
+      const date = D.lagosDate(Date.now() - i * DAY); const d = by.get('use:' + date) || {};
+      trend.push({ date, opens: d.opens || 0, attempts: d.attempts || 0, active: Object.keys(d.users || {}).length });
+      if (i < 7) Object.keys(d.users || {}).forEach((u) => week.add(u));
+    }
+    const tot = by.get('use:total') || {};
+    const places = Object.entries(tot.dept || {}).map(([id, v]) => ({ name: dName.get(id) || 'Unknown department', opens: v.o || 0, attempts: v.a || 0 })).sort((a, b) => b.opens + b.attempts - (a.opens + a.attempts)).slice(0, 12);
+    const levels = Object.entries(tot.lv || {}).map(([l, v]) => ({ level: Number(l), opens: v.o || 0, attempts: v.a || 0 })).sort((a, b) => a.level - b.level);
+    const paidList = resources.filter((r) => r.paid).sort((a, b) => b.sold - a.sold || b.tries - a.tries);
+    const others = pays.filter((p) => p.status === 'paid' && p.kind !== 'item');
+    const money = { items: paidList.reduce((a, r) => a + r.naira, 0), packs: others.filter((p) => p.kind === 'pack').reduce((a, p) => a + (p.amount || 0), 0), pass: others.filter((p) => p.kind === 'pass').reduce((a, p) => a + (p.amount || 0), 0), units: others.filter((p) => p.kind === 'units').reduce((a, p) => a + (p.amount || 0), 0) };
     send(res, 200, {
-      resources: resources.sort((a, b) => b.opens - a.opens).slice(0, 15), unopened: resources.filter((r) => !r.opens).length, resourceCount: resources.length,
+      resources: resources.slice().sort((a, b) => b.opens - a.opens).slice(0, 15), unopened: resources.filter((r) => !r.opens).length, resourceCount: resources.length,
       questions: questions.sort((a, b) => b.miss - a.miss || b.seen - a.seen).slice(0, 15),
       courses: [...cs.values()].map((x) => ({ course: x.course, resources: x.resources, opens: x.opens, quizzes: x.quizzes, attempts: x.attempts, avg: x.total ? Math.round((x.correct / x.total) * 100) : null })).sort((a, b) => b.opens + b.attempts - (a.opens + a.attempts)),
-      totals: { students: users.filter((u) => !u.disabled).length, groups: groups.length, opens: resources.reduce((a, r) => a + r.opens, 0), attempts: [...by.values()].reduce((a, s) => a + (String(s.id).startsWith('quiz:') ? s.attempts || 0 : 0), 0) },
+      totals: { students: users.filter((u) => !u.disabled).length, groups: groups.length, opens: resources.reduce((a, r) => a + r.opens, 0), attempts, activeWeek: week.size },
+      trend, places, levels, paid: paidList.slice(0, 15), money,
     });
   });
 

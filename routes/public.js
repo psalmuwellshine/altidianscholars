@@ -8,6 +8,8 @@ const { looksLike } = require('../lib/files');
 const Elec = require('../lib/election');
 const Pay = require('../lib/paystack');
 const Cl = require('../lib/classes');
+const AI = require('../lib/ai');
+const Rv = require('../lib/review');
 
 const { HttpError } = H;
 
@@ -91,7 +93,8 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
       const idx = board.findIndex((b) => b.id === meId);
       const missed = {};
       quizzes.forEach((q) => { const hs = (rec.missed || {})[q.id]; if (!hs || !hs.length || q.hidden) return; const set = new Set(hs); const at = []; q.questions.forEach((x, i) => { if (set.has(qHash(x))) at.push(i); }); if (at.length) missed[q.id] = at; });
-      me = { points, done, best: rec.best || {}, nick: rec.nick || '', position: idx >= 0 ? idx + 1 : null, rank: D.rankInfo(points), missed };
+      const rv = user ? Rv.summary(JSON.parse(JSON.stringify(rec)), quizzes, qHash, user) : { due: 0, later: 0 };
+      me = { points, done, best: rec.best || {}, nick: rec.nick || '', position: idx >= 0 ? idx + 1 : null, rank: D.rankInfo(points), missed, review: { due: rv.due, later: rv.later }, weak: user ? Rv.weak(rec, quizzes, user, 3) : [] };
     }
 
     const visibleAll = materials.filter((m) => !m.hidden);
@@ -99,7 +102,7 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
     const campusAudience = (m) => m.scope === 'university' || (user && (m.scope === 'faculty' ? user.facultyId === m.facultyId : m.scope === 'department' && user.departmentId === m.departmentId));
     const visibleQuizzes = quizzes.filter((q) => !q.hidden);
     send(res, 200, {
-      config: Object.assign({}, config, { paystack: Pay.enabled(config), passReady: D.passReady(config, user, academics.courses, materials.concat(quizzes)) }), academics, election: await Elec.summary(store, user),
+      config: Object.assign({}, config, { aiOn: (await AI.settings(store)).enabled, paystack: Pay.enabled(config), passReady: D.passReady(config, user, academics.courses, materials.concat(quizzes)) }), academics, election: await Elec.summary(store, user),
       notice: user && notice && notice.text ? { text: notice.text, level: notice.level || 'info' } : null,
       materials: visibleMaterials
         .sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0))
@@ -396,14 +399,16 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
     const wrong = []; quiz.questions.forEach((q, i) => { if (answers[i] !== q.a) wrong.push(i); });
     rec.missed = rec.missed || {};
     if (wrong.length) rec.missed[quizId] = wrong.map((i) => qHash(quiz.questions[i])); else delete rec.missed[quizId];
+    if (user) Rv.afterQuiz(rec, quiz, answers, qHash);
     await store.put('scores', rec);
-    stats.attempt(quiz, answers, correct);
+    stats.attempt(quiz, answers, correct, user);
 
     const after = snap(rec);
     const earned = user
       ? after.badges.filter((b) => b.earned && !before.badges.find((x) => x.id === b.id).earned).map((b) => b.name)
       : [];
-    send(res, 200, { correct, total, improved, points: after.points, rank: after.rank.title, newBadges: earned, missed: wrong });
+    const recap = user ? { reviewTomorrow: wrong.length, weak: Rv.weak(rec, quizzes, user, 3).filter((w) => w.id !== quizId || wrong.length) } : null;
+    send(res, 200, { correct, total, improved, points: after.points, rank: after.rank.title, newBadges: earned, missed: wrong, recap });
   });
 
   // Practising old mistakes: no points, but each one answered correctly leaves the student's mistakes list.
@@ -427,6 +432,28 @@ module.exports = function registerPublic({ route, store, send, userOf, fileTypes
     if (rec) { rec.missed = rec.missed || {}; if (left.size) rec.missed[quizId] = [...left]; else delete rec.missed[quizId]; await store.put('scores', rec); }
     const idx = []; quiz.questions.forEach((q, i) => { if (left.has(qHash(q))) idx.push(i); });
     send(res, 200, { fixed, tried, left: idx });
+  });
+
+
+  /* ---------- spaced review: questions a student missed come back on a schedule ---------- */
+  route('GET', '/api/review', {}, async (req, res) => {
+    const user = await userOf(req); if (!user) throw new HttpError(401, 'Please log in first.');
+    const rec = await store.get('scores', user.id); const quizzes = await store.list('quizzes');
+    if (!rec) return send(res, 200, { total: 0, later: 0, questions: [], weak: [] });
+    const r = Rv.dueRound(rec, quizzes, qHash, user);
+    if (r.changed) await store.put('scores', rec);
+    send(res, 200, { total: r.total, later: r.later, weak: Rv.weak(rec, quizzes, user, 3),
+      questions: r.round.map((x) => ({ h: x.h, quizId: x.quiz.id, title: x.quiz.title, course: x.quiz.course, q: x.x.q, o: x.x.o })) });
+  });
+  route('POST', '/api/review/answer', { limit: ['review', 120, 10 * 60 * 1000] }, async (req, res, ctx) => {
+    const user = await userOf(req); if (!user) throw new HttpError(401, 'Please log in first.');
+    const rec = await store.get('scores', user.id); if (!rec) throw new HttpError(400, 'Nothing to review yet.');
+    const quizzes = await store.list('quizzes');
+    const results = Rv.grade(rec, quizzes, qHash, user, ctx.body && ctx.body.answers);
+    if (!results.length) throw new HttpError(400, 'These questions are no longer waiting. Open Review again.');
+    rec.updatedAt = Date.now(); await store.put('scores', rec);
+    const after = Rv.summary(rec, quizzes, qHash, user);
+    send(res, 200, { results, right: results.filter((x) => x.correct).length, due: after.due, later: after.later });
   });
 
   // Guests (only possible when the admin turns off "login required") choose a leaderboard name.
