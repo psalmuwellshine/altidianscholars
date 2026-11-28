@@ -137,12 +137,31 @@ const views = {
 
   async analytics() {
     const d = await api('GET', '/api/admin/analytics');
+    const t = d.totals; const max = Math.max(1, ...d.trend.map((x) => x.opens + x.attempts));
+    const lvl = (n) => n + 'L';
     return html`${head('Analytics', 'What students open and which questions they miss, so you know what to improve.')}
-      <div class="k-grid">${[['book', d.totals.opens, 'Resource opens'], ['quiz', d.totals.attempts, 'Quiz attempts'], ['users', d.totals.students, 'Students'], ['users', d.totals.groups, 'Study groups']].map(([ic, n, l]) => html`<div class="kpi">${icon(ic, 22)}<b>${n}</b><span>${l}</span></div>`)}</div>
+      <div class="k-grid">${[['book', t.opens, 'Resource opens'], ['quiz', t.attempts, 'Quiz attempts'], ['users', t.students, 'Students'], ['users', t.activeWeek, 'Active this week']].map(([ic, n, l]) => html`<div class="kpi">${icon(ic, 22)}<b>${n}</b><span>${l}</span></div>`)}</div>
+      <p class="tiny muted" style="margin-top:8px">Opens are counted from the day this version was switched on. Each person counts once per resource per day.</p>
+
+      <h3 style="margin:22px 0 10px">Last 30 days</h3>
+      <div class="card flat"><div class="chart" role="img" aria-label="Bar chart of resource opens and quiz attempts for the last 30 days">${d.trend.map((x) => html`<div class="col" title="${x.date}: ${x.opens} opens, ${x.attempts} quiz attempts, ${x.active} active students"><b>${x.opens + x.attempts || ''}</b><i style="height:${((x.opens + x.attempts) / max) * 100}%"></i><span>${x.date.slice(8)}</span></div>`)}</div>
+        <p class="tiny muted" style="margin-top:6px">Opens plus quiz attempts each day.</p></div>
+
       <h3 style="margin:22px 0 10px">Most opened resources</h3>
-      ${d.resources.some((r) => r.opens) ? html`<div class="tbl-wrap"><table><thead><tr><th>Resource</th><th>Course</th><th class="num">Opens</th><th class="num">Last 14 days</th></tr></thead><tbody>${d.resources.filter((r) => r.opens).map((r) => html`<tr><td><b>${r.title}</b></td><td><span class="chip">${r.course}</span></td><td class="num">${r.opens}</td><td class="num">${r.recent}</td></tr>`)}</tbody></table></div><p class="tiny muted" style="margin-top:6px">${d.unopened} of ${d.resourceCount} resources have not been opened yet.</p>` : empty('book', 'Nothing opened yet', 'Counts start from the day this was switched on.')}
+      ${d.resources.some((r) => r.opens) ? html`<div class="tbl-wrap"><table><thead><tr><th>Resource</th><th>Course</th><th class="num">Opens</th><th class="num">Last 14 days</th></tr></thead><tbody>${d.resources.filter((r) => r.opens).map((r) => html`<tr><td><b>${r.title}</b></td><td><span class="chip">${r.course}</span></td><td class="num">${r.opens}</td><td class="num">${r.recent}</td></tr>`)}</tbody></table></div><p class="tiny muted" style="margin-top:6px">${d.unopened} of ${d.resourceCount} resources have not been opened yet.</p>` : empty('book', 'Nothing opened yet', 'Opens show here as students use the app. Counts start from the day this version was switched on.')}
+
       <h3 style="margin:22px 0 10px">Questions students miss most</h3>
-      ${d.questions.length ? html`<div class="tbl-wrap"><table><thead><tr><th>Question</th><th>Quiz</th><th class="num">Missed</th><th class="num">Asked</th></tr></thead><tbody>${d.questions.map((q) => html`<tr><td>${q.q}</td><td><span class="chip">${q.course}</span><br><span class="tiny muted">${q.title} · Q${q.n}</span></td><td class="num"><span class="chip ${q.miss >= 60 ? 'bad' : 'grey'}">${q.miss}%</span></td><td class="num">${q.seen}</td></tr>`)}</tbody></table></div><p class="tiny muted" style="margin-top:6px">A question missed by most students may have a wrong key or need a better explanation.</p>` : empty('quiz', 'Not enough attempts yet', 'Questions show here once at least 3 students have answered them.')}
+      ${d.questions.length ? html`<div class="tbl-wrap"><table><thead><tr><th>Question</th><th>Quiz</th><th class="num">Missed</th><th class="num">Asked</th></tr></thead><tbody>${d.questions.map((q) => html`<tr><td>${q.q}</td><td><span class="chip">${q.course}</span><br><span class="tiny muted">${q.title} · Q${q.n}</span></td><td class="num"><span class="chip ${q.miss >= 60 ? 'bad' : 'grey'}">${q.miss}%</span></td><td class="num">${q.seen}</td></tr>`)}</tbody></table></div><p class="tiny muted" style="margin-top:6px">A question missed by most students may have a wrong key or need a better explanation. When you edit a question its count starts again.</p>` : empty('quiz', 'Not enough attempts yet', 'Questions show here once at least 2 students have answered them.')}
+
+      <h3 style="margin:22px 0 10px">By department and level</h3>
+      ${d.places.length || d.levels.length ? html`<div class="grid2">
+        <div class="tbl-wrap"><table><thead><tr><th>Department</th><th class="num">Opens</th><th class="num">Attempts</th></tr></thead><tbody>${d.places.map((x) => html`<tr><td>${x.name}</td><td class="num">${x.opens}</td><td class="num">${x.attempts}</td></tr>`)}</tbody></table></div>
+        <div class="tbl-wrap"><table><thead><tr><th>Level</th><th class="num">Opens</th><th class="num">Attempts</th></tr></thead><tbody>${d.levels.map((x) => html`<tr><td>${lvl(x.level)}</td><td class="num">${x.opens}</td><td class="num">${x.attempts}</td></tr>`)}</tbody></table></div></div>` : empty('users', 'Nothing yet', 'This fills in as students who have set their department and level use the app.')}
+
+      <h3 style="margin:22px 0 10px">Paid resources</h3>
+      ${d.paid.length ? html`<div class="tbl-wrap"><table><thead><tr><th>Resource</th><th class="num">Tapped while locked</th><th class="num">Bought alone</th><th class="num">Revenue</th><th class="num">In packs</th></tr></thead><tbody>${d.paid.map((r) => html`<tr><td><b>${r.title}</b><br><span class="tiny muted">${r.course}</span></td><td class="num">${r.tries}</td><td class="num">${r.sold}</td><td class="num">${naira(r.naira)}</td><td class="num">${r.inPacks}</td></tr>`)}</tbody></table></div>
+        <p class="tiny muted" style="margin-top:6px">Online payments only: unlocks you give by hand after a bank transfer are not counted here. Money so far: ${naira(d.money.items)} from single items, ${naira(d.money.packs)} from packs, ${naira(d.money.pass)} from the semester pass, ${naira(d.money.units)} from Ask Altidian units.</p>` : empty('lock', 'No paid resources yet', 'Mark a resource as paid and its taps and sales show here.')}
+
       <h3 style="margin:22px 0 10px">By course</h3>
       ${d.courses.length ? html`<div class="tbl-wrap"><table><thead><tr><th>Course</th><th class="num">Resources</th><th class="num">Opens</th><th class="num">Quizzes</th><th class="num">Attempts</th><th class="num">Average score</th></tr></thead><tbody>${d.courses.map((c) => html`<tr><td><b>${c.course}</b></td><td class="num">${c.resources}</td><td class="num">${c.opens}</td><td class="num">${c.quizzes}</td><td class="num">${c.attempts}</td><td class="num">${c.avg === null ? '–' : c.avg + '%'}</td></tr>`)}</tbody></table></div>` : ''}`;
   },
@@ -275,7 +294,7 @@ const views = {
   },
 
   async ask() {
-    const d = await api('GET', '/api/admin/ai'); const s = d.settings;
+    const d = await api('GET', '/api/admin/ai'); const s = d.settings; const un = await api('GET', '/api/admin/units' + (A.unitUser ? '?username=' + encodeURIComponent(A.unitUser) : '')).catch(() => ({ packs: [], recent: [], sold: { count: 0, units: 0, naira: 0 }, found: null }));
     const k = (ic, n, l, sub) => html`<div class="kpi">${icon(ic, 22)}<b>${n}</b><span>${l}</span>${sub ? html`<div class="tiny muted">${sub}</div>` : ''}</div>`;
     const used = s.capUsd > 0 ? Math.min(100, Math.round((d.spentUsd / s.capUsd) * 100)) : 100;
     const state = !d.keySet ? ['bad', 'Not connected', 'Add ANTHROPIC_API_KEY on Render (Environment) to switch it on. Students do not see the button until then.']
@@ -299,6 +318,21 @@ const views = {
           <label class="field"><span>Monthly spending cap (US dollars)</span><input name="capUsd" type="number" inputmode="decimal" min="0" max="1000" step="0.5" value="${s.capUsd}"><small>It rests by itself when this month’s spend reaches the cap, and comes back next month.</small></label>
           <label class="check small" style="margin-bottom:14px"><input type="checkbox" name="paidNotes" ${s.paidNotes ? raw('checked') : ''}> Let students use it on paid notes they can open</label>
           <button class="btn primary" type="submit">Save settings</button></form></div>
+      <h3 style="margin:24px 0 10px">Units (top-ups)</h3>
+      <div class="card" style="max-width:760px;margin-bottom:16px"><p class="muted small" style="margin-bottom:12px">Students use their free turns for the day first, then units. 1 unit is 1 question or lesson step. Units never expire and are not refundable once used. Sold so far: <b>${un.sold.units}</b> units for <b>${naira(un.sold.naira)}</b> (${un.sold.count} ${un.sold.count === 1 ? 'purchase' : 'purchases'}).</p>
+        <div class="msg alert bad" hidden role="alert"></div>
+        <form data-submit="units-save" novalidate>
+          ${un.packs.map((p, n) => html`<div class="grid3 unit-row"><label class="field"><span>Pack ${n + 1} name</span><input name="name${n}" maxlength="30" value="${p.name}"></label><label class="field"><span>Units</span><input name="units${n}" type="number" inputmode="numeric" min="1" max="10000" value="${p.units}"></label><label class="field"><span>Price (₦)</span><input name="price${n}" type="number" inputmode="numeric" min="50" max="500000" value="${p.price}"></label><input type="hidden" name="id${n}" value="${p.id}"></div>`)}
+          <div class="grid3 unit-row" style="margin-top:6px"><label class="field"><span>Voice call: units per reply</span><input name="callCost" type="number" inputmode="numeric" min="1" max="20" value="${un.call.callCost}"></label><label class="field" style="justify-content:end"><span>Voice calls</span><select name="callOn"><option value="1" ${un.call.callOn ? 'selected' : ''}>On</option><option value="0" ${un.call.callOn ? '' : 'selected'}>Off</option></select></label></div>
+          <p class="tiny muted" style="margin:0 0 10px">A voice call is paid for with units only. Free daily turns do not cover it.</p>
+          <button class="btn primary" type="submit">Save</button></form></div>
+      <div class="card" style="max-width:760px;margin-bottom:16px"><h3 style="margin-bottom:4px">Look up or add units for a student</h3><p class="muted small" style="margin-bottom:12px">Use this to fix a complaint, for example a payment that went through but did not add units.</p>
+        <div class="msg alert bad" hidden role="alert"></div>
+        <form data-submit="units-find" novalidate class="row gap-s wrap-r" style="align-items:end"><label class="field grow" style="margin:0"><span>Username</span><input name="username" value="${A.unitUser || ''}" autocomplete="off"></label><button class="btn ghost" type="submit">Look up</button></form>
+        ${un.found ? html`<div style="margin-top:14px"><p><b>${un.found.username}</b> has <b>${un.found.balance}</b> units (bought ${un.found.bought} in all).</p>
+          ${un.found.log.length ? html`<ol class="lb" style="margin:8px 0">${un.found.log.map((x) => html`<li><span class="grow small">${x.why}<br><span class="tiny muted">${fmtDate(x.at, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span></span><b>${x.n > 0 ? '+' + x.n : x.n}</b></li>`)}</ol>` : ''}
+          <form data-submit="units-grant" novalidate class="row gap-s wrap-r" style="align-items:end"><input type="hidden" name="username" value="${un.found.username}"><label class="field" style="margin:0"><span>Add units</span><input name="units" type="number" inputmode="numeric" min="1" max="5000" placeholder="e.g. 20"></label><label class="field grow" style="margin:0"><span>Note (optional)</span><input name="note" maxlength="60"></label><button class="btn primary" type="submit">Add</button></form></div>` : ''}</div>
+      ${un.recent.length ? html`<div class="tbl-wrap" style="margin-bottom:16px"><table><thead><tr><th>Student</th><th>Pack</th><th class="num">Amount</th><th>Status</th><th>When</th></tr></thead><tbody>${un.recent.map((p) => html`<tr><td>${p.username}</td><td>${p.title}</td><td class="num">${naira(p.amount)}</td><td><span class="chip ${p.status === 'paid' ? 'good' : 'grey'}">${p.status}</span></td><td class="tiny">${fmtDate(p.at, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</td></tr>`)}</tbody></table></div>` : ''}
       <h3 style="margin:24px 0 10px">Answers students rated badly</h3>
       <div class="card" style="padding:0;overflow:hidden">${d.feedback.recent.length ? d.feedback.recent.map(fbRow) : html`<div style="padding:8px">${empty('check', 'Nothing to check', 'Thumbs-down votes and reports on answers appear here.')}</div>`}</div>`;
   },
@@ -923,6 +957,14 @@ const submits = {
 
   async 'ask-save'(form) {
     await busy(form, async () => { await api('PUT', '/api/admin/ai', { enabled: chk(form, 'enabled'), passDaily: Number(val(form, 'passDaily')), buyerDaily: Number(val(form, 'buyerDaily')), freeDaily: Number(val(form, 'freeDaily')), capUsd: Number(val(form, 'capUsd')), paidNotes: chk(form, 'paidNotes') }); toast('Saved.'); reload(); });
+  },
+  async 'units-save'(form) {
+    const packs = []; for (let n = 0; n < 6; n++) { if (!form.querySelector('[name=name' + n + ']')) break; packs.push({ id: val(form, 'id' + n), name: val(form, 'name' + n), units: Number(val(form, 'units' + n)), price: Number(val(form, 'price' + n)) }); }
+    await busy(form, async () => { await api('PUT', '/api/admin/units', { packs, callCost: Number(val(form, 'callCost')), callOn: val(form, 'callOn') === '1' }); toast('Saved.'); reload(); });
+  },
+  async 'units-find'(form) { A.unitUser = val(form, 'username'); reload(); },
+  async 'units-grant'(form) {
+    await busy(form, async () => { const r = await api('POST', '/api/admin/units/grant', { username: val(form, 'username'), units: Number(val(form, 'units')), note: val(form, 'note') }); toast(r.username + ' now has ' + r.balance + ' units.'); reload(); });
   },
   async 'notice-save'(form) {
     await busy(form, async () => { await api('PUT', '/api/admin/notice', { text: val(form, 'text'), level: val(form, 'level'), push: chk(form, 'push') }); toast('Announcement published.'); });
